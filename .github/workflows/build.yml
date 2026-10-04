@@ -1,0 +1,48 @@
+name: Windows build and tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.11.1'
+          arch: win64_mingw
+          tools: 'tools_mingw1310'
+          cache: true
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build --parallel 4
+          exit $LASTEXITCODE
+      - name: Deploy test runtimes
+        shell: pwsh
+        run: |
+          windeployqt --release --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw build/tree_md.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item "$env:QT_ROOT_DIR/bin/Qt6Test.dll" build/
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $env:QT_QPA_PLATFORM_PLUGIN_PATH = "$env:QT_ROOT_DIR/plugins/platforms"
+          ctest --test-dir build --output-on-failure -j 2
+          exit $LASTEXITCODE
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-test-logs
+          path: build/Testing/Temporary/*.log

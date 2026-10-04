@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "relations": [
+    {
+      "source": "markdown学习/md语法基础.md",
+      "target": "markdown学习/md语法详解.md",
+      "type": "child"
+    },
+    {
+      "source": "markdown学习/md语法基础.md",
+      "target": "markdown学习/md语法详解示例对照.md",
+      "type": "child"
+    },
+    {
+      "source": "markdown学习/md语法基础.md",
+      "target": "markdown学习/tmd作用及其意义.md",
+      "type": "next"
+    },
+    {
+      "source": "markdown学习/tmd作用及其意义.md",
+      "target": "markdown学习/个人知识树示例.md",
+      "type": "next"
+    }
+  ]
+}

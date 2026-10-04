@@ -1,0 +1,30 @@
+IDI_ICON1 ICON "tmd.ico"
+
+1 VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "HuTaoUnknow\0"
+            VALUE "FileDescription", "Tmd - Markdown Knowledge Tree\0"
+            VALUE "FileVersion", "@PROJECT_VERSION@\0"
+            VALUE "InternalName", "tree_md\0"
+            VALUE "LegalCopyright", "Copyright (c) 2026 HuTaoUnknow\0"
+            VALUE "OriginalFilename", "tree_md.exe\0"
+            VALUE "ProductName", "Tmd\0"
+            VALUE "ProductVersion", "@PROJECT_VERSION@\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

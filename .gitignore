@@ -1,0 +1,11 @@
+build*/
+.qtcreator/
+CMakeUserPresets.json
+.tree-md-backup-*/
+/md_data/
+/md_photo/
+/.tmd-library-*
+/dist/
+/package/
+*.user
+*.log
