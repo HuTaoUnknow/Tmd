@@ -8,6 +8,7 @@ class FileWatcher : public QObject {
 public:
     explicit FileWatcher(QString root, QObject *parent = nullptr);
     void rebuild();
+    void suspend();
 signals:
     void changed();
 private:

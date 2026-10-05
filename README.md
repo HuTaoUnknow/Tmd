@@ -24,10 +24,11 @@ Tmd 是一个 Windows 桌面 Markdown 知识库。每篇真实的 `.md` 文档�
 - **图片管理**：粘贴或拖入图片，默认复制到对应的 `md_photo` 目录；支持相对路径、绝对路径、网络图片链接。
 - **携带图片导出**：导出 Markdown 时可复制图片到导出文档同级目录，改写导出副本的相对地址。
 - **阅读与检索**：标题目录、快速搜索、窄窗口侧栏收起，以及独立的正文和知识树缩放。
+- **文件列表右键**：重命名或回收点击的文档、新建文件夹、递归回收目录；空文件夹也能显示，删除统一进入 Windows 回收站。
 
 ### 安装与第一次使用
 
-1. 在 [Releases](https://github.com/HuTaoUnknow/Tmd/releases/latest) 下载 `Tmd-1.0.0-Windows-x64-Setup.exe`。
+1. 在 [Releases](https://github.com/HuTaoUnknow/Tmd/releases/latest) 下载 `Tmd-1.0.1-Windows-x64-Setup.exe`。
 2. 选择安装语言与安装范围，默认仅为当前用户安装。
 3. 设置应用登记名称（默认 `Tmd`）、程序安装位置和开始菜单文件夹。
 4. 选择是否创建桌面快捷方式、开始菜单快捷方式，以及是否登记到 Windows 已安装的应用列表。
@@ -35,7 +36,7 @@ Tmd 是一个 Windows 桌面 Markdown 知识库。每篇真实的 `.md` 文档�
 
 安装版首次启动会在系统“文档”目录下创建 `Tmd` 知识库。升级和卸载保留这里的个人文档与图片。程序运行依赖随安装包提供，无需另外安装 Qt 或编译器。
 
-也提供 `Tmd-1.0.0-Windows-x64-Portable.zip`：完整解压到可写目录后运行 `tree_md.exe`，知识库位于程序旁的 `md_data` / `md_photo`。详细步骤、备份和静默安装见 [安装说明](docs/INSTALLATION.md)。
+也提供 `Tmd-1.0.1-Windows-x64-Portable.zip`：完整解压到可写目录后运行 `tree_md.exe`，知识库位于程序旁的 `md_data` / `md_photo`。详细步骤、备份和静默安装见 [安装说明](docs/INSTALLATION.md)。
 
 ### 内置示例
 
@@ -57,7 +58,7 @@ md语法基础 → tmd作用及其意义 → 个人知识树示例
 
 ### 当前范围
 
-v1.0.0 面向 Windows 10/11 的 64 位桌面环境，已在 Windows 11 验证。应用界面目前为简体中文，安装向导和文档提供中英文。图床模式使用现有图片链接，尚未提供图片上传服务；数学公式、Mermaid 和脚注不作为本版完整支持的语法。源码和构建脚本可用于继续开发。
+v1.0.1 面向 Windows 10/11 的 64 位桌面环境，已在 Windows 11 验证。应用界面目前为简体中文，安装向导和文档提供中英文。图床模式使用现有图片链接，尚未提供图片上传服务；数学公式、Mermaid 和脚注不作为本版完整支持的语法。源码和构建脚本可用于继续开发。
 
 ## English
 
@@ -76,10 +77,11 @@ Folders organize files; the knowledge tree describes how their contents relate. 
 - Paste or drop images. Relative storage is the default, with absolute paths and remote image URLs also available.
 - Export Markdown with its images beside the exported file, rewriting image paths in the exported copy.
 - Use heading navigation, quick search, responsive sidebars and separate text/tree zoom controls.
+- Manage documents and folders from the sidebar context menu. Empty folders are visible; document and recursive folder removal use the Windows Recycle Bin.
 
 ### Install and start
 
-1. Download `Tmd-1.0.0-Windows-x64-Setup.exe` from [Releases](https://github.com/HuTaoUnknow/Tmd/releases/latest).
+1. Download `Tmd-1.0.1-Windows-x64-Setup.exe` from [Releases](https://github.com/HuTaoUnknow/Tmd/releases/latest).
 2. Select the installer language and installation scope; current-user installation is the default.
 3. Choose an application display name, installation directory and Start menu folder.
 4. Select desktop/Start menu shortcuts and optional registration in Windows Installed apps.
@@ -87,7 +89,7 @@ Folders organize files; the knowledge tree describes how their contents relate. 
 
 On first launch, the installed application creates its library under **Documents/Tmd**. Upgrades and uninstalling preserve this user library. Qt and compiler runtimes are bundled; users do not need a development environment.
 
-For portable use, extract `Tmd-1.0.0-Windows-x64-Portable.zip` into a writable directory and run `tree_md.exe`. Its `md_data` and `md_photo` folders stay beside the executable. See [Installation](docs/INSTALLATION.md) for migration, backup and command-line options.
+For portable use, extract `Tmd-1.0.1-Windows-x64-Portable.zip` into a writable directory and run `tree_md.exe`. Its `md_data` and `md_photo` folders stay beside the executable. See [Installation](docs/INSTALLATION.md) for migration, backup and command-line options.
 
 ### Quick workflow
 
@@ -97,7 +99,7 @@ Press `Ctrl+P` to search, `Ctrl+S` to save, `Ctrl+mouse wheel` to zoom text from
 
 ### Release scope
 
-v1.0.0 targets 64-bit Windows 10/11 and has been verified on Windows 11. The application UI and starter documents are currently in Simplified Chinese; the installer and project documentation are bilingual. Remote-image mode accepts existing URLs rather than uploading files. Math, Mermaid diagrams and footnotes are not guaranteed to render fully in this release.
+v1.0.1 targets 64-bit Windows 10/11 and has been verified on Windows 11. The application UI and starter documents are currently in Simplified Chinese; the installer and project documentation are bilingual. Remote-image mode accepts existing URLs rather than uploading files. Math, Mermaid diagrams and footnotes are not guaranteed to render fully in this release.
 
 ## Development and licensing
 

@@ -70,6 +70,15 @@ bool MarkdownFileIO::removeFile(const QString &path, QString *error) {
     if (!file.remove()) return fail(error, file.errorString());
     return true;
 }
+bool MarkdownFileIO::moveToTrash(const QString &path, QString *error, QString *pathInTrash) {
+    QFile file(path);
+    // Qt's Windows shell progress sink rejects permanent deletion. Never fall back to remove().
+    if (!file.moveToTrash())
+        return fail(error, QStringLiteral("无法移入系统回收站，未执行永久删除：%1").arg(file.errorString()));
+    if (pathInTrash) *pathInTrash = file.fileName();
+    if (error) error->clear();
+    return true;
+}
 bool MarkdownFileIO::renameFile(const QString &from, const QString &to, QString *error) {
     QFile file(from);
     if (!file.rename(to)) return fail(error, file.errorString());

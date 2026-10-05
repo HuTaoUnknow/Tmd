@@ -18,6 +18,12 @@ The portable edition uses the same folders beside `tree_md.exe`. Image paths are
 
 The application UI is currently in Simplified Chinese. This guide includes the labels needed to navigate it.
 
+### File sidebar context actions
+
+Right-click a Markdown document to rename it or move that specific file to the Windows Recycle Bin. Right-click a folder to create a subfolder or recycle the entire folder. Right-click blank list space to create a folder under `md_data`. Empty folders remain visible.
+
+Folder deletion includes all nested files. Unsaved current documents offer Save, Discard or Cancel before continuing. The File menu also uses the Recycle Bin, with no permanent-delete fallback on failure. Related knowledge-tree connections are removed; `md_photo` images are kept for restoration and shared references. After restoring files, press F5 to refresh and recreate any removed knowledge-tree connections.
+
 ## 2. Write your first note
 
 1. Choose **文件 → 新建 (File → New)** and enter a relative path such as `My learning/First note.md`.

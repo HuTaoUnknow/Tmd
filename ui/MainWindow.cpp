@@ -140,6 +140,10 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     vertical->addWidget(m_relationPanel); vertical->setSizes({600, 300}); vertical->setStretchFactor(0, 2); vertical->setStretchFactor(1, 1);
     m_relationPanel->hide(); layout->addWidget(vertical); setCentralWidget(central); m_editor->setEnabled(false); m_document->setEnabled(false);
     connect(m_documents, &DocumentSidebar::documentActivated, this, [this](const QString &path) { openDocument(path); }, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::renameDocumentRequested, this, [this](const QString &path) { renameDocument(path); }, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::deleteDocumentRequested, this, [this](const QString &path) { deleteDocument(path); }, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::createDirectoryRequested, this, &MainWindow::createDirectory, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::deleteDirectoryRequested, this, &MainWindow::deleteDirectory, Qt::QueuedConnection);
     // The clicked graphics item remains alive until the mouse event finishes.
     connect(m_graph, &KnowledgeGraphWidget::nodeActivated, this, [this](const QString &path) { openDocument(path); }, Qt::QueuedConnection);
     connect(m_outline, &OutlineSidebar::headingActivated, this, [this](int position) { if (m_sourceAction->isChecked()) m_editor->goToPosition(position); else m_document->goToSourcePosition(position); });
@@ -322,27 +326,71 @@ void MainWindow::importDocument() {
     if (!success) { showError(error); return; }
     refreshView(); openDocument(path);
 }
-void MainWindow::renameDocument() {
-    if (!m_manager->loadNode(m_current) || !mayLeaveDocument()) return;
-    const QString path = askDocumentPath(QStringLiteral("重命名文档"), m_current); if (path.isEmpty() || path == m_current) return;
+void MainWindow::renameDocument() { renameDocument(m_current); }
+void MainWindow::renameDocument(const QString &target) {
+    const auto *node = m_manager->loadNode(target); if (!node) return;
+    const QString original = node->relativePath(); const bool current = original == m_current;
+    if (current && !mayLeaveDocument()) return;
+    const QString path = askDocumentPath(QStringLiteral("重命名文档"), original); if (path.isEmpty() || path == original) return;
     QString error; m_busy = true;
-    const bool success = m_manager->renameDocument(m_current, path, &error); m_busy = false;
+    const bool success = m_manager->renameDocument(original, path, &error); m_busy = false;
     if (!success) { showError(error); return; }
-    m_current = m_manager->loadNode(path)->relativePath(); refreshView(); refreshGraph();
+    if (current) m_current = m_manager->loadNode(path)->relativePath();
+    refreshView(); refreshGraph();
 }
-void MainWindow::deleteDocument() {
-    if (!m_manager->loadNode(m_current)) return;
-    if (QMessageBox::question(this, QStringLiteral("删除知识节点"), QStringLiteral("删除 %1？该文件及指向它的知识关系将被移除。当前未保存的编辑也会丢弃。").arg(m_current), QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
+void MainWindow::deleteDocument() { deleteDocument(m_current); }
+void MainWindow::deleteDocument(const QString &target) {
+    const auto *node = m_manager->loadNode(target); if (!node) return;
+    const QString path = node->relativePath(); const bool current = path == m_current;
+    if (current && !mayLeaveDocument()) return;
+    if (QMessageBox::question(this, QStringLiteral("移入回收站"), QStringLiteral("将 %1 移入 Windows 系统回收站？\n可以在回收站中还原文档。相关知识树连线将移除，图片会保留。").arg(path), QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
     QString error; m_busy = true;
-    const bool success = m_manager->deleteDocument(m_current, &error); m_busy = false;
+    const bool success = m_manager->deleteDocument(path, &error); m_busy = false;
     if (!success) { showError(error); return; }
-    m_current.clear(); m_loading = true; m_editor->setSource({}); m_loading = false; m_editor->setEnabled(false); m_document->setEnabled(false);
+    finishRemoval(current); statusBar()->showMessage(QStringLiteral("已移入回收站：%1").arg(path), 4000);
+}
+void MainWindow::createDirectory(const QString &parentPath) {
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, QStringLiteral("新建文件夹"),
+        QStringLiteral("在 %1 中新建文件夹：").arg(parentPath.isEmpty() ? "md_data" : parentPath), QLineEdit::Normal, QStringLiteral("新建文件夹"), &ok).trimmed();
+    if (!ok || name.isEmpty()) return;
+    if (name.contains('/') || name.contains('\\')) { showError(QStringLiteral("请输入一个文件夹名称，不要包含路径分隔符。")); return; }
+    const QString path = parentPath.isEmpty() ? name : parentPath + '/' + name;
+    QString error; m_busy = true;
+    const bool success = m_manager->createDirectory(path, &error); m_busy = false;
+    if (!success) { showError(error); return; }
+    refreshView(); m_documents->selectDirectory(path);
+    statusBar()->showMessage(QStringLiteral("已创建文件夹：%1").arg(path), 4000);
+}
+void MainWindow::deleteDirectory(const QString &path) {
+#ifdef Q_OS_WIN
+    const auto sensitivity = Qt::CaseInsensitive;
+#else
+    const auto sensitivity = Qt::CaseSensitive;
+#endif
+    const bool current = m_current.startsWith(path + '/', sensitivity);
+    if (current && !mayLeaveDocument()) return;
+    int documents = 0;
+    for (const auto *node : m_manager->allNodes()) if (node->relativePath().startsWith(path + '/', sensitivity)) ++documents;
+    if (QMessageBox::question(this, QStringLiteral("文件夹移入回收站"),
+        QStringLiteral("将文件夹 %1 及其全部子文件和文档（%2 篇 Markdown）移入 Windows 系统回收站？\n可以在回收站中还原整个文件夹。相关知识树连线将移除，md_photo 中的图片会保留。").arg(path).arg(documents),
+        QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
+    QString error; m_busy = true;
+    const bool success = m_manager->deleteDirectory(path, &error); m_busy = false;
+    if (!success) { showError(error); return; }
+    finishRemoval(current); statusBar()->showMessage(QStringLiteral("已移入回收站：%1").arg(path), 4000);
+}
+void MainWindow::finishRemoval(bool currentRemoved) {
+    if (currentRemoved) {
+        m_parseTimer->stop(); m_current.clear(); m_loading = true; m_editor->setSource({}); m_loading = false;
+        m_editor->setEnabled(false); m_document->setEnabled(false);
+    }
     refreshView(); refreshOutline(); refreshGraph();
-    if (!m_manager->allNodes().isEmpty()) openDocument(m_manager->allNodes().front()->relativePath());
+    if (currentRemoved && !m_manager->allNodes().isEmpty()) openDocument(m_manager->allNodes().front()->relativePath());
 }
 void MainWindow::refreshDocuments() { QString error; if (!m_manager->scan(&error)) showError(error); else renderDocument(true); }
 void MainWindow::refreshView() {
-    m_documents->setDocuments(m_manager->allNodes()); m_documents->selectPath(m_current);
+    m_documents->setDocuments(m_manager->allNodes(), m_manager->directories()); m_documents->selectPath(m_current);
     const auto *node = m_manager->loadNode(m_current);
     if (node && !node->isModified() && node->content() != m_editor->source()) {
         const int position = m_editor->textCursor().position();

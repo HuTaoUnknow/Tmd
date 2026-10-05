@@ -36,7 +36,12 @@ private:
     void createDocument();
     void importDocument();
     void renameDocument();
+    void renameDocument(const QString &path);
     void deleteDocument();
+    void deleteDocument(const QString &path);
+    void createDirectory(const QString &parentPath);
+    void deleteDirectory(const QString &path);
+    void finishRemoval(bool currentRemoved);
     void refreshDocuments();
     void refreshView();
     void refreshOutline();

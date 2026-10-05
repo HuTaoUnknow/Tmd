@@ -5,7 +5,9 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFileInfo>
-#include <QUuid>
+#include <QRegularExpression>
+#include <QSignalBlocker>
+#include <QtCore/qscopeguard.h>
 #include <algorithm>
 
 namespace {
@@ -67,6 +69,59 @@ QList<MarkdownNode *> MarkdownManager::allNodes() const {
     QList<MarkdownNode *> nodes;
     for (const auto &entry : m_nodes) nodes.append(entry.second.get());
     return nodes;
+}
+QString MarkdownManager::safeDirectoryPath(const QString &path, QString *error) const {
+    const QString candidate = QDir::isAbsolutePath(path) ? path : QDir(m_root).absoluteFilePath(path);
+    const QString relative = QDir(m_root).relativeFilePath(QDir::cleanPath(candidate));
+    const auto parts = QDir::fromNativeSeparators(relative).split('/');
+    if (path.isEmpty() || relative == "." || QDir::isAbsolutePath(relative)) {
+        fail(error, QStringLiteral("请选择 md_data 内的文件夹，不能操作知识库根目录。")); return {};
+    }
+    for (const auto &part : parts) {
+        if (part.isEmpty() || part == "." || part == "..") {
+            fail(error, QStringLiteral("文件夹路径不能越过知识库目录。")); return {};
+        }
+#ifdef Q_OS_WIN
+        static const QRegularExpression reserved("^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\.|$)", QRegularExpression::CaseInsensitiveOption);
+        static const QRegularExpression invalid("[<>:\"\\\\|?*\\x00-\\x1f]");
+        if (part.endsWith('.') || part.endsWith(' ') || invalid.match(part).hasMatch() || reserved.match(part).hasMatch()) {
+            fail(error, QStringLiteral("文件夹名称包含 Windows 不允许的字符或保留名称。")); return {};
+        }
+#endif
+    }
+    QFileInfo ancestor(candidate);
+    while (!ancestor.exists() && ancestor.absoluteFilePath() != ancestor.absolutePath()) ancestor = QFileInfo(ancestor.absolutePath());
+    const QString resolved = MarkdownFileIO::normalizedPath(candidate);
+    const QString ancestorPath = MarkdownFileIO::normalizedPath(ancestor.absoluteFilePath());
+#ifdef Q_OS_WIN
+    const auto sensitivity = Qt::CaseInsensitive;
+#else
+    const auto sensitivity = Qt::CaseSensitive;
+#endif
+    if (!resolved.startsWith(m_root + '/', sensitivity)
+        || (ancestorPath.compare(m_root, sensitivity) != 0 && !ancestorPath.startsWith(m_root + '/', sensitivity))
+        || QFileInfo(candidate).isSymLink()) {
+        fail(error, QStringLiteral("请选择知识库内的真实文件夹，不能越界或操作目录链接。")); return {};
+    }
+    return resolved;
+}
+QStringList MarkdownManager::directories() const {
+    QStringList result;
+    QDirIterator iterator(m_root, QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDirIterator::Subdirectories);
+    while (iterator.hasNext()) {
+        const QString path = iterator.next();
+        if (!safeDirectoryPath(path).isEmpty()) result.append(QDir(m_root).relativeFilePath(path));
+    }
+    result.sort(); return result;
+}
+bool MarkdownManager::createDirectory(const QString &path, QString *error) {
+    const QString absolute = safeDirectoryPath(path, error);
+    if (absolute.isEmpty()) return false;
+    if (QFileInfo::exists(absolute)) return fail(error, QStringLiteral("同名文件或文件夹已存在。"));
+    const QFileInfo info(absolute);
+    if (!QDir(info.absolutePath()).mkdir(info.fileName())) return fail(error, QStringLiteral("无法创建文件夹，请检查上级目录和写入权限。"));
+    if (m_watcher) m_watcher->rebuild();
+    emit documentsChanged(); return true;
 }
 bool MarkdownManager::scan(QString *error) {
     if (!QFileInfo(m_root).isDir()) return fail(error, QStringLiteral("知识库目录不存在。"));
@@ -189,27 +244,46 @@ bool MarkdownManager::createDocument(const QString &path, const QString &content
 bool MarkdownManager::deleteDocument(const QString &path, QString *error) {
     const QString absolute = safePath(path, error);
     if (absolute.isEmpty()) return false;
-    const QString key = keyFor(path);
+    if (!QFileInfo(absolute).isFile()) return fail(error, QStringLiteral("文档不存在，请刷新列表。"));
+    return recyclePath(absolute, {keyFor(path)}, error);
+}
+bool MarkdownManager::deleteDirectory(const QString &path, QString *error) {
+    const QString absolute = safeDirectoryPath(path, error);
+    if (absolute.isEmpty()) return false;
+    if (!QFileInfo(absolute).isDir()) return fail(error, QStringLiteral("文件夹不存在，请刷新列表。"));
+    QSet<QString> keys;
+#ifdef Q_OS_WIN
+    const auto sensitivity = Qt::CaseInsensitive;
+#else
+    const auto sensitivity = Qt::CaseSensitive;
+#endif
+    for (const auto &entry : m_nodes)
+        if (entry.second->filePath().startsWith(absolute + '/', sensitivity)) keys.insert(entry.first);
+    return recyclePath(absolute, keys, error);
+}
+bool MarkdownManager::recyclePath(const QString &absolute, const QSet<QString> &documentKeys, QString *error) {
+    const QSignalBlocker watcherBlocker(m_watcher);
+    // Release native directory watch handles while the Windows shell recycles a subtree.
+    if (m_watcher) m_watcher->suspend();
+    const auto resumeWatching = qScopeGuard([this] { if (m_watcher) m_watcher->rebuild(); });
     RelationStore next = m_relations;
-    next.remove(key);
-    for (auto &targets : next) targets.remove(key);
-    const QString temporary = absolute + ".tree-md-deleting-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-    if (!MarkdownFileIO::renameFile(absolute, temporary, error)) return false;
-    if (!persistRelations(next, error)) {
-        QString rollback;
-        if (!MarkdownFileIO::renameFile(temporary, absolute, &rollback))
-            fail(error, (error ? *error : QString{}) + QStringLiteral("；还原失败，原文保留在 %1：%2").arg(temporary, rollback));
-        return false;
+    for (const auto &key : documentKeys) {
+        next.remove(key);
+        for (auto &targets : next) targets.remove(key);
     }
-    if (!MarkdownFileIO::removeFile(temporary, error)) {
+    // Resolve metadata conflicts before touching the file. Trash the original name for Windows Restore.
+    if (!persistRelations(next, error)) return false;
+    if (!MarkdownFileIO::moveToTrash(absolute, error)) {
         QString rollback;
-        const bool metadataRestored = persistRelations(m_relations, &rollback);
-        const bool fileRestored = MarkdownFileIO::renameFile(temporary, absolute, &rollback);
-        if (!metadataRestored || !fileRestored) fail(error, QStringLiteral("删除未完成，还原失败：%1；保留文件：%2").arg(rollback, temporary));
+        if (!persistRelations(m_relations, &rollback))
+            fail(error, (error ? *error : QString{}) + QStringLiteral("；知识关系还原失败：%1，请刷新后重试。").arg(rollback));
         return false;
     }
     m_relations = next;
-    return scan(error);
+    for (const auto &key : documentKeys) m_nodes.erase(key);
+    applyRelations();
+    if (m_watcher) m_watcher->rebuild();
+    emit documentsChanged(); return true;
 }
 bool MarkdownManager::renameDocument(const QString &path, const QString &newRelativePath, QString *error) {
     const QString oldRelative = loadNode(path) ? loadNode(path)->relativePath() : path;

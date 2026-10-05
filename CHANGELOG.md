@@ -1,5 +1,14 @@
 # Changelog / 更新记录
 
+## v1.0.1 — 2026-10-05
+
+- 左侧文件列表右键可重命名、删除所点击的 Markdown 文档；目录和空白区域可新建文件夹，支持空目录与嵌套目录。
+- 文件夹删除会连同全部内容移入 Windows 系统回收站。文件菜单与右键删除统一使用回收站，失败不会永久删除。
+- 相关知识树连线同步清理；未保存的当前文档可以先保存或取消操作，关联图片保留用于还原或共享引用。
+- Added document context actions, folder creation and empty-folder display in the file sidebar.
+- Document and recursive folder removal now use the Windows Recycle Bin, with no permanent-delete fallback.
+- Preserve unrelated edits and shared images; synchronize relationship cleanup and protect unsaved current documents.
+
 ## v1.0.0 — 2026-10-04
 
 ### 中文

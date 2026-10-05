@@ -27,3 +27,8 @@ void FileWatcher::rebuild() {
     if (!remove.isEmpty()) m_watcher.removePaths(remove.values());
     if (!add.isEmpty()) m_watcher.addPaths(add.values());
 }
+void FileWatcher::suspend() {
+    m_debounce.stop();
+    const QStringList paths = m_watcher.files() + m_watcher.directories();
+    if (!paths.isEmpty()) m_watcher.removePaths(paths);
+}

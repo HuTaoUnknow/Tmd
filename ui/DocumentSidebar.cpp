@@ -18,6 +18,8 @@
 #include <QKeyEvent>
 #include <QResizeEvent>
 #include <QRegularExpression>
+#include <QMenu>
+#include <QMouseEvent>
 #include <algorithm>
 
 DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new QStackedWidget(this)),
@@ -37,6 +39,8 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
     layout->addWidget(new QLabel(QStringLiteral("Markdown 文档"), this));
     m_search->setPlaceholderText(QStringLiteral("搜索标题或文件路径")); layout->addWidget(m_search);
     m_tree->setObjectName("documentTree"); m_tree->setHeaderHidden(true); m_tree->setIndentation(16);
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu); m_tree->viewport()->installEventFilter(this);
+    connect(m_tree, &QTreeWidget::customContextMenuRequested, this, &DocumentSidebar::showContextMenu);
     layout->addWidget(m_tree);
     m_pages->addWidget(full);
     auto *rail = new QWidget(m_pages); rail->setObjectName("documentSidebarCompact");
@@ -56,6 +60,7 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
     connect(m_quickButton, &QToolButton::clicked, this, &DocumentSidebar::openQuickSearch);
     connect(m_search, &QLineEdit::textChanged, this, &DocumentSidebar::filter);
     connect(m_tree, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *item) {
+        if (m_rightClick) return;
         const QString path = item->data(0, Qt::UserRole).toString();
         if (!path.isEmpty()) emit documentActivated(path);
     });
@@ -64,23 +69,29 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
         if (!path.isEmpty()) emit documentActivated(path);
     });
 }
-void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes) {
+void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directoryPaths) {
     const QSignalBlocker blocker(m_tree);
     m_tree->clear();
     m_entries.clear();
     QMap<QString, QTreeWidgetItem *> directories;
-    for (const auto *node : nodes) {
-        m_entries.append({node->relativePath(), node->title()});
-        const QStringList parts = node->relativePath().split('/');
+    auto ensureDirectory = [&](const QString &path) {
         QString prefix; QTreeWidgetItem *parent = nullptr;
-        for (int i = 0; i + 1 < parts.size(); ++i) {
-            prefix += (prefix.isEmpty() ? "" : "/") + parts[i];
+        for (const auto &part : path.split('/', Qt::SkipEmptyParts)) {
+            prefix += (prefix.isEmpty() ? "" : "/") + part;
             if (!directories.contains(prefix)) {
                 auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(m_tree);
-                item->setText(0, parts[i]); item->setExpanded(true); directories.insert(prefix, item);
+                item->setText(0, part); item->setToolTip(0, prefix);
+                item->setData(0, Qt::UserRole + 2, prefix); item->setExpanded(true); directories.insert(prefix, item);
             }
             parent = directories[prefix];
         }
+        return parent;
+    };
+    for (const auto &path : directoryPaths) ensureDirectory(path);
+    for (const auto *node : nodes) {
+        m_entries.append({node->relativePath(), node->title()});
+        const QStringList parts = node->relativePath().split('/');
+        QTreeWidgetItem *parent = ensureDirectory(parts.mid(0, parts.size() - 1).join('/'));
         auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(m_tree);
         item->setText(0, parts.back()); item->setToolTip(0, node->title() + '\n' + node->relativePath());
         item->setData(0, Qt::UserRole, node->relativePath());
@@ -92,12 +103,47 @@ void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes) {
 void DocumentSidebar::selectPath(const QString &path) {
     m_current = path;
     const QSignalBlocker blocker(m_tree);
+    if (path.isEmpty()) { m_tree->setCurrentItem(nullptr); m_tree->clearSelection(); return; }
     QTreeWidgetItemIterator it(m_tree);
     while (*it) {
         if ((*it)->data(0, Qt::UserRole).toString() == path) { m_tree->setCurrentItem(*it); return; }
         ++it;
     }
     m_tree->clearSelection();
+}
+void DocumentSidebar::selectDirectory(const QString &path) {
+    m_search->clear();
+    QTreeWidgetItemIterator it(m_tree);
+    while (*it) {
+        if ((*it)->data(0, Qt::UserRole + 2).toString() == path) {
+            m_tree->setCurrentItem(*it); m_tree->scrollToItem(*it); return;
+        }
+        ++it;
+    }
+}
+void DocumentSidebar::showContextMenu(const QPoint &position) {
+    auto *item = m_tree->itemAt(position);
+    const QString document = item ? item->data(0, Qt::UserRole).toString() : QString();
+    const QString directory = item ? item->data(0, Qt::UserRole + 2).toString() : QString();
+    if (item) m_tree->setCurrentItem(item);
+    else { m_tree->setCurrentItem(nullptr); m_tree->clearSelection(); }
+    auto *menu = new QMenu(this); menu->setObjectName("documentContextMenu");
+    connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
+    if (!document.isEmpty()) {
+        auto *rename = menu->addAction(QStringLiteral("重命名…")); rename->setObjectName("contextRenameDocument");
+        auto *remove = menu->addAction(QStringLiteral("删除（移入回收站）")); remove->setObjectName("contextDeleteDocument");
+        connect(rename, &QAction::triggered, this, [this, document] { emit renameDocumentRequested(document); });
+        connect(remove, &QAction::triggered, this, [this, document] { emit deleteDocumentRequested(document); });
+    } else {
+        auto *create = menu->addAction(QStringLiteral("新建文件夹…")); create->setObjectName("contextCreateDirectory");
+        connect(create, &QAction::triggered, this, [this, directory] { emit createDirectoryRequested(directory); });
+        if (!directory.isEmpty()) {
+            menu->addSeparator();
+            auto *remove = menu->addAction(QStringLiteral("删除文件夹（移入回收站）")); remove->setObjectName("contextDeleteDirectory");
+            connect(remove, &QAction::triggered, this, [this, directory] { emit deleteDirectoryRequested(directory); });
+        }
+    }
+    menu->popup(m_tree->viewport()->mapToGlobal(position));
 }
 void DocumentSidebar::resizeEvent(QResizeEvent *event) {
     QWidget::resizeEvent(event); updateDisplayMode();
@@ -163,6 +209,8 @@ void DocumentSidebar::activateQuickResult() {
     m_quickPopup->hide(); emit documentActivated(path);
 }
 bool DocumentSidebar::eventFilter(QObject *object, QEvent *event) {
+    if (object == m_tree->viewport() && (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseButtonDblClick))
+        m_rightClick = static_cast<QMouseEvent *>(event)->button() == Qt::RightButton;
     if (object == m_quickSearch && event->type() == QEvent::KeyPress) {
         const auto key = static_cast<QKeyEvent *>(event)->key();
         if (key == Qt::Key_Down || key == Qt::Key_Up) {
@@ -176,9 +224,10 @@ bool DocumentSidebar::eventFilter(QObject *object, QEvent *event) {
 void DocumentSidebar::filter() {
     const QString search = m_search->text().trimmed();
     std::function<bool(QTreeWidgetItem *)> visit = [&](QTreeWidgetItem *item) {
-        bool visible = false;
+        bool visible = !item->data(0, Qt::UserRole + 2).toString().isEmpty()
+            && item->data(0, Qt::UserRole + 2).toString().contains(search, Qt::CaseInsensitive);
         if (item->childCount()) { for (int i = 0; i < item->childCount(); ++i) visible = visit(item->child(i)) || visible; }
-        else visible = (item->text(0) + item->data(0, Qt::UserRole).toString() + item->data(0, Qt::UserRole + 1).toString()).contains(search, Qt::CaseInsensitive);
+        else visible = visible || (item->text(0) + item->data(0, Qt::UserRole).toString() + item->data(0, Qt::UserRole + 1).toString()).contains(search, Qt::CaseInsensitive);
         item->setHidden(!visible); return visible;
     };
     for (int i = 0; i < m_tree->topLevelItemCount(); ++i) visit(m_tree->topLevelItem(i));

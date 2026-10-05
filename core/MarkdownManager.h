@@ -2,6 +2,7 @@
 #include "MarkdownNode.h"
 #include "MarkdownRelation.h"
 #include <QObject>
+#include <QSet>
 #include <memory>
 #include <map>
 class FileWatcher;
@@ -15,12 +16,15 @@ public:
     void enableWatching();
     MarkdownNode *loadNode(const QString &path) const;
     QList<MarkdownNode *> allNodes() const;
+    QStringList directories() const;
     RelationStore explicitRelations() const;
     void updateContent(const QString &path, const QString &content);
     bool saveDocument(const QString &path, QString *error = nullptr, bool overwriteExternal = false);
     bool reloadDocument(const QString &path, QString *error = nullptr);
     bool createDocument(const QString &relativePath, const QString &content, QString *error = nullptr);
     bool deleteDocument(const QString &path, QString *error = nullptr);
+    bool createDirectory(const QString &relativePath, QString *error = nullptr);
+    bool deleteDirectory(const QString &relativePath, QString *error = nullptr);
     bool renameDocument(const QString &path, const QString &newRelativePath, QString *error = nullptr);
     bool importDocument(const QString &source, const QString &relativePath, QString *error = nullptr);
     bool addRelation(const QString &source, const QString &target, NodeRelationType type, QString *error = nullptr);
@@ -34,6 +38,8 @@ signals:
     void refreshFailed(const QString &message);
 private:
     QString safePath(const QString &path, QString *error = nullptr) const;
+    QString safeDirectoryPath(const QString &path, QString *error = nullptr) const;
+    bool recyclePath(const QString &absolute, const QSet<QString> &documentKeys, QString *error);
     QString keyFor(const QString &path) const;
     QString relationPath() const;
     bool persistRelations(const RelationStore &store, QString *error);

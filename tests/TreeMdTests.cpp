@@ -81,6 +81,27 @@
 #include <QSpinBox>
 #include <QSplitter>
 #include <QListWidget>
+#include <QInputDialog>
+
+#ifdef Q_OS_WIN
+static QString recycledFixture(const QString &original, QString *metadataPath = nullptr) {
+    const QString absolute = QFileInfo(original).absoluteFilePath();
+    const QString native = QDir::toNativeSeparators(absolute);
+    const QByteArray needle(reinterpret_cast<const char *>(native.utf16()), native.size() * 2);
+    const QDir recycle(absolute.left(3) + "$Recycle.Bin");
+    for (const auto &user : recycle.entryList(QDir::Dirs | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot)) {
+        const QDir records(recycle.filePath(user));
+        for (const auto &record : records.entryList({"$I*"}, QDir::Files | QDir::Hidden | QDir::System)) {
+            QFile info(records.filePath(record));
+            if (info.open(QIODevice::ReadOnly) && info.readAll().contains(needle)) {
+                if (metadataPath) *metadataPath = info.fileName();
+                return records.filePath("$R" + record.mid(2));
+            }
+        }
+    }
+    return {};
+}
+#endif
 
 class TreeMdTests : public QObject {
     Q_OBJECT
@@ -145,7 +166,186 @@ private slots:
     void sharedTreeZoomPersistsAcrossViews();
     void sidebarDragCyclesThroughAllModes();
     void compactSearchOpensDocumentsAndRefreshes();
+    void recyclePreservesOriginalNameAndContent();
+    void directoryLifecycleAndRecycleRelations();
+    void recycleFailurePreservesFilesAndRelations();
+    void sidebarContextTargetsAndEmptyDirectories();
+    void applicationContextActionsPreserveOtherEdits();
+    void directoryDeleteProtectsUnsavedCurrentDocument();
 };
+
+void TreeMdTests::recyclePreservesOriginalNameAndContent() {
+    QTemporaryDir dir; const QString original = dir.filePath(QStringLiteral("原来的名称.md"));
+    const QString content = QStringLiteral("# 可还原\n中文内容\n"); QString error, trash;
+    QVERIFY(MarkdownFileIO::writeFile(original, content));
+    QVERIFY2(MarkdownFileIO::moveToTrash(original, &error, &trash), qPrintable(error));
+    QVERIFY(!QFileInfo::exists(original));
+#ifdef Q_OS_WIN
+    QString record; const QString recycled = recycledFixture(original, &record);
+    QVERIFY2(!recycled.isEmpty(), "The original Windows recycle record was not found.");
+    QString recovered; QVERIFY(MarkdownFileIO::readFile(recycled, recovered)); QCOMPARE(recovered, content);
+    QVERIFY(QDir().rename(recycled, original)); QVERIFY(QFile::remove(record));
+#else
+    if (!trash.isEmpty()) QVERIFY(QDir().rename(trash, original));
+#endif
+}
+void TreeMdTests::directoryLifecycleAndRecycleRelations() {
+    QTemporaryDir dir; const QString root = dir.filePath("md_data"); MarkdownManager manager(root); QString error;
+    QVERIFY(manager.createDirectory("empty", &error)); QVERIFY(manager.directories().contains("empty"));
+    QVERIFY(!manager.createDirectory("empty", &error)); QVERIFY(!manager.createDirectory("../escape", &error));
+    QVERIFY(!manager.deleteDirectory(".", &error)); QVERIFY(!manager.deleteDirectory(root, &error));
+    QVERIFY(!manager.deleteDirectory("empty/..", &error));
+#ifdef Q_OS_WIN
+    QVERIFY(!manager.createDirectory("CON", &error)); QVERIFY(!manager.createDirectory("folder.", &error));
+#endif
+    QVERIFY(manager.createDocument("branch/one.md", "# One")); QVERIFY(manager.createDocument("branch/deep/two.md", "# Two"));
+    QVERIFY(manager.createDocument("branch-other/keep.md", "# Keep")); QVERIFY(manager.createDocument("outside.md", "# Outside"));
+    QVERIFY(manager.addRelation("outside.md", "branch/one.md", NodeRelationType::Next));
+    QVERIFY(manager.addRelation("branch/one.md", "branch/deep/two.md", NodeRelationType::Child));
+    QVERIFY(MarkdownFileIO::writeFile(QDir(root).filePath("branch/other.txt"), "Other file"));
+    const QString photo = dir.filePath("md_photo/branch/shared.png"); QVERIFY(QDir().mkpath(QFileInfo(photo).absolutePath()));
+    QVERIFY(MarkdownFileIO::writeFile(photo, "Image kept for restoring documents"));
+    const QString metadata = QDir(root).filePath(".tree-md-relations.json"); QString saved;
+    QVERIFY(MarkdownFileIO::readFile(metadata, saved)); QVERIFY(MarkdownFileIO::writeFile(metadata, saved + "\n"));
+    QVERIFY(!manager.deleteDirectory("branch", &error)); QVERIFY(QFileInfo::exists(QDir(root).filePath("branch/one.md")));
+    QVERIFY(manager.scan());
+    const QString original = QDir(root).filePath("branch");
+    QVERIFY2(manager.deleteDirectory("branch", &error), qPrintable(error));
+    QVERIFY(!QFileInfo::exists(original)); QVERIFY(!manager.loadNode("branch/one.md")); QVERIFY(!manager.loadNode("branch/deep/two.md"));
+    QVERIFY(manager.loadNode("branch-other/keep.md")); QVERIFY(manager.loadNode("outside.md"));
+    QVERIFY(manager.loadNode("outside.md")->relatedPaths(NodeRelationType::Next).isEmpty()); QVERIFY(QFileInfo::exists(photo));
+    MarkdownManager reopened(root); QVERIFY(reopened.scan()); QCOMPARE(reopened.allNodes().size(), 2);
+    QVERIFY(reopened.directories().contains("empty")); QVERIFY(!reopened.directories().contains("branch"));
+#ifdef Q_OS_WIN
+    QString record; const QString recycled = recycledFixture(original, &record); QVERIFY(!recycled.isEmpty());
+    QVERIFY(QFileInfo::exists(QDir(recycled).filePath("one.md"))); QVERIFY(QFileInfo::exists(QDir(recycled).filePath("deep/two.md")));
+    QVERIFY(QFileInfo::exists(QDir(recycled).filePath("other.txt")));
+    QVERIFY(QDir().rename(recycled, original)); QVERIFY(QFile::remove(record));
+#endif
+}
+void TreeMdTests::recycleFailurePreservesFilesAndRelations() {
+#ifdef Q_OS_WIN
+    QTemporaryDir dir; MarkdownManager manager(dir.path()); QString error;
+    QVERIFY(manager.createDocument("keep.md", "# Keep")); QVERIFY(manager.createDocument("locked.md", "# Locked"));
+    QVERIFY(manager.addRelation("keep.md", "locked.md", NodeRelationType::Next));
+    QString before; QVERIFY(MarkdownFileIO::readFile(dir.filePath(".tree-md-relations.json"), before));
+    const QString locked = QDir::toNativeSeparators(dir.filePath("locked.md"));
+    const HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(locked.utf16()), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    QVERIFY(handle != INVALID_HANDLE_VALUE);
+    const bool deleted = manager.deleteDocument("locked.md", &error); CloseHandle(handle);
+    QVERIFY(!deleted); QVERIFY(QFileInfo::exists(locked)); QVERIFY(error.contains(QStringLiteral("回收站")));
+    QCOMPARE(manager.loadNode("keep.md")->relatedPaths(NodeRelationType::Next), QStringList{"locked.md"});
+    QString after; QVERIFY(MarkdownFileIO::readFile(dir.filePath(".tree-md-relations.json"), after)); QCOMPARE(after, before);
+    MarkdownManager reopened(dir.path()); QVERIFY(reopened.scan());
+    QCOMPARE(reopened.loadNode("keep.md")->relatedPaths(NodeRelationType::Next), QStringList{"locked.md"});
+#else
+    QSKIP("Windows file sharing locks are required.");
+#endif
+}
+void TreeMdTests::sidebarContextTargetsAndEmptyDirectories() {
+    QTemporaryDir dir; MarkdownManager manager(dir.path());
+    QVERIFY(manager.createDocument("A.md", "# A")); QVERIFY(manager.createDocument("folder/B.md", "# B"));
+    QVERIFY(manager.createDirectory("empty"));
+    DocumentSidebar sidebar; sidebar.resize(280, 600); sidebar.setDocuments(manager.allNodes(), manager.directories()); sidebar.show();
+    auto *tree = sidebar.findChild<QTreeWidget *>("documentTree"); QVERIFY(tree);
+    auto find = [&](int role, const QString &path) -> QTreeWidgetItem * {
+        QTreeWidgetItemIterator it(tree); while (*it) { if ((*it)->data(0, role).toString() == path) return *it; ++it; } return nullptr;
+    };
+    auto *empty = find(Qt::UserRole + 2, "empty"); auto *other = find(Qt::UserRole, "folder/B.md"); QVERIFY(empty); QVERIFY(other); QVERIFY(!empty->isHidden());
+    sidebar.selectPath("A.md"); QSignalSpy activated(&sidebar, &DocumentSidebar::documentActivated);
+    QTest::mouseClick(tree->viewport(), Qt::RightButton, Qt::NoModifier, tree->visualItemRect(other).center()); QCOMPARE(activated.size(), 0);
+    QSignalSpy renamed(&sidebar, &DocumentSidebar::renameDocumentRequested);
+    QSignalSpy removed(&sidebar, &DocumentSidebar::deleteDocumentRequested);
+    QSignalSpy created(&sidebar, &DocumentSidebar::createDirectoryRequested);
+    QSignalSpy removedFolder(&sidebar, &DocumentSidebar::deleteDirectoryRequested);
+    auto openMenu = [&](QTreeWidgetItem *item) {
+        const QPoint position = item ? tree->visualItemRect(item).center() : QPoint(tree->viewport()->width() / 2, tree->viewport()->height() - 5);
+        QMetaObject::invokeMethod(tree, "customContextMenuRequested", Qt::DirectConnection, Q_ARG(QPoint, position));
+        return sidebar.findChild<QMenu *>("documentContextMenu");
+    };
+    auto *menu = openMenu(other); QVERIFY(menu); QVERIFY(!menu->findChild<QAction *>("contextCreateDirectory"));
+    menu->findChild<QAction *>("contextRenameDocument")->trigger(); QCOMPARE(renamed.front().front().toString(), QString("folder/B.md"));
+    menu->findChild<QAction *>("contextDeleteDocument")->trigger(); QCOMPARE(removed.front().front().toString(), QString("folder/B.md"));
+    menu->hide(); QTest::qWait(1);
+    menu = openMenu(empty); QVERIFY(menu); QVERIFY(!menu->findChild<QAction *>("contextRenameDocument"));
+    menu->findChild<QAction *>("contextCreateDirectory")->trigger(); QCOMPARE(created.front().front().toString(), QString("empty"));
+    menu->findChild<QAction *>("contextDeleteDirectory")->trigger(); QCOMPARE(removedFolder.front().front().toString(), QString("empty"));
+    menu->hide(); QTest::qWait(1);
+    menu = openMenu(nullptr); QVERIFY(menu); QVERIFY(!menu->findChild<QAction *>("contextDeleteDirectory"));
+    menu->findChild<QAction *>("contextCreateDirectory")->trigger(); QCOMPARE(created.back().front().toString(), QString()); menu->hide();
+}
+void TreeMdTests::applicationContextActionsPreserveOtherEdits() {
+    QTemporaryDir dir; MarkdownManager initial(dir.path());
+    QVERIFY(initial.createDocument("A.md", "# Keep")); QVERIFY(initial.createDocument("folder/B.md", "# Target"));
+    MainWindow window(dir.path()); window.show(); QVERIFY(window.openDocument("A.md"));
+    auto *sidebar = window.findChild<DocumentSidebar *>(); auto *editor = window.findChild<MarkdownEditor *>(); auto *manager = window.findChild<MarkdownManager *>();
+    QVERIFY(sidebar); QVERIFY(editor); QVERIFY(manager); editor->setSource("# Keep\nunsaved edits");
+    QTimer answer; answer.setInterval(10);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        if (auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget())) { input->setTextValue("folder/C.md"); input->accept(); answer.stop(); }
+        else if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            qWarning() << "Unexpected rename dialog:" << box->windowTitle() << box->text();
+            auto *button = box->button(QMessageBox::Cancel); if (!button) button = box->button(QMessageBox::Ok);
+            if (button) button->click(); answer.stop();
+        }
+    }); answer.start();
+    sidebar->renameDocumentRequested("folder/B.md"); QTRY_VERIFY(manager->loadNode("folder/C.md"));
+    QCOMPARE(editor->source(), QString("# Keep\nunsaved edits")); QVERIFY(manager->loadNode("A.md")->isModified());
+    QString questioned;
+    disconnect(&answer, nullptr, &window, nullptr);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) { questioned = box->text(); box->button(QMessageBox::Yes)->click(); answer.stop(); }
+    }); answer.start();
+    sidebar->deleteDocumentRequested("folder/C.md"); QTRY_VERIFY(!manager->loadNode("folder/C.md"));
+    QVERIFY(questioned.contains("folder/C.md")); QCOMPARE(editor->source(), QString("# Keep\nunsaved edits"));
+    disconnect(&answer, nullptr, &window, nullptr);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        if (auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget())) { input->setTextValue("new-empty"); input->accept(); answer.stop(); }
+        else if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) { qWarning() << "Unexpected folder dialog:" << box->text(); box->button(QMessageBox::Ok)->click(); answer.stop(); }
+    }); answer.start(); sidebar->createDirectoryRequested({}); QTRY_VERIFY(manager->directories().contains("new-empty"));
+    answer.start(); sidebar->createDirectoryRequested("folder"); QTRY_VERIFY(manager->directories().contains("folder/new-empty"));
+    QCOMPARE(editor->source(), QString("# Keep\nunsaved edits"));
+    disconnect(&answer, nullptr, &window, nullptr);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            if (auto *yes = box->button(QMessageBox::Yes)) yes->click();
+            else { qWarning() << "Unexpected recycle dialog:" << box->text(); if (auto *ok = box->button(QMessageBox::Ok)) ok->click(); }
+        }
+    });
+    answer.start(); sidebar->deleteDirectoryRequested("folder"); QTRY_VERIFY(!QFileInfo::exists(dir.filePath("folder")));
+    answer.stop();
+    QCOMPARE(editor->source(), QString("# Keep\nunsaved edits")); QVERIFY(manager->loadNode("A.md"));
+    window.hide();
+}
+void TreeMdTests::directoryDeleteProtectsUnsavedCurrentDocument() {
+    QTemporaryDir dir; MarkdownManager initial(dir.path());
+    QVERIFY(initial.createDocument("A.md", "# Keep")); QVERIFY(initial.createDocument("active/B.md", "# Active"));
+    QVERIFY(initial.createDocument("active/deep/C.md", "# Nested"));
+    MainWindow window(dir.path()); window.show(); QVERIFY(window.openDocument("active/B.md"));
+    auto *sidebar = window.findChild<DocumentSidebar *>(); auto *editor = window.findChild<MarkdownEditor *>(); auto *manager = window.findChild<MarkdownManager *>();
+    QVERIFY(sidebar); QVERIFY(editor); QVERIFY(manager); editor->setSource("# Active\nsaved before recycling");
+    QTimer answer; answer.setInterval(10); int prompts = 0;
+    connect(&answer, &QTimer::timeout, &window, [&] { if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) { ++prompts; box->button(QMessageBox::Cancel)->click(); answer.stop(); } });
+    answer.start(); sidebar->deleteDirectoryRequested("active"); QTRY_COMPARE(prompts, 1);
+    QVERIFY(QFileInfo::exists(dir.filePath("active/B.md"))); QVERIFY(manager->loadNode("active/B.md")->isModified());
+    disconnect(&answer, nullptr, &window, nullptr);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            ++prompts;
+            if (box->standardButtons().testFlag(QMessageBox::Save)) box->button(QMessageBox::Save)->click();
+            else { box->button(QMessageBox::Yes)->click(); answer.stop(); }
+        }
+    }); answer.start(); sidebar->deleteDirectoryRequested("active"); QTRY_VERIFY(!QFileInfo::exists(dir.filePath("active")));
+    QVERIFY(!manager->loadNode("active/B.md")); QVERIFY(!manager->loadNode("active/deep/C.md")); QVERIFY(manager->loadNode("A.md"));
+    QCOMPARE(editor->source(), QString("# Keep"));
+#ifdef Q_OS_WIN
+    QString record; const QString recycled = recycledFixture(dir.filePath("active"), &record); QVERIFY(!recycled.isEmpty());
+    QString content; QVERIFY(MarkdownFileIO::readFile(QDir(recycled).filePath("B.md"), content)); QCOMPARE(content, QString("# Active\nsaved before recycling"));
+    QVERIFY(QDir().rename(recycled, dir.filePath("active"))); QVERIFY(QFile::remove(record));
+#endif
+    window.hide();
+}
 
 void TreeMdTests::initTestCase() {
     QVERIFY(m_settingsDirectory.isValid());
