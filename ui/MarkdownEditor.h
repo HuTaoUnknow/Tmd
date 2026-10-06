@@ -14,6 +14,7 @@ public:
     void setHostedLinkInput(bool enabled) { m_hostedLinks = enabled; }
     void setZoomPercent(int percent);
     int zoomPercent() const { return m_zoomPercent; }
+    void refreshAppearance();
 signals:
     void zoomRequested(int percent);
     void imageFilesInserted(const QList<QUrl> &files);
@@ -26,4 +27,5 @@ protected:
 private:
     bool m_hostedLinks = false;
     int m_zoomPercent = 100, m_wheelRemainder = 0;
+    class MarkdownFenceCompleter *m_fenceCompleter;
 };

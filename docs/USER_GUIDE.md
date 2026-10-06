@@ -71,17 +71,23 @@ Drag a document from the list toward a card. Check the preview and relationship 
 
 Learning routes run horizontally. Alternatives touch the top of their main card; details are smaller cards below it with orthogonal connectors. Select a connection and press Delete, or **移除选中连线 (Remove selected connection)**, to remove the relationship while keeping the document. Double-click a card to explore from that document.
 
+Changing the center preserves the positions, sizes and connections of the same tree. It updates the highlight and five-step visible scope; editing relationships recalculates the layout.
+
 Use the wheel to zoom the tree and drag empty space to pan. Double-click empty space to return to the current group. Tree zoom is independent of text zoom and remembers its setting. Documents beyond the five-step scope remain in the left list.
 
 ## 5. Add images
 
 Paste screenshots or copied image files, or drop image files into the editor. Relative storage is the default: images are copied into `md_photo`, mirroring the document's folder structure. The original file is kept. Images appear directly in the document.
 
-**文件 → 图片存放方式 (File → Image storage)** offers:
+**设置 → 图片保存方式 (Settings → Image storage)** opens a separate window with three options across the top. Select a mode and click Apply:
 
-- **相对路径 (Relative path)**: copy local images, or download remote image URLs, into the library.
-- **绝对路径 (Absolute path)**: reference local files at their original locations.
-- **图床 (Remote URL)**: keep HTTP(S) image URLs. Local images still use local storage. This release does not upload images to hosting services.
+- **相对路径 (Relative path)**: set a directory relative to `md_data`, defaulting to `../md_photo`. The resolved location is shown. New images mirror the document folder structure.
+- **绝对路径 (Absolute path)**: specify a directory to copy new images into and use absolute references. Leave empty to reference original local files and keep screenshots in the default image directory.
+- **图床 (Image host)**: manage named image URLs, add/edit/delete records, choose a default, or insert a saved link. Removing a record leaves remote images and document references intact.
+
+The upload interface accepts POST multipart/form-data. Configure the endpoint, file field, JSON URL path such as `data.url`, header/form/query authentication, credential prefix and extra form fields. Pasted and dropped images then upload and insert the returned URL on success. Without an endpoint, direct image links remain usable and local images use relative storage. This interface has not been validated against a real image hosting service.
+
+Token/Key field credentials use Windows DPAPI local protection and are omitted from configuration exports. Re-enter them when moving computers or switching services. New directory settings apply to future images; existing image paths are preserved.
 
 Rename documents through Tmd to maintain managed relative image paths. When moving files externally, check those paths yourself. F5 refreshes the document and images.
 
@@ -98,6 +104,16 @@ A single-document export shares the document and images. To share a complete kno
 Tmd watches external file changes. Unmodified documents refresh automatically; unsaved edits are preserved and a conflict is shown. Decide which content to keep before saving or reloading.
 
 Back up `md_data` and `md_photo` together. Close Tmd before upgrading. Uninstalling the installed edition removes application files and registration while preserving **Documents/Tmd**.
+
+## 8. Fonts and Markdown appearance
+
+Open **设置 → MD加载样式 (Settings → Markdown loading styles)**. All five main sections start collapsed; click an arrow row to reveal its controls. Choose primary and fallback body fonts and a separate code font. Adjust all six heading sizes, spacing, list indentation, quote and code backgrounds, table colors and related options. Text zoom uses these font sizes as its 100% baseline.
+
+Typing three backticks opens language suggestions in both Document and Source. Type to filter, press Tab or Enter to complete, Esc to dismiss, or Ctrl+Space to reopen. Language completion, syntax highlighting, code wrapping and automatic rendering while editing have separate switches.
+
+**Apply** saves and refreshes the current document. The dialog shows the automatic `Tmd-settings.txt` location. Boolean options are bit-packed, numbers and colors use compact fixed fields, and font names use UTF-8. The payload is encoded as hexadecimal TXT, cached after parsing and saved atomically.
+
+**导入配置 (Import configuration)** and **导出配置 (Export configuration)** appear at the bottom and transfer hexadecimal TXT. Exports include configured image locations and omit documents, image files and Token/Key credentials. Review imported values and click Apply to save. Version 1 files remain compatible, with defaults for new image parameters. Invalid files preserve settings. Cancel and unapplied defaults do not change saved values. **About Tmd** is also in the Settings menu.
 
 ## Shortcuts
 

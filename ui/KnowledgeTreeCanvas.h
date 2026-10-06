@@ -68,6 +68,7 @@ private:
     MarkdownManager *m_manager = nullptr;
     KnowledgeIndexResult m_index;
     KnowledgeTreeLayoutResult m_layout;
+    QByteArray m_layoutSignature;
     QMap<QString, KnowledgeNodeWidget *> m_cards;
     QList<EdgeVisual> m_edges;
     QList<QGraphicsItem *> m_previewItems;

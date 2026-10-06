@@ -35,6 +35,8 @@ cmake --build build-release --parallel 4
 
 更新 `CMakeLists.txt` 中的版本和 `CHANGELOG.md`，完整运行构建与安装验证，再建立 `vX.Y.Z` 标签。GitHub Release 上传 Setup、Portable、源代码包和 `SHA256SUMS.txt`，使用中英文说明。
 
+仅源码发布时，完成源码构建与检查、建立版本标签并发布中英文说明即可，不调用安装包生成脚本。v1.0.2 为此类发布，安装包仍指向 v1.0.1；只有后续生成安装包时才执行安装、升级及卸载验证。
+
 `.github/workflows/build.yml` 在推送或 PR 时进行 Windows 构建与测试，并保存测试记录。初版安装包在本地完成实际安装、升级、注册与卸载检查后发布。
 
 ## English
@@ -48,3 +50,5 @@ From a configured development terminal, use the commands above or run `scripts/B
 `-BuildDirectory` and `-OutputDirectory` customize locations. `-SkipBuild` reuses a build; `-SkipTests` is intended only for an already verified identical build. Packages contain the reviewed starter files from `examples/`, never the developer's working library.
 
 For a release, update the CMake version and changelog, validate build and installation behavior, tag `vX.Y.Z`, and upload Setup, Portable, source and checksums with bilingual release notes. The GitHub workflow performs Windows builds/tests for pushes and pull requests.
+
+For a source-only release, build and check the source, create the version tag and publish bilingual notes without running the installer generation script. v1.0.2 follows this process and links to v1.0.1 installer downloads. Installation, upgrade and removal checks are required when a new installer is produced.

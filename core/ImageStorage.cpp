@@ -2,6 +2,7 @@
 #include "ImageLoader.h"
 #include "MarkdownImages.h"
 #include "MarkdownFileIO.h"
+#include "MarkdownSettings.h"
 #include <QBuffer>
 #include <QCryptographicHash>
 #include <QDir>
@@ -11,8 +12,13 @@
 #include <QUrl>
 
 namespace { bool fail(QString *error, const QString &message) { if (error) *error = message; return false; } }
-ImageStorage::ImageStorage(QString root) : m_dataRoot(QDir(root).absolutePath()), m_photoRoot(QDir(root).absoluteFilePath("../md_photo")) {
+ImageStorage::ImageStorage(QString root, QString photoRoot) : m_dataRoot(QDir(root).absolutePath()),
+    m_photoRoot(photoRoot.isEmpty() ? QDir(root).absoluteFilePath(MarkdownSettingsStore::current().relativePhotoPath) : QDir(photoRoot).absolutePath()) {
     m_photoRoot = QDir::cleanPath(m_photoRoot);
+}
+QString ImageStorage::absolutePhotoRoot(const QString &dataRoot) {
+    const auto &settings = MarkdownSettingsStore::current();
+    return settings.absolutePhotoPath.isEmpty() ? ImageStorage(dataRoot).photoRoot() : settings.absolutePhotoPath;
 }
 bool ImageStorage::ensureRoot(QString *error) const {
     return QDir().mkpath(m_photoRoot) || fail(error, QStringLiteral("无法创建图片目录：%1").arg(m_photoRoot));

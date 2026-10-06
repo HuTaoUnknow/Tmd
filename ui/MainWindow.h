@@ -54,6 +54,10 @@ private:
     void exportDocument();
     void insertImageReference(const QString &reference, const QString &alt);
     void showError(const QString &error);
+    void openMarkdownSettings();
+    void openImageSettings();
+    void uploadImage(const QByteArray &bytes, const QString &name);
+    void applyMarkdownSettings();
     QString askDocumentPath(const QString &title, const QString &initial = {});
     MarkdownManager *m_manager;
     MarkdownEditor *m_editor;

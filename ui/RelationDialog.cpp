@@ -84,7 +84,7 @@ RelationDialog::RelationDialog(MarkdownManager *manager, QString source, QWidget
 }
 void RelationDialog::setCurrentNode(const QString &path) {
     const auto *node = m_manager->loadNode(path); if (!node) return;
-    m_source = node->relativePath(); refresh(); m_canvas->restoreView();
+    m_source = node->relativePath(); refresh();
 }
 void RelationDialog::refresh() {
     const auto nodes = m_manager->allNodes();

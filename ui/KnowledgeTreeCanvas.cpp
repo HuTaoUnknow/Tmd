@@ -20,6 +20,9 @@
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QScrollBar>
+#include <QDataStream>
+#include <QTimer>
 #include <cmath>
 #include <limits>
 #include <queue>
@@ -170,10 +173,23 @@ QRectF KnowledgeTreeCanvas::nodeRect(const QString &path) const {
 }
 void KnowledgeTreeCanvas::setGraph(MarkdownManager *manager, const QString &root) {
     const QPointF previousCenter = mapToScene(viewport()->rect().center());
+    const int previousHorizontal = horizontalScrollBar()->value(), previousVertical = verticalScrollBar()->value();
     const bool changedRoot = m_index.root != root;
+    const bool keepView = m_manager == manager && m_cards.contains(root)
+        && viewport()->rect().adjusted(20, 20, -20, -20).contains(mapFromScene(nodeRect(root).center()));
     clearPreview(); m_dragSource.clear(); m_dragging = false; m_cards.clear(); m_edges.clear(); m_selectedEdge = -1;
-    scene()->clear(); m_manager = manager; m_index = KnowledgeIndex::build(*manager, root);
-    m_layout = KnowledgeTreeLayout::build(m_index); const auto &layout = m_layout;
+    scene()->clear(); m_index = KnowledgeIndex::build(*manager, root);
+    // Compute coordinates for the complete connected tree, then display only
+    // the five-step index. Boundary cards keep their coordinates on recenter.
+    auto complete = KnowledgeIndex::build(*manager, root, manager->allNodes().size());
+    auto paths = complete.paths; paths.sort();
+    QByteArray signature; QDataStream snapshot(&signature, QIODevice::WriteOnly);
+    snapshot << paths;
+    for (const auto &edge : complete.edges) snapshot << edge.source << edge.target << qint32(edge.type);
+    if (m_manager != manager || signature != m_layoutSignature) {
+        m_layout = KnowledgeTreeLayout::build(complete); m_layoutSignature = signature;
+    }
+    m_manager = manager; const auto &layout = m_layout;
     for (const auto &path : m_index.paths) {
         const auto *node = manager->loadNode(path); if (!node) continue;
         const bool current = path == m_index.root;
@@ -185,7 +201,7 @@ void KnowledgeTreeCanvas::setGraph(MarkdownManager *manager, const QString &root
         card->setAcceptedMouseButtons(Qt::NoButton); card->setFlag(QGraphicsItem::ItemIsSelectable, !m_readOnly);
         m_cards.insert(path, card);
     }
-    QList<QRectF> obstacles; for (auto *card : m_cards) obstacles.append(card->sceneBoundingRect());
+    QList<QRectF> obstacles; for (const auto &rect : layout.rects) obstacles.append(rect);
     for (const auto &edge : m_index.edges) {
         const QString source = edge.type == NodeRelationType::Parent ? edge.source : layout.routeAnchors.value(edge.source);
         const QString target = edge.type == NodeRelationType::Parent ? edge.target : layout.routeAnchors.value(edge.target);
@@ -207,7 +223,8 @@ void KnowledgeTreeCanvas::setGraph(MarkdownManager *manager, const QString &root
     }
     scene()->setSceneRect(scene()->itemsBoundingRect().adjusted(-420, -220, 420, 220));
     selectNode(m_readOnly ? QString{} : m_cards.contains(m_selectedNode) ? m_selectedNode : m_index.root);
-    if (changedRoot) centerCurrent(); else centerOn(previousCenter);
+    if (keepView) { horizontalScrollBar()->setValue(previousHorizontal); verticalScrollBar()->setValue(previousVertical); }
+    else if (changedRoot) centerCurrent(); else centerOn(previousCenter);
 }
 void KnowledgeTreeCanvas::applyZoomPercent(int percent) {
     const bool changed = m_zoomPercent != percent;
@@ -240,6 +257,9 @@ void KnowledgeTreeCanvas::restoreView() {
     applyZoomPercent(savedZoomPercent()); centerCurrent();
 }
 void KnowledgeTreeCanvas::centerCurrent() {
+    const QRectF overview = scene()->itemsBoundingRect();
+    if (overview.width() * transform().m11() + 24 <= viewport()->width()
+        && overview.height() * transform().m22() + 24 <= viewport()->height()) { centerOn(overview.center()); return; }
     // Center the current card together with its attached alternatives and
     // immediate details. Their asymmetry should not clip the lower cards.
     QRectF focus = nodeRect(m_index.root);
@@ -431,4 +451,7 @@ void KnowledgeTreeCanvas::wheelEvent(QWheelEvent *event) {
 }
 void KnowledgeTreeCanvas::showEvent(QShowEvent *event) {
     QGraphicsView::showEvent(event); restoreView();
+    // The surrounding splitter settles after showEvent. Center using its final
+    // viewport size so a fitting tree opens as a complete overview.
+    QTimer::singleShot(0, this, &KnowledgeTreeCanvas::centerCurrent);
 }

@@ -5,7 +5,8 @@
 
 class ImageStorage {
 public:
-    explicit ImageStorage(QString dataRoot);
+    explicit ImageStorage(QString dataRoot, QString photoRoot = {});
+    static QString absolutePhotoRoot(const QString &dataRoot);
     QString photoRoot() const { return m_photoRoot; }
     bool ensureRoot(QString *error = nullptr) const;
     bool store(const QString &documentRelativePath, const QByteArray &bytes, QString &reference,

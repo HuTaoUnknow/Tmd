@@ -16,6 +16,7 @@ public:
     void setUndoAvailability(bool undo, bool redo) { m_canUndo = undo; m_canRedo = redo; }
     void setZoomPercent(int percent);
     int zoomPercent() const { return m_zoomPercent; }
+    void refreshAppearance();
     int loadedImageCount() const { return m_loaded.size(); }
     QStringList imageErrors() const { return m_errors.values(); }
     QVariant loadResource(int type, const QUrl &name) override;
@@ -63,4 +64,5 @@ private:
     QString m_display;
     MarkdownSourceMap m_sourceMap;
     class QTimer *m_markupTimer;
+    class MarkdownFenceCompleter *m_fenceCompleter;
 };

@@ -1,4 +1,5 @@
 #include "MarkdownTypography.h"
+#include "core/MarkdownSettings.h"
 #include <QFontDatabase>
 #include <QResource>
 #include <QWheelEvent>
@@ -14,22 +15,24 @@ static void initializeTypography() {
 }
 QFont MarkdownTypography::bodyFont(int zoomPercent) {
     initializeTypography(); QFont font;
-    font.setFamilies({"Open Sans", "Microsoft YaHei", "Segoe UI"});
-    font.setPointSizeF(12.0 * qBound(50, zoomPercent, 200) / 100.0); return font;
+    const auto &settings = MarkdownSettingsStore::current();
+    font.setFamilies({settings.fonts[0], settings.fonts[1], "Segoe UI"});
+    font.setPointSizeF(settings.number(MarkdownSettings::BodySize) * qBound(50, zoomPercent, 200) / 100.0); return font;
 }
 QFont MarkdownTypography::codeFont(int zoomPercent) {
     initializeTypography(); QFont font;
-    font.setFamilies({"DejaVu Sans Mono", "Consolas", "Microsoft YaHei"});
+    const auto &settings = MarkdownSettingsStore::current();
+    font.setFamilies({settings.fonts[2], "Consolas", settings.fonts[1]});
     font.setStyleHint(QFont::Monospace); font.setFixedPitch(true);
-    font.setPointSizeF(10.5 * qBound(50, zoomPercent, 200) / 100.0); return font;
+    font.setPointSizeF(settings.number(MarkdownSettings::CodeSize) * qBound(50, zoomPercent, 200) / 100.0); return font;
 }
 qreal MarkdownTypography::headingPointSize(int level, int zoomPercent) {
-    // Ratios from the locally installed MarkText editor's heading styles.
-    const qreal ratios[] = {1.0, 1.875, 1.5, 1.375, 1.25, 1.125, 1.0};
-    return bodyFont(zoomPercent).pointSizeF() * ratios[qBound(1, level, 6)];
+    const auto key = static_cast<MarkdownSettings::Number>(MarkdownSettings::H1 + qBound(1, level, 6) - 1);
+    return MarkdownSettingsStore::current().number(key) * qBound(50, zoomPercent, 200) / 100.0;
 }
 QColor MarkdownTypography::codeBackground(const QColor &bodyBackground, bool inlineCode) {
-    return bodyBackground.darker(inlineCode ? 120 : 135);
+    Q_UNUSED(bodyBackground);
+    return MarkdownSettingsStore::current().color(inlineCode ? MarkdownSettings::InlineBackground : MarkdownSettings::BlockBackground);
 }
 int MarkdownTypography::wheelSteps(const QWheelEvent *event, int &remainder) {
     if (event->angleDelta().y()) {

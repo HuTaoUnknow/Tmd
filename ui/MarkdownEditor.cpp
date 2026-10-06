@@ -1,6 +1,8 @@
 #include "MarkdownEditor.h"
 #include "ImageInput.h"
 #include "MarkdownTypography.h"
+#include "MarkdownFenceCompleter.h"
+#include "core/MarkdownSettings.h"
 #include <QFontDatabase>
 #include <QMimeData>
 #include <QDropEvent>
@@ -12,8 +14,22 @@ MarkdownEditor::MarkdownEditor(QWidget *parent) : QTextEdit(parent) {
     setFont(MarkdownTypography::codeFont());
     document()->setDocumentMargin(28); setTabStopDistance(32);
     setPlaceholderText(QStringLiteral("Markdown 原文。可直接编辑、粘贴或拖入图片。"));
+    m_fenceCompleter = new MarkdownFenceCompleter(this,
+        [this] { return MarkdownFenceCompleter::Context(source(), textCursor().position()); },
+        [this](int start, int length, const QString &language) {
+            auto cursor = textCursor(); cursor.beginEditBlock(); cursor.setPosition(start);
+            cursor.setPosition(start + length, QTextCursor::KeepAnchor); cursor.insertText(language); cursor.endEditBlock();
+            setTextCursor(cursor);
+        });
 }
-void MarkdownEditor::setSource(const QString &source) { setPlainText(source); document()->setModified(false); }
+void MarkdownEditor::setSource(const QString &source) { m_fenceCompleter->reset(); setPlainText(source); document()->setModified(false); }
+void MarkdownEditor::refreshAppearance() {
+    const auto &settings = MarkdownSettingsStore::current(); const bool modified = document()->isModified();
+    setFont(MarkdownTypography::codeFont(m_zoomPercent)); setTabStopDistance(settings.number(MarkdownSettings::TabWidth));
+    setStyleSheet(QString("QTextEdit#markdownEditor { background: %1; color: %2; }")
+        .arg(settings.color(MarkdownSettings::PageBackground).name(), settings.color(MarkdownSettings::TextColor).name()));
+    document()->setModified(modified); m_fenceCompleter->reset();
+}
 void MarkdownEditor::setZoomPercent(int percent) {
     percent = qBound(50, percent, 200); if (percent == m_zoomPercent) return;
     const QTextCursor anchor = cursorForPosition(QPoint(30, viewport()->height() / 3)); const int y = cursorRect(anchor).top();

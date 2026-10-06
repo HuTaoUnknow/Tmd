@@ -1,6 +1,8 @@
 #include "MarkdownDocumentView.h"
 #include "ImageInput.h"
 #include "MarkdownTypography.h"
+#include "MarkdownFenceCompleter.h"
+#include "core/MarkdownSettings.h"
 #include "core/ImageLoader.h"
 #include "core/MarkdownParser.h"
 #include <QAbstractTextDocumentLayout>
@@ -32,6 +34,7 @@ public:
     explicit CodeColors(QTextDocument *document) : QSyntaxHighlighter(document) {}
 protected:
     void highlightBlock(const QString &text) override {
+        if (!MarkdownSettingsStore::current().enabled(MarkdownSettings::SyntaxColors)) return;
         if (!currentBlock().blockFormat().nonBreakableLines() && !currentBlock().blockFormat().hasProperty(QTextFormat::BlockCodeFence)) return;
         const QList<QPair<QString, QColor>> rules = {
             {"\\b(?:class|struct|public|private|protected|return|if|else|for|while|void|int|bool|const|auto|static|include|def|import|from|as|function|let|var|true|false|null|None|True|False|SELECT|FROM|WHERE|JOIN|INSERT|UPDATE|DELETE|CREATE|TABLE|AND|OR|ORDER|BY|GROUP|LIMIT)\\b", QColor("#b8a6e0")},
@@ -53,12 +56,24 @@ MarkdownDocumentView::MarkdownDocumentView(QWidget *parent) : QTextBrowser(paren
     setFont(MarkdownTypography::bodyFont()); setTabStopDistance(36); document()->setDocumentMargin(32);
     setPlaceholderText(QStringLiteral("直接编辑文档，或切换到原文编辑 Markdown。可粘贴、拖入图片。"));
     new CodeColors(document());
+    m_fenceCompleter = new MarkdownFenceCompleter(this,
+        [this] {
+            const auto format = textCursor().blockFormat();
+            const bool code = format.nonBreakableLines() || format.hasProperty(QTextFormat::BlockCodeFence);
+            return MarkdownFenceCompleter::Context(m_source, code ? -1 : m_sourceMap.sourcePosition(textCursor().position()));
+        },
+        [this](int start, int length, const QString &language) {
+            auto cursor = textCursor(); cursor.setPosition(m_sourceMap.displayPosition(start));
+            cursor.setPosition(m_sourceMap.displayPosition(start + length), QTextCursor::KeepAnchor); cursor.insertText(language);
+            setTextCursor(cursor);
+        });
     connect(document(), &QTextDocument::contentsChange, this, &MarkdownDocumentView::documentEdited);
     m_markupTimer->setSingleShot(true); m_markupTimer->setInterval(450);
     connect(m_markupTimer, &QTimer::timeout, this, [this] {
         // An empty paragraph is an editing position, even though Markdown
         // discards empty paragraphs. Keep it until the user has entered text.
-        if (textCursor().block().text().isEmpty()) return;
+        if (!MarkdownSettingsStore::current().enabled(MarkdownSettings::AutoRender)
+            || textCursor().block().text().isEmpty() || m_fenceCompleter->isEditingFence()) return;
         m_markupRefresh = true; setMarkdownSource(m_path, m_source); m_markupRefresh = false;
     });
 }
@@ -72,6 +87,7 @@ QImage MarkdownDocumentView::placeholder(const QString &message) const {
 }
 void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString &source, bool force) {
     if (!force && !m_markupRefresh && path == m_path && source == m_source) return;
+    m_fenceCompleter->reset();
     const bool sameDocument = path == m_path; const int scroll = verticalScrollBar()->value();
     const int caret = m_sourceMap.sourcePosition(textCursor().position()), anchor = m_sourceMap.sourcePosition(textCursor().anchor());
     QMap<QString, QImage> cached;
@@ -104,6 +120,8 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     if (m_loaded.size() == m_sources.size()) emit imagesSettled();
 }
 void MarkdownDocumentView::applyMarkdownStyles() {
+    const auto &settings = MarkdownSettingsStore::current();
+    document()->setIndentWidth(settings.number(MarkdownSettings::ListIndent));
     auto root = document()->rootFrame()->frameFormat(); root.setBottomMargin(24); document()->rootFrame()->setFrameFormat(root);
     const QFont body = MarkdownTypography::bodyFont(m_zoomPercent), fixed = MarkdownTypography::codeFont(m_zoomPercent);
     const QColor base = palette().color(QPalette::Base), codeBackground = MarkdownTypography::codeBackground(base);
@@ -113,41 +131,58 @@ void MarkdownDocumentView::applyMarkdownStyles() {
         const int heading = format.headingLevel();
         bool hasImage = false;
         for (auto it = block.begin(); !it.atEnd(); ++it) if (it.fragment().isValid() && it.fragment().charFormat().isImageFormat()) hasImage = true;
-        format.setTopMargin(block.textList() ? 4 : 8); format.setBottomMargin(block.textList() ? 4 : 8);
+        format.setTopMargin(settings.number(block.textList() ? MarkdownSettings::ListMargin : MarkdownSettings::ParagraphMargin));
+        format.setBottomMargin(format.topMargin());
         // Text line spacing must not multiply the height of an inline image.
-        format.setLineHeight(hasImage ? 100 : heading ? 140 : 160, QTextBlockFormat::ProportionalHeight);
-        if (heading) { format.setTopMargin(heading == 1 ? 8 : 24); format.setBottomMargin(14); }
+        format.setLineHeight(hasImage ? 100 : settings.number(heading ? MarkdownSettings::HeadingLineHeight : MarkdownSettings::LineHeight), QTextBlockFormat::ProportionalHeight);
+        if (heading) { format.setTopMargin(settings.number(heading == 1 ? MarkdownSettings::ParagraphMargin : MarkdownSettings::HeadingTop)); format.setBottomMargin(settings.number(MarkdownSettings::HeadingBottom)); }
         if (hasImage) { format.setTopMargin(4); format.setBottomMargin(8); }
         if (code) {
-            format.setBackground(codeBackground); format.setLeftMargin(16); format.setRightMargin(16);
+            if (!format.hasProperty(QTextFormat::BlockCodeFence)) format.setProperty(QTextFormat::BlockCodeFence, QStringLiteral("```"));
+            format.setBackground(codeBackground); format.setLeftMargin(settings.number(MarkdownSettings::CodePadding)); format.setRightMargin(format.leftMargin());
+            format.setNonBreakableLines(!settings.enabled(MarkdownSettings::WrapCode));
             const auto isCode = [](const QTextBlock &other) { return other.isValid() && (other.blockFormat().nonBreakableLines() || other.blockFormat().hasProperty(QTextFormat::BlockCodeFence)); };
-            format.setTopMargin(isCode(block.previous()) ? 0 : 14); format.setBottomMargin(isCode(block.next()) ? 0 : 14);
+            format.setTopMargin(isCode(block.previous()) ? 0 : settings.number(MarkdownSettings::CodeMargin)); format.setBottomMargin(isCode(block.next()) ? 0 : settings.number(MarkdownSettings::CodeMargin));
         } else if (format.intProperty(QTextFormat::BlockQuoteLevel) > 0) {
-            format.setLeftMargin(20 * format.intProperty(QTextFormat::BlockQuoteLevel)); format.setBackground(QColor("#27312b"));
+            format.setLeftMargin(settings.number(MarkdownSettings::QuoteIndent) * format.intProperty(QTextFormat::BlockQuoteLevel)); format.setBackground(settings.color(MarkdownSettings::QuoteBackground));
         }
         cursor.setBlockFormat(format);
         for (auto it = block.begin(); !it.atEnd(); ++it) {
             const auto fragment = it.fragment(); if (!fragment.isValid() || fragment.charFormat().isImageFormat()) continue;
             auto character = fragment.charFormat();
             if (code || character.fontFixedPitch()) {
-                character.setFontFamilies(fixed.families()); character.setFontPointSize(!code && heading ? MarkdownTypography::headingPointSize(heading, m_zoomPercent) * 0.8 : fixed.pointSizeF()); character.setForeground(QColor("#dedede"));
+                character.setFontFamilies(fixed.families()); character.setFontPointSize(!code && heading ? MarkdownTypography::headingPointSize(heading, m_zoomPercent) * 0.8 : fixed.pointSizeF()); character.setForeground(settings.color(MarkdownSettings::TextColor));
                 if (!code) character.setBackground(MarkdownTypography::codeBackground(base, true));
             } else {
                 character.setFontFamilies(body.families()); character.setFontPointSize(heading ? MarkdownTypography::headingPointSize(heading, m_zoomPercent) : body.pointSizeF());
-                if (heading) { character.setFontWeight(QFont::Bold); character.setForeground(QColor(heading <= 2 ? "#f8f8f8" : "#eeeeee")); }
+                character.setForeground(settings.color(MarkdownSettings::TextColor));
+                if (heading) { character.setFontWeight(settings.enabled(MarkdownSettings::BoldHeadings) ? QFont::Bold : QFont::Normal); character.setForeground(settings.color(MarkdownSettings::HeadingColor)); }
             }
-            if (character.isAnchor()) { character.setForeground(QColor("#9ed3b5")); character.setFontUnderline(true); }
+            if (character.isAnchor()) { character.setForeground(settings.color(MarkdownSettings::LinkColor)); character.setFontUnderline(settings.enabled(MarkdownSettings::UnderlineLinks)); }
             cursor.setPosition(fragment.position()); cursor.setPosition(fragment.position() + fragment.length(), QTextCursor::KeepAnchor); cursor.setCharFormat(character);
         }
     }
     for (auto *frame : document()->rootFrame()->childFrames()) if (auto *table = qobject_cast<QTextTable *>(frame)) {
-        auto format = table->format(); format.setBorder(1); format.setBorderBrush(QColor("#46554d")); format.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);
-        format.setCellPadding(10); format.setCellSpacing(0); format.setHeaderRowCount(1); format.setWidth(QTextLength(QTextLength::PercentageLength, 100)); table->setFormat(format);
+        auto format = table->format(); format.setBorder(1); format.setBorderBrush(settings.color(MarkdownSettings::TableBorder)); format.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);
+        format.setCellPadding(settings.number(MarkdownSettings::TablePadding)); format.setCellSpacing(0); format.setHeaderRowCount(1); format.setWidth(QTextLength(QTextLength::PercentageLength, 100)); table->setFormat(format);
         for (int row = 0; row < table->rows(); ++row) for (int col = 0; col < table->columns(); ++col) {
-            auto cell = table->cellAt(row, col); auto cellFormat = cell.format(); cellFormat.setBackground(QColor(row == 0 ? "#344239" : row % 2 ? "#242b27" : "#2b332e")); cell.setFormat(cellFormat);
+            auto cell = table->cellAt(row, col); auto cellFormat = cell.format(); cellFormat.setBackground(settings.color(row == 0 ? MarkdownSettings::TableHeader : settings.enabled(MarkdownSettings::StripedTables) && row % 2 ? MarkdownSettings::TableOdd : MarkdownSettings::TableEven)); cell.setFormat(cellFormat);
             if (row == 0) { QTextCursor header = cell.firstCursorPosition(); header.setPosition(cell.lastCursorPosition().position(), QTextCursor::KeepAnchor); QTextCharFormat bold; bold.setFontWeight(QFont::Bold); header.mergeCharFormat(bold); }
         }
     }
+}
+void MarkdownDocumentView::refreshAppearance() {
+    const auto &settings = MarkdownSettingsStore::current(); const bool modified = document()->isModified();
+    const int scroll = verticalScrollBar()->value(); m_preparing = true;
+    setStyleSheet(QString("QTextBrowser#markdownDocument { background: %1; color: %2; }")
+        .arg(settings.color(MarkdownSettings::PageBackground).name(), settings.color(MarkdownSettings::TextColor).name()));
+    auto colors = palette(); colors.setColor(QPalette::Base, settings.color(MarkdownSettings::PageBackground));
+    colors.setColor(QPalette::Text, settings.color(MarkdownSettings::TextColor)); setPalette(colors);
+    setFont(MarkdownTypography::bodyFont(m_zoomPercent)); setTabStopDistance(settings.number(MarkdownSettings::TabWidth));
+    m_markupTimer->setInterval(settings.numbers[MarkdownSettings::RenderDelay]); applyMarkdownStyles();
+    if (auto *highlighter = findChild<QSyntaxHighlighter *>()) highlighter->rehighlight();
+    m_preparing = false; document()->setModified(modified); fitImages(); verticalScrollBar()->setValue(scroll);
+    m_fenceCompleter->reset(); viewport()->update();
 }
 void MarkdownDocumentView::setZoomPercent(int percent) {
     percent = qBound(50, percent, 200); if (percent == m_zoomPercent) return;
@@ -188,12 +223,13 @@ void MarkdownDocumentView::documentEdited(int position, int removed, int added) 
             if (number.hasMatch()) marker = QString::number(number.captured(1).toInt() + 1) + number.captured(2);
             inserted.replace("\n", "\n" + match.captured(1) + marker + " ");
         }
-    } else if (inserted.contains('\n') && !block.blockFormat().nonBreakableLines() && !block.blockFormat().hasProperty(QTextFormat::BlockCodeFence)) {
+    } else if (inserted.contains('\n') && !block.blockFormat().nonBreakableLines() && !block.blockFormat().hasProperty(QTextFormat::BlockCodeFence)
+        && !MarkdownFenceCompleter::isOpeningFence(m_source, m_sourceMap.sourcePosition(prefix))) {
         const int quoteLevel = block.blockFormat().intProperty(QTextFormat::BlockQuoteLevel);
         const QString quote = QString("> ").repeated(quoteLevel);
         inserted.replace("\n", quoteLevel ? "\n" + quote.trimmed() + "\n" + quote : "\n\n");
     }
-    inserted.replace(QChar::LineSeparator, block.blockFormat().nonBreakableLines() ? "\n" : "  \n");
+    inserted.replace(QChar::LineSeparator, block.blockFormat().nonBreakableLines() || block.blockFormat().hasProperty(QTextFormat::BlockCodeFence) ? "\n" : "  \n");
     int sourceCursor = 0; m_source = m_sourceMap.applyEdit(prefix, oldEnd - prefix, inserted, display.mid(prefix, newEnd - prefix), &sourceCursor);
     m_display = display;
     emit sourceEdited(m_source, sourceCursor); m_markupTimer->start();
@@ -244,10 +280,13 @@ void MarkdownDocumentView::resizeEvent(QResizeEvent *event) {
 }
 void MarkdownDocumentView::paintEvent(QPaintEvent *event) {
     const int offset = verticalScrollBar()->value();
+    const auto &settings = MarkdownSettingsStore::current();
     // QTextDocument colors each code line separately. Paint the complete panel
     // behind it as well, including line spacing and blank code lines.
     {
-        QPainter background(viewport()); background.setRenderHint(QPainter::Antialiasing); background.setPen(QPen(palette().color(QPalette::Base).lighter(160), 1)); background.setBrush(MarkdownTypography::codeBackground(palette().color(QPalette::Base)));
+        QPainter background(viewport()); background.setRenderHint(QPainter::Antialiasing);
+        background.setPen(settings.enabled(MarkdownSettings::CodeBorder) ? QPen(palette().color(QPalette::Base).lighter(160), 1) : QPen(Qt::NoPen));
+        background.setBrush(MarkdownTypography::codeBackground(palette().color(QPalette::Base)));
         QRectF panel;
         auto flush = [&] {
             if (!panel.isNull() && panel.bottom() >= 0 && panel.top() <= viewport()->height()) {
@@ -273,7 +312,7 @@ void MarkdownDocumentView::paintEvent(QPaintEvent *event) {
         painter.drawLine(QPointF(rect.left() - 10, rect.top()), QPointF(rect.left() - 10, rect.bottom()));
     }
     painter.setPen(QPen(palette().color(QPalette::Base).lighter(180), 1));
-    for (auto block = document()->begin(); block.isValid(); block = block.next()) if (block.blockFormat().headingLevel() > 0 && block.blockFormat().headingLevel() <= 2) {
+    for (auto block = document()->begin(); block.isValid(); block = block.next()) if (settings.enabled(MarkdownSettings::HeadingRules) && block.blockFormat().headingLevel() > 0 && block.blockFormat().headingLevel() <= 2) {
         const QRectF rect = document()->documentLayout()->blockBoundingRect(block).translated(-horizontalScrollBar()->value(), -offset);
         if (rect.bottom() < 0 || rect.top() > viewport()->height()) continue;
         painter.drawLine(QPointF(rect.left(), rect.bottom() + 5), QPointF(rect.right(), rect.bottom() + 5));

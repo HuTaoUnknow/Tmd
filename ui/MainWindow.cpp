@@ -3,6 +3,10 @@
 #include "OutlineSidebar.h"
 #include "MarkdownEditor.h"
 #include "MarkdownDocumentView.h"
+#include "MarkdownSettingsDialog.h"
+#include "ImageSettingsDialog.h"
+#include "core/MarkdownSettings.h"
+#include "core/ImageUploadJob.h"
 #include "KnowledgeGraphWidget.h"
 #include "RelationDialog.h"
 #include "core/ImageStorage.h"
@@ -38,6 +42,7 @@
 #include <QResizeEvent>
 #include <QSpinBox>
 #include <QScopedValueRollback>
+#include <QBuffer>
 
 MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     : QMainWindow(parent), m_manager(new MarkdownManager(dataPath, this)), m_editor(new MarkdownEditor(this)),
@@ -50,6 +55,11 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     auto *fileMenu = new QMenu(QStringLiteral("文件"), toolbar); fileMenu->setObjectName("fileMenu");
     auto *fileButton = new QToolButton(toolbar); fileButton->setText(QStringLiteral("文件")); fileButton->setObjectName("fileButton");
     fileButton->setMenu(fileMenu); fileButton->setPopupMode(QToolButton::InstantPopup); toolbar->addWidget(fileButton);
+    fileButton->setStyleSheet("QToolButton::menu-indicator { image: none; width: 0; height: 0; }");
+    auto *settingsMenu = new QMenu(QStringLiteral("设置"), toolbar); settingsMenu->setObjectName("settingsMenu");
+    auto *settingsButton = new QToolButton(toolbar); settingsButton->setText(QStringLiteral("设置")); settingsButton->setObjectName("settingsButton");
+    settingsButton->setMenu(settingsMenu); settingsButton->setPopupMode(QToolButton::InstantPopup); toolbar->addWidget(settingsButton);
+    settingsButton->setStyleSheet("QToolButton::menu-indicator { image: none; width: 0; height: 0; }");
     auto action = [&](QMenu *menu, const QString &label, const QKeySequence &shortcut, const std::function<void()> &callback) {
         auto *a = menu->addAction(label); if (!shortcut.isEmpty()) a->setShortcut(shortcut);
         addAction(a); connect(a, &QAction::triggered, this, callback); return a;
@@ -60,19 +70,14 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     auto *copyMenu = fileMenu->addMenu(QStringLiteral("另存为 / 导出")); copyMenu->setObjectName("saveCopyMenu");
     action(copyMenu, QStringLiteral("另存为新文档"), QKeySequence::SaveAs, [this] { saveAs(); })->setObjectName("saveAsAction");
     action(copyMenu, QStringLiteral("导出 Markdown…"), {}, [this] { exportDocument(); })->setObjectName("exportAction");
-    auto *imageMenu = fileMenu->addMenu(QStringLiteral("图片存放方式")); imageMenu->setObjectName("imageStorageMenu");
-    auto *imageGroup = new QActionGroup(this); imageGroup->setExclusive(true);
-    const QStringList modes = {QStringLiteral("相对路径（默认）"), QStringLiteral("绝对路径"), QStringLiteral("图床（图片链接）")};
-    for (int i = 0; i < modes.size(); ++i) {
-        auto *a = imageMenu->addAction(modes[i]); a->setCheckable(true); a->setChecked(i == 0); a->setObjectName(QString("imageMode%1").arg(i)); imageGroup->addAction(a);
-        connect(a, &QAction::triggered, this, [this, i] { m_imageMode = static_cast<ImageMode>(i); m_editor->setHostedLinkInput(i == 2); m_document->setHostedLinkInput(i == 2); });
-    }
+    action(settingsMenu, QStringLiteral("MD加载样式"), {}, [this] { openMarkdownSettings(); })->setObjectName("markdownSettingsAction");
+    action(settingsMenu, QStringLiteral("图片保存方式"), {}, [this] { openImageSettings(); })->setObjectName("imageSettingsAction");
     fileMenu->addSeparator();
     action(fileMenu, QStringLiteral("重命名"), {}, [this] { renameDocument(); })->setObjectName("renameAction");
     action(fileMenu, QStringLiteral("删除"), {}, [this] { deleteDocument(); })->setObjectName("deleteAction");
     action(fileMenu, QStringLiteral("刷新"), QKeySequence("F5"), [this] { refreshDocuments(); })->setObjectName("refreshAction");
-    fileMenu->addSeparator();
-    action(fileMenu, QStringLiteral("关于 Tmd…"), {}, [this] {
+    settingsMenu->addSeparator();
+    action(settingsMenu, QStringLiteral("关于 Tmd"), {}, [this] {
         QString version = QCoreApplication::applicationVersion();
         if (version.isEmpty()) version = QStringLiteral("开发版本");
         const QString notices = QUrl::fromLocalFile(QDir(QCoreApplication::applicationDirPath()).filePath("THIRD_PARTY_NOTICES.md")).toString();
@@ -201,6 +206,7 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_editor, &MarkdownEditor::zoomRequested, this, applyZoom);
     auto *resetZoom = new QAction(this); resetZoom->setObjectName("resetZoomAction"); resetZoom->setShortcut(QKeySequence("Ctrl+0")); addAction(resetZoom);
     connect(resetZoom, &QAction::triggered, this, [applyZoom] { applyZoom(100); });
+    applyMarkdownSettings();
     QString error;
     if (!ImageStorage(m_manager->rootPath()).ensureRoot(&error)) QTimer::singleShot(0, this, [this, error] { showError(error); });
     if (!m_manager->scan(&error)) QTimer::singleShot(0, this, [this, error] { showError(error); });
@@ -211,6 +217,25 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     statusBar()->showMessage(QStringLiteral("知识库：%1").arg(m_manager->rootPath()));
     m_manager->enableWatching();
     QTimer::singleShot(0, this, &MainWindow::applyResponsiveLayout);
+}
+void MainWindow::openMarkdownSettings() {
+    auto *dialog = new MarkdownSettingsDialog(this); dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &MarkdownSettingsDialog::settingsApplied, this, &MainWindow::applyMarkdownSettings);
+    dialog->open();
+}
+void MainWindow::openImageSettings() {
+    auto *dialog = new ImageSettingsDialog(m_manager->rootPath(), this); dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &ImageSettingsDialog::settingsApplied, this, &MainWindow::applyMarkdownSettings);
+    connect(dialog, &ImageSettingsDialog::imageLinkRequested, this, [this](const QString &url, const QString &name) {
+        if (!m_manager->loadNode(m_current)) { showError(QStringLiteral("请先打开一篇文档。")); return; }
+        insertImageReference(url, name);
+    });
+    dialog->open();
+}
+void MainWindow::applyMarkdownSettings() {
+    const auto &settings = MarkdownSettingsStore::current(); m_imageMode = static_cast<ImageMode>(settings.imageMode);
+    m_editor->setHostedLinkInput(settings.imageMode == 2); m_document->setHostedLinkInput(settings.imageMode == 2);
+    m_editor->refreshAppearance(); m_document->refreshAppearance();
 }
 void MainWindow::sizeRelationPanel() {
     if (!m_relationAction->isChecked()) return;
@@ -453,8 +478,14 @@ void MainWindow::insertImageReference(const QString &reference, const QString &a
 }
 void MainWindow::insertClipboardImage(const QImage &image) {
     if (!m_manager->loadNode(m_current)) return;
+    if (m_imageMode == ImageMode::Hosted && !MarkdownSettingsStore::current().uploadEndpoint.isEmpty()) {
+        QByteArray bytes; QBuffer buffer(&bytes); buffer.open(QIODevice::WriteOnly);
+        if (!image.save(&buffer, "PNG")) { showError(QStringLiteral("无法编码剪贴板图片。")); return; }
+        uploadImage(bytes, QStringLiteral("粘贴图片.png")); return;
+    }
     QString reference, error;
-    if (!ImageStorage(m_manager->rootPath()).storeImage(m_current, image, reference, &error)) { showError(error); return; }
+    const QString photoRoot = m_imageMode == ImageMode::Absolute ? ImageStorage::absolutePhotoRoot(m_manager->rootPath()) : QString{};
+    if (!ImageStorage(m_manager->rootPath(), photoRoot).storeImage(m_current, image, reference, &error)) { showError(error); return; }
     if (m_imageMode == ImageMode::Absolute) reference = MarkdownImages::encodedPath(MarkdownImages::localPath(reference, QDir(m_manager->rootPath()).filePath(m_current)));
     insertImageReference(reference, QStringLiteral("粘贴的图片"));
     if (m_imageMode == ImageMode::Hosted) statusBar()->showMessage(QStringLiteral("截图已按相对路径保存；图床方式可粘贴图片链接。"), 6000);
@@ -464,21 +495,30 @@ void MainWindow::insertImageFiles(const QList<QUrl> &urls) {
     for (const auto &url : urls) {
         if (url.isLocalFile()) {
             QString reference, error;
-            if (m_imageMode == ImageMode::Absolute) {
+            if (m_imageMode == ImageMode::Hosted && !MarkdownSettingsStore::current().uploadEndpoint.isEmpty()) {
+                QByteArray bytes; if (!ImageLoader::readLocal(url.toLocalFile(), {}, bytes, &error)) { showError(error); continue; }
+                uploadImage(bytes, QFileInfo(url.toLocalFile()).fileName()); continue;
+            }
+            if (m_imageMode == ImageMode::Absolute && MarkdownSettingsStore::current().absolutePhotoPath.isEmpty()) {
                 QByteArray bytes; QImage image; QString extension;
                 if (!ImageLoader::readLocal(url.toLocalFile(), {}, bytes, &error) || !ImageLoader::decode(bytes, image, extension, &error)) { showError(error); continue; }
                 reference = MarkdownImages::encodedPath(url.toLocalFile());
-            } else if (!ImageStorage(m_manager->rootPath()).storeFile(m_current, url.toLocalFile(), reference, nullptr, &error)) { showError(error); continue; }
+            } else {
+                const QString photoRoot = m_imageMode == ImageMode::Absolute ? ImageStorage::absolutePhotoRoot(m_manager->rootPath()) : QString{};
+                if (!ImageStorage(m_manager->rootPath(), photoRoot).storeFile(m_current, url.toLocalFile(), reference, nullptr, &error)) { showError(error); continue; }
+                if (m_imageMode == ImageMode::Absolute) reference = MarkdownImages::encodedPath(MarkdownImages::localPath(reference, QDir(m_manager->rootPath()).filePath(m_current)));
+            }
             insertImageReference(reference, QFileInfo(url.toLocalFile()).fileName());
             if (m_imageMode == ImageMode::Hosted) statusBar()->showMessage(QStringLiteral("本地图片已按相对路径保存；图床方式可粘贴图片链接。"), 6000);
         } else if (MarkdownImages::isRemote(url.toString())) {
             if (m_imageMode == ImageMode::Hosted) { insertImageReference(url.toString(QUrl::FullyEncoded), QFileInfo(url.path()).fileName()); continue; }
             auto *loader = new ImageLoader(this); const QString document = m_current;
             QTextCursor cursor = m_editor->textCursor(); const ImageMode mode = m_imageMode;
-            connect(loader, &ImageLoader::loaded, this, [this, loader, document, cursor, url, mode](const QByteArray &bytes, const QImage &, const QString &) mutable {
+            const QString photoRoot = mode == ImageMode::Absolute ? ImageStorage::absolutePhotoRoot(m_manager->rootPath()) : ImageStorage(m_manager->rootPath()).photoRoot();
+            connect(loader, &ImageLoader::loaded, this, [this, loader, document, cursor, url, mode, photoRoot](const QByteArray &bytes, const QImage &, const QString &) mutable {
                 loader->deleteLater(); if (m_current != document) return;
                 QString reference, error;
-                if (!ImageStorage(m_manager->rootPath()).store(document, bytes, reference, nullptr, &error)) { showError(error); return; }
+                if (!ImageStorage(m_manager->rootPath(), photoRoot).store(document, bytes, reference, nullptr, &error)) { showError(error); return; }
                 if (mode == ImageMode::Absolute) reference = MarkdownImages::encodedPath(MarkdownImages::localPath(reference, QDir(m_manager->rootPath()).filePath(document)));
                 m_editor->setTextCursor(cursor); insertImageReference(reference, QFileInfo(url.path()).fileName());
             });
@@ -486,6 +526,26 @@ void MainWindow::insertImageFiles(const QList<QUrl> &urls) {
             loader->load(url.toString(), QDir(m_manager->rootPath()).filePath(m_current));
         }
     }
+}
+void MainWindow::uploadImage(const QByteArray &bytes, const QString &name) {
+    auto *job = new ImageUploadJob(this); const QString document = m_current; const QTextCursor cursor = m_editor->textCursor();
+    auto *progress = new QProgressDialog(QStringLiteral("正在上传图片：%1").arg(name), QStringLiteral("取消"), 0, 100, this);
+    progress->setWindowTitle(QStringLiteral("图床上传")); progress->setMinimumDuration(0); progress->setAutoClose(false); progress->show();
+    connect(progress, &QProgressDialog::canceled, job, &ImageUploadJob::cancel);
+    connect(job, &ImageUploadJob::progress, progress, [progress](qint64 sent, qint64 total) { if (total > 0) progress->setValue(int(sent * 100 / total)); });
+    connect(job, &ImageUploadJob::uploaded, this, [this, job, progress, document, cursor, name](const QString &url) {
+        progress->close(); progress->deleteLater(); job->deleteLater();
+        auto settings = MarkdownSettingsStore::current(); bool exists = false;
+        for (const auto &link : settings.hostedLinks) if (link.url == url) { exists = true; break; }
+        if (!exists && settings.hostedLinks.size() < 32) {
+            settings.hostedLinks.append({name, url}); if (settings.defaultHostedLink < 0) settings.defaultHostedLink = settings.hostedLinks.size() - 1;
+            QString error; if (!MarkdownSettingsStore::save(settings, &error)) showError(error);
+        }
+        if (m_current != document) { QMessageBox::information(this, QStringLiteral("图片上传完成"), QStringLiteral("当前文档已切换，图片链接如下，可复制到需要的文档：\n%1").arg(url)); return; }
+        m_editor->setTextCursor(cursor); insertImageReference(url, name); statusBar()->showMessage(QStringLiteral("图片上传完成并已插入文档。"), 5000);
+    });
+    connect(job, &ImageUploadJob::failed, this, [this, job, progress](const QString &error) { progress->close(); progress->deleteLater(); job->deleteLater(); if (error == QStringLiteral("已取消图片上传。")) statusBar()->showMessage(error, 4000); else showError(error); });
+    job->start(bytes, name, MarkdownSettingsStore::current());
 }
 void MainWindow::exportDocument() {
     if (m_current.isEmpty() || m_exporting) return;

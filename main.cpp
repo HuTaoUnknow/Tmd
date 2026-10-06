@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
+#include <QAction>
 #include <algorithm>
 int main(int argc, char *argv[]) {
     QApplication application(argc, argv);
@@ -29,6 +30,8 @@ int main(int argc, char *argv[]) {
     parser.addOption({"screenshot", "Save the window image and exit", "path"});
     parser.addOption({"relations", "Expand knowledge relations"});
     parser.addOption({"knowledge-tree", "Open the knowledge tree for the current document"});
+    parser.addOption({"settings", "Open the Markdown preload settings"});
+    parser.addOption({"image-settings", "Open image storage settings"});
     parser.addOption({"import-directory", "Import Markdown recursively and copy local/embedded images", "path"});
     parser.addOption({"report", "Write an operation report as JSON", "path"});
     parser.addOption({"export-document", "Export this relative document path without opening a window", "path"});
@@ -107,6 +110,8 @@ int main(int argc, char *argv[]) {
     if (parser.isSet("source-view")) window.setSourceMode(true);
     if (parser.isSet("relations")) window.setRelationsVisible(true);
     if (parser.isSet("knowledge-tree")) QTimer::singleShot(0, &window, &MainWindow::openKnowledgeTree);
+    if (parser.isSet("settings")) QTimer::singleShot(0, &window, [&window] { window.findChild<QAction *>("markdownSettingsAction")->trigger(); });
+    if (parser.isSet("image-settings")) QTimer::singleShot(0, &window, [&window] { window.findChild<QAction *>("imageSettingsAction")->trigger(); });
     if (parser.isSet("smoke-test") || parser.isSet("screenshot")) {
         QTimer::singleShot(700, &application, [&] {
             QWidget *capture = QApplication::activeModalWidget(); if (!capture) capture = &window;
