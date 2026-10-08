@@ -3,11 +3,11 @@
 **用 Markdown 写知识，用知识树连接学习过程。**  
 **Write knowledge in Markdown. Connect your learning with a knowledge tree.**
 
-[版本 / Releases](https://github.com/HuTaoUnknow/Tmd/releases/latest) · [安装包 / Installer v1.0.1](https://github.com/HuTaoUnknow/Tmd/releases/tag/v1.0.1) · [中文教程](docs/使用教程.md) · [English guide](docs/USER_GUIDE.md) · [安装说明 / Installation](docs/INSTALLATION.md) · [构建 / Build](docs/BUILDING.md)
+[版本 / Releases](https://github.com/HuTaoUnknow/Tmd/releases/latest) · [安装包 / Installer v1.0.3](https://github.com/HuTaoUnknow/Tmd/releases/tag/v1.0.3) · [中文教程](docs/使用教程.md) · [English guide](docs/USER_GUIDE.md) · [安装说明 / Installation](docs/INSTALLATION.md) · [构建 / Build](docs/BUILDING.md)
 
-当前源码为 **v1.0.2（第三版）**，本次发布源码，不包含新版安装包或便携包。现有 Windows 安装包仍为 v1.0.1，使用第三版请从源码构建。
+当前版本为 **v1.0.3**，提供 Windows x64 安装包、便携包与源码。本版完善代码段编辑、标题输入和侧栏交互，并完成核心模块整理及增量刷新优化。
 
-Current source: **v1.0.2, the third release**. This release contains source code only; Windows installer and portable downloads remain at v1.0.1. Build from source to use the new version.
+Current version: **v1.0.3**, with a Windows x64 installer, portable package and source. This release improves code editing, heading input and sidebar interaction, and reorganizes core modules with incremental refresh improvements.
 
 ![Tmd 文档与知识树 / Document and knowledge tree](docs/images/document.png)
 
@@ -28,13 +28,13 @@ Tmd 是一个 Windows 桌面 Markdown 知识库。每篇真实的 `.md` 文档�
 - **图片管理**：粘贴或拖入图片，默认复制到对应的 `md_photo` 目录；支持相对路径、绝对路径、网络图片链接。
 - **携带图片导出**：导出 Markdown 时可复制图片到导出文档同级目录，改写导出副本的相对地址。
 - **阅读与检索**：标题目录、快速搜索、窄窗口侧栏收起，以及独立的正文和知识树缩放。
-- **文件列表右键**：重命名或回收点击的文档、新建文件夹、递归回收目录；空文件夹也能显示，删除统一进入 Windows 回收站。
+- **文件列表右键**：新建 Markdown 文档、重命名或回收点击的文档、新建文件夹、递归回收目录；空文件夹也能显示，删除统一进入 Windows 回收站。
 - **MD加载样式**：五组折叠设置调整字体、标题、缩进、代码与表格样式；支持代码语言补全及十六进制 TXT 配置导入、导出。
 - **图片保存方式**：独立窗口设置相对位置、绝对位置，管理命名图床链接；预留可配置上传接口。
 
 ### 安装与第一次使用
 
-1. 在 [v1.0.1 安装包](https://github.com/HuTaoUnknow/Tmd/releases/tag/v1.0.1) 下载 `Tmd-1.0.1-Windows-x64-Setup.exe`。以下安装步骤适用于该版本，v1.0.2 需从源码构建。
+1. 在 [v1.0.3 发布页](https://github.com/HuTaoUnknow/Tmd/releases/tag/v1.0.3) 下载 `Tmd-1.0.3-Windows-x64-Setup.exe`，可用同页的 `SHA256SUMS.txt` 核对文件。
 2. 选择安装语言与安装范围，默认仅为当前用户安装。
 3. 设置应用登记名称（默认 `Tmd`）、程序安装位置和开始菜单文件夹。
 4. 选择是否创建桌面快捷方式、开始菜单快捷方式，以及是否登记到 Windows 已安装的应用列表。
@@ -42,7 +42,7 @@ Tmd 是一个 Windows 桌面 Markdown 知识库。每篇真实的 `.md` 文档�
 
 安装版首次启动会在系统“文档”目录下创建 `Tmd` 知识库。升级和卸载保留这里的个人文档与图片。程序运行依赖随安装包提供，无需另外安装 Qt 或编译器。
 
-也提供 `Tmd-1.0.1-Windows-x64-Portable.zip`：完整解压到可写目录后运行 `tree_md.exe`，知识库位于程序旁的 `md_data` / `md_photo`。详细步骤、备份和静默安装见 [安装说明](docs/INSTALLATION.md)。
+也提供 `Tmd-1.0.3-Windows-x64-Portable.zip`：完整解压到可写目录后运行 `tree_md.exe`，知识库位于程序旁的 `md_data` / `md_photo`。详细步骤、备份和静默安装见 [安装说明](docs/INSTALLATION.md)。
 
 ### 内置示例
 
@@ -64,7 +64,7 @@ md语法基础 → tmd作用及其意义 → 个人知识树示例
 
 ### 当前范围
 
-v1.0.2 面向 Windows 10/11 的 64 位桌面环境，已在 Windows 11 完成本地构建与检查。应用界面目前为简体中文，项目文档提供中英文。图床可管理已有图片链接，也提供通用上传配置接口；尚未连接真实图床验证，服务兼容性需要反馈。数学公式、Mermaid 和脚注不作为本版完整支持的语法。源码和构建脚本可用于继续开发。
+v1.0.3 面向 Windows 10/11 的 64 位桌面环境，已在 Windows 11 完成本地构建与检查。应用界面目前为简体中文，项目文档提供中英文。图床可管理已有图片链接，也提供通用上传配置接口；尚未连接真实图床验证，服务兼容性需要反馈。数学公式、Mermaid 和脚注不作为本版完整支持的语法。源码和构建脚本可用于继续开发。
 
 ## English
 
@@ -83,13 +83,13 @@ Folders organize files; the knowledge tree describes how their contents relate. 
 - Paste or drop images. Relative storage is the default, with absolute paths and remote image URLs also available.
 - Export Markdown with its images beside the exported file, rewriting image paths in the exported copy.
 - Use heading navigation, quick search, responsive sidebars and separate text/tree zoom controls.
-- Manage documents and folders from the sidebar context menu. Empty folders are visible; document and recursive folder removal use the Windows Recycle Bin.
+- Create Markdown documents and manage documents and folders from the sidebar context menu. Empty folders are visible; document and recursive folder removal use the Windows Recycle Bin.
 - Customize fonts, headings, indentation, code and tables through five collapsible Markdown style sections; complete fenced-code languages and import/export hexadecimal TXT configuration.
 - Configure relative and absolute image locations in a separate window, manage named image URLs and configure a generic upload interface.
 
 ### Install and start
 
-1. Download `Tmd-1.0.1-Windows-x64-Setup.exe` from the [v1.0.1 installer release](https://github.com/HuTaoUnknow/Tmd/releases/tag/v1.0.1). The following installation steps apply to that version; v1.0.2 requires building from source.
+1. Download `Tmd-1.0.3-Windows-x64-Setup.exe` from the [v1.0.3 release](https://github.com/HuTaoUnknow/Tmd/releases/tag/v1.0.3). Use the accompanying `SHA256SUMS.txt` to verify the download.
 2. Select the installer language and installation scope; current-user installation is the default.
 3. Choose an application display name, installation directory and Start menu folder.
 4. Select desktop/Start menu shortcuts and optional registration in Windows Installed apps.
@@ -97,7 +97,7 @@ Folders organize files; the knowledge tree describes how their contents relate. 
 
 On first launch, the installed application creates its library under **Documents/Tmd**. Upgrades and uninstalling preserve this user library. Qt and compiler runtimes are bundled; users do not need a development environment.
 
-For portable use, extract `Tmd-1.0.1-Windows-x64-Portable.zip` into a writable directory and run `tree_md.exe`. Its `md_data` and `md_photo` folders stay beside the executable. See [Installation](docs/INSTALLATION.md) for migration, backup and command-line options.
+For portable use, extract `Tmd-1.0.3-Windows-x64-Portable.zip` into a writable directory and run `tree_md.exe`. Its `md_data` and `md_photo` folders stay beside the executable. See [Installation](docs/INSTALLATION.md) for migration, backup and command-line options.
 
 ### Quick workflow
 
@@ -107,11 +107,11 @@ Press `Ctrl+P` to search, `Ctrl+S` to save, `Ctrl+mouse wheel` to zoom text from
 
 ### Release scope
 
-v1.0.2 targets 64-bit Windows 10/11 and has been built and checked locally on Windows 11. The application UI and starter documents are currently in Simplified Chinese; project documentation is bilingual. Image hosting supports saved URLs and a configurable generic upload interface. No real hosting provider has been tested, so provider compatibility remains unverified. Math, Mermaid diagrams and footnotes are not guaranteed to render fully in this release.
+v1.0.3 targets 64-bit Windows 10/11 and has been built and checked locally on Windows 11. The application UI and starter documents are currently in Simplified Chinese; project documentation is bilingual. Image hosting supports saved URLs and a configurable generic upload interface. No real hosting provider has been tested, so provider compatibility remains unverified. Math, Mermaid diagrams and footnotes are not guaranteed to render fully in this release.
 
 ## Development and licensing
 
-Built with C++17, Qt Widgets and CMake. See [BUILDING](docs/BUILDING.md) for Qt Creator, command-line builds, tests and installer generation.
+Built with C++17, Qt Widgets and CMake. Core and UI are organized by responsibility; see [Architecture](docs/ARCHITECTURE.md) for module boundaries and [BUILDING](docs/BUILDING.md) for Qt Creator, command-line builds, tests and installer generation.
 
 Tmd code and original documentation are licensed under [MIT](LICENSE). Qt, bundled fonts, compiler runtimes and installer components retain their own licenses. Read [Third-party notices](THIRD_PARTY_NOTICES.md); license texts are distributed in `licenses/`.
 

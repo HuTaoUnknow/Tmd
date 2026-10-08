@@ -1,5 +1,5 @@
-#include "core/DefaultLibrary.h"
-#include "core/MarkdownFileIO.h"
+#include "core/library/DefaultLibrary.h"
+#include "core/library/MarkdownFileIO.h"
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>

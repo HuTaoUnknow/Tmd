@@ -1,5 +1,29 @@
 # Changelog / 更新记录
 
+## v1.0.3 — 2026-10-08
+
+### 中文
+
+- 发布 Windows x64 安装包、便携包与源码，保留安装名称、位置、快捷方式和应用登记选项；个人知识库不随包发布。
+- 文件及右键菜单采用黑色圆角样式，支持右键新建并命名 Markdown 文档；标题须在 `#` 后输入空格触发，在标题起点按 Backspace 可恢复原文标记。
+- 代码语言提示支持上下键与 Enter 选择；选择后进入代码框，支持离开行内及多行代码继续编辑。侧栏拖动平滑过渡到缩放图标，再收起。
+- core 按 Markdown、文档库、知识关系、图片、设置和平台分类，UI 按页面职责分类，移除废弃代码与空白 Qt 表单。
+- 统一代码块、行内代码、HTML 注释等区域识别，修复注释内的图片误导入及标题误入目录，以及引用代码块边界处理。
+- 缓存标题、目录和行内代码位置；按内容、标题、集合、关系分别刷新，正文与标题编辑保留知识树节点对象及位置。
+- 集中路径检查、批量导入、另存为图片迁移、图片插入和失败回滚；拆分连线路由、设置编解码、持久化及 Windows 凭据保护，减少重复。
+- 增加模块说明及针对性回归检查；本地 Debug 的九组 CTest、十一项 Windows 原生交互检查通过。发布脚本与 CI 串行运行分组检查。
+
+### English
+
+- Ship Windows x64 Setup, Portable and source packages with display name, location, shortcut and registration options. Personal working libraries are excluded.
+- Use black rounded file/context menus and add named Markdown creation. Headings require a space after `#`; Backspace at a heading's start restores its source marker.
+- Select code languages with arrow keys and Enter, edit directly inside the code block and leave inline or fenced code to continue writing. Sidebar resizing transitions smoothly through shrinking icons.
+- Organize core by Markdown, library, knowledge, images, settings and platform responsibilities, and UI by page responsibilities. Remove obsolete code and the empty Qt form.
+- Share code, inline-code and HTML-comment analysis. Fix image imports and outline entries from comments, and quoted-fence boundaries.
+- Cache titles, outlines and inline-code positions. Separate content, title, collection and relationship notifications; retain tree card objects and positions while editing text or titles.
+- Centralize path checks, batch import, image relocation for Save As, image insertion and rollback. Extract connector routing, settings codecs/storage and Windows credential protection.
+- Add architecture documentation and focused regressions. Nine Debug CTest groups and eleven native Windows interaction checks pass. Release scripts and CI run regression groups serially.
+
 ## v1.0.2 — 2026-10-06
 
 ### 中文

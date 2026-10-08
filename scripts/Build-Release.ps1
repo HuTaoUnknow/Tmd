@@ -38,7 +38,7 @@ if (!$SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw 'Test runtime deployment failed.' }
     Copy-Item -LiteralPath (Join-Path $QtDirectory 'bin\Qt6Test.dll') -Destination $BuildDirectory -Force
     $env:QT_QPA_PLATFORM_PLUGIN_PATH = Join-Path $QtDirectory 'plugins\platforms'
-    & ctest --test-dir $BuildDirectory --output-on-failure -j 2
+    & ctest --test-dir $BuildDirectory --output-on-failure -j 1
     if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed; no release package was created.' }
 }
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null

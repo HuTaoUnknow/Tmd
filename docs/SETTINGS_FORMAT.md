@@ -1,8 +1,8 @@
 # Tmd settings TXT format / 设置 TXT 格式
 
-`core/MarkdownSettings.h` defines the settings and validation ranges. `core/MarkdownSettings.cpp` owns storage, parsing, import and export. UI code only edits values and applies the parsed settings.
+`core/settings/MarkdownSettings.h` defines the settings and validation ranges. `core/settings/MarkdownSettingsCodec.cpp` owns parsing and portable encoding; `core/settings/MarkdownSettingsStore.cpp` owns cached persistence and import/export. UI code only edits values and applies the parsed settings.
 
-`core/MarkdownSettings.h` 定义选项和有效范围，`core/MarkdownSettings.cpp` 负责存储、解析、导入与导出。界面只调整设置值并应用已解析的设置。
+`core/settings/MarkdownSettings.h` 定义选项和有效范围，`core/settings/MarkdownSettingsCodec.cpp` 负责解析和便携编码，`core/settings/MarkdownSettingsStore.cpp` 负责缓存、存储和导入导出。界面只调整设置值并应用已解析的设置。
 
 ## Version 2, compatible with version 1 / 第二版，兼容第一版
 
@@ -36,6 +36,6 @@ Version 2 adds relative/absolute image locations (UTF-8 strings with unsigned 16
 
 第二版在字体字段之后增加相对/绝对图片位置（16 位字节长度及 UTF-8 文本）、16 位链接数量及默认索引（`FFFF` 表示无默认项）、名称/链接对、接口/文件字段/JSON 路径字符串、8 位鉴权方式（0 无鉴权、1 请求头、2 表单、3 查询参数）、鉴权名称/前缀字符串、16 位附加表单字段数量及名称/值对。最后为 16 位本机凭据长度及 Windows DPAPI 密文，导出配置时该长度始终为零，然后附加校验。第一版省略这些扩展，采用图片设置默认值。
 
-`core/ImageUploadJob` adapts configurable POST multipart interfaces. It only inserts a validated HTTP(S) URL after a successful response, supports cancellation and timeouts, and does not resend uploads across redirects. No real image-host service was used for validation; service-specific integration remains for later feedback.
+`core/images/ImageUploadJob` adapts configurable POST multipart interfaces. It only inserts a validated HTTP(S) URL after a successful response, supports cancellation and timeouts, and does not resend uploads across redirects. No real image-host service was used for validation; service-specific integration remains for later feedback.
 
-`core/ImageUploadJob` 对接可配置的 POST multipart 接口，只在响应成功且返回有效 HTTP(S) 地址后插入图片链接，支持取消和超时，不跨重定向重新发送上传。尚未使用真实图床验证，具体服务适配留待后续反馈。
+`core/images/ImageUploadJob` 对接可配置的 POST multipart 接口，只在响应成功且返回有效 HTTP(S) 地址后插入图片链接，支持取消和超时，不跨重定向重新发送上传。尚未使用真实图床验证，具体服务适配留待后续反馈。

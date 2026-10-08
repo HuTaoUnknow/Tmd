@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QUrl>
 class MarkdownManager;
+class ImageInsertJob;
 class MarkdownEditor;
 class MarkdownDocumentView;
 class DocumentSidebar;
@@ -34,6 +35,8 @@ private:
     bool saveAs();
     bool mayLeaveDocument();
     void createDocument();
+    void createDocumentInDirectory(const QString &parentPath);
+    void createDocumentAtPath(const QString &path);
     void importDocument();
     void renameDocument();
     void renameDocument(const QString &path);
@@ -56,7 +59,7 @@ private:
     void showError(const QString &error);
     void openMarkdownSettings();
     void openImageSettings();
-    void uploadImage(const QByteArray &bytes, const QString &name);
+    ImageInsertJob *prepareImageInsertion();
     void applyMarkdownSettings();
     QString askDocumentPath(const QString &title, const QString &initial = {});
     MarkdownManager *m_manager;
@@ -82,6 +85,4 @@ private:
     bool m_layoutInitialized = false, m_applyingLayout = false;
     bool m_portraitOutlineVisible = true;
     int m_landscapeDocumentWidth = 200, m_portraitOutlineWidth = 215;
-    enum class ImageMode { Relative, Absolute, Hosted };
-    ImageMode m_imageMode = ImageMode::Relative;
 };

@@ -1,11 +1,11 @@
 #include "ui/MainWindow.h"
-#include "ui/Theme.h"
-#include "core/MarkdownManager.h"
-#include "core/MarkdownImages.h"
-#include "core/MarkdownExportJob.h"
-#include "core/ImageStorage.h"
-#include "core/MarkdownFileIO.h"
-#include "core/DefaultLibrary.h"
+#include "ui/common/Theme.h"
+#include "core/library/MarkdownManager.h"
+#include "core/markdown/MarkdownImages.h"
+#include "core/images/MarkdownExportJob.h"
+#include "core/images/ImageStorage.h"
+#include "core/library/MarkdownFileIO.h"
+#include "core/library/DefaultLibrary.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
@@ -77,21 +77,14 @@ int main(int argc, char *argv[]) {
         return !parser.isSet("report") || MarkdownFileIO::writeFile(parser.value("report"), QString::fromUtf8(QJsonDocument(result).toJson()));
     };
     if (parser.isSet("import-directory")) {
-        const QDir source(parser.value("import-directory")); MarkdownManager manager(dataPath); QString error;
-        if (!source.exists() || !manager.scan(&error) || !ImageStorage(dataPath).ensureRoot(&error)) {
-            report({{"success", false}, {"error", error.isEmpty() ? "Source directory does not exist" : error}}); return 2;
-        }
-        QStringList files; QDirIterator iterator(source.path(), QDir::Files, QDirIterator::Subdirectories);
-        while (iterator.hasNext()) { const QString path = iterator.next(); if (QFileInfo(path).suffix().compare("md", Qt::CaseInsensitive) == 0) files.append(path); }
-        std::sort(files.begin(), files.end()); QJsonArray imported, failures; int images = 0;
-        for (const auto &file : files) {
-            const QString relative = source.relativeFilePath(file);
-            if (manager.importDocument(file, relative, &error)) { imported.append(relative); images += MarkdownImages::parse(manager.loadNode(relative)->content()).size(); }
-            else failures.append(QJsonObject{{"document", relative}, {"error", error}});
-        }
-        const bool success = failures.isEmpty() && !files.isEmpty();
-        if (!report({{"success", success}, {"imported", imported}, {"imageReferences", images}, {"failures", failures}, {"dataRoot", manager.rootPath()}, {"photoRoot", ImageStorage(dataPath).photoRoot()}})) return 3;
-        return success ? 0 : 2;
+        MarkdownManager manager(dataPath); const auto result = manager.importDirectory(parser.value("import-directory"));
+        QJsonArray imported, failures;
+        for (const auto &path : result.imported) imported.append(path);
+        for (auto it = result.failures.cbegin(); it != result.failures.cend(); ++it)
+            failures.append(QJsonObject{{"document", it.key()}, {"error", it.value()}});
+        if (!report({{"success", result.success()}, {"imported", imported}, {"imageReferences", result.imageReferences},
+            {"failures", failures}, {"error", result.error}, {"dataRoot", manager.rootPath()}, {"photoRoot", ImageStorage(dataPath).photoRoot()}})) return 3;
+        return result.success() ? 0 : 2;
     }
     if (parser.isSet("export-document")) {
         MarkdownManager manager(dataPath); QString error;
