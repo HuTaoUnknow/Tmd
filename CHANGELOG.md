@@ -1,5 +1,27 @@
 # Changelog / 更新记录
 
+## v1.1.0 — 2026-10-16
+
+### 中文
+
+- 按 54 项已确认规则重构文档写入逻辑；Markdown 原文作为内容依据，保留普通空格、连续换行和尾部空行，统一标题、引用、列表的 Enter、Backspace 与缩进操作。
+- 支持即时创建表格、Tab 换格、Shift+Tab 插列、Shift+Enter 插行、单元格内 Enter 换行、网格粘贴及整表补齐；修复表格后空白与光标错位。
+- 完善独立代码区生成、代码语言与复制按钮、语法着色、围栏保护和空代码区删除；外部缩进代码导入为围栏代码，手写缩进保留为正文。
+- 光标进入行内格式、链接、实体时展开原始拼写；图片支持双击编辑原文与两步删除；HTML 保留原文，元数据区域可直接编辑。
+- 列表父子项共同缩进，任务框可点击切换；侧栏记忆展开状态、支持文字拖动和批量框选，改进目录移动被 Windows 文件监视占用时的处理。
+- 记录未保存文档并在退出时集中提示；知识树支持移除选中节点及连线而保留文档；图片集中保存并默认使用绝对路径，携图导出转换为相对路径。
+- 增加语法规则说明与十四组回归检查，发布 Windows x64 安装版、便携版及源码；仅附带公开示例知识库。
+
+### English
+
+- Rework document editing around 54 confirmed rules. Keep Markdown source authoritative, preserve ordinary spaces and blank lines, and unify heading, quote and list Enter, Backspace and indentation behavior.
+- Add immediate table creation, Tab navigation, Shift+Tab columns, Shift+Enter rows, in-cell Enter, grid paste and rectangular normalization. Fix caret mapping after tables and blank lines.
+- Improve independent fenced-code creation, language labels, copy actions, highlighting, fence protection and empty-block removal. Convert imported indented code to fences while preserving manually typed indentation as body text.
+- Reveal source spelling when editing inline formatting, links and entities. Support image source editing and two-step reference removal, literal HTML and editable metadata panels.
+- Move list subtrees together and toggle task checkboxes directly. Preserve sidebar expansion, add text-only drag and multi-selection, and improve directory moves blocked by Windows file watchers.
+- Track unsaved documents and prompt on exit. Remove selected knowledge-tree nodes without deleting Markdown files. Centralize images with absolute paths by default and rewrite bundled exports to relative paths.
+- Add the syntax policy reference and fourteen regression groups. Publish Windows x64 Setup, Portable and source packages containing only public starter documents.
+
 ## v1.0.3 — 2026-10-08
 
 ### 中文

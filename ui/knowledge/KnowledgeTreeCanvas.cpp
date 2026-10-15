@@ -330,12 +330,19 @@ void KnowledgeTreeCanvas::removeSelectedRelation() {
     if (m_selectedEdge < 0 || m_selectedEdge >= m_edges.size()) return;
     const auto edge = m_edges[m_selectedEdge].edge; emit relationRemoveRequested(edge.source, edge.target);
 }
+void KnowledgeTreeCanvas::removeSelectedNode() {
+    if (m_readOnly || m_selectedNode.isEmpty() || !m_cards.contains(m_selectedNode)) return;
+    const QString path = m_selectedNode;
+    clearPreview(); m_dragSource.clear(); m_dragging = false; unsetCursor();
+    emit nodeRemoveRequested(path);
+}
 void KnowledgeTreeCanvas::keyPressEvent(QKeyEvent *event) {
     if (m_readOnly) { QGraphicsView::keyPressEvent(event); return; }
     if (event->key() == Qt::Key_Escape && (!m_dragSource.isEmpty() || m_preview.valid)) {
         clearPreview(); m_dragSource.clear(); m_dragging = false; unsetCursor(); event->accept(); return;
     }
     if (event->key() == Qt::Key_Delete && hasSelectedEdge()) { removeSelectedRelation(); event->accept(); return; }
+    if (event->key() == Qt::Key_Delete && !m_selectedNode.isEmpty()) { removeSelectedNode(); event->accept(); return; }
     QGraphicsView::keyPressEvent(event);
 }
 void KnowledgeTreeCanvas::wheelEvent(QWheelEvent *event) {

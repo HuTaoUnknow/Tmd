@@ -9,6 +9,7 @@ public:
     static bool exists(const QString &path);
     static bool moveToTrash(const QString &path, QString *error = nullptr, QString *pathInTrash = nullptr);
     static bool renameFile(const QString &from, const QString &to, QString *error = nullptr);
+    static bool renameDirectory(const QString &from, const QString &to, QString *error = nullptr, bool *sourceIntact = nullptr);
     static QString normalizedPath(const QString &path);
     static QString fileIdentity(const QString &path);
 };

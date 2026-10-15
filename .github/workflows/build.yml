@@ -47,4 +47,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: windows-test-logs
-          path: build/Testing/Temporary/*.log
+          path: |
+            build/Testing/Temporary/*.log
+            build/tmd_*.txt

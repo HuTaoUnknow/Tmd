@@ -1,4 +1,5 @@
 #include "core/library/MarkdownManager.h"
+#include "core/markdown/MarkdownImport.h"
 #include "core/library/MarkdownFileIO.h"
 #include "core/library/FileWatcher.h"
 #include "core/images/ImageStorage.h"
@@ -18,6 +19,20 @@ bool MarkdownManager::createDirectory(const QString &path, QString *error) {
     if (!QDir(info.absolutePath()).mkdir(info.fileName())) return fail(error, QStringLiteral("无法创建文件夹，请检查上级目录和写入权限。"));
     if (m_watcher) m_watcher->rebuild();
     emit documentsChanged(); return true;
+}
+QStringList MarkdownManager::modifiedDocuments() const {
+    QStringList paths;
+    for (const auto *node : allNodes()) if (node->isModified()) paths.append(node->relativePath());
+    std::sort(paths.begin(), paths.end()); return paths;
+}
+DocumentSaveResult MarkdownManager::saveAllModified() {
+    DocumentSaveResult result;
+    for (const auto &path : modifiedDocuments()) {
+        QString error;
+        if (saveDocument(path, &error)) result.saved.append(path);
+        else result.failures.insert(path, error);
+    }
+    return result;
 }
 bool MarkdownManager::saveDocument(const QString &path, QString *error, bool overwriteExternal) {
     auto *node = loadNode(path);
@@ -156,7 +171,9 @@ bool MarkdownManager::importDocument(const QString &source, const QString &relat
     if (target.isEmpty()) return false;
     if (QFileInfo::exists(target)) return fail(error, QStringLiteral("该文件已存在。"));
     QString content, rewritten; QStringList created; ImageStorage storage(m_root);
-    if (!MarkdownFileIO::readFile(source, content, error) || !storage.prepareImport(source, relativePath, content, rewritten, created, error)) return false;
+    if (!MarkdownFileIO::readFile(source, content, error)) return false;
+    content = MarkdownImport::convertIndentedCode(content);
+    if (!storage.prepareImport(source, relativePath, content, rewritten, created, error)) return false;
     if (!createDocument(relativePath, rewritten, error)) {
         if (!QFileInfo::exists(target)) storage.rollback(created);
         return false;

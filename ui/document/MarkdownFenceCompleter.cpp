@@ -67,7 +67,7 @@ MarkdownFenceCompleter::MarkdownFenceCompleter(QTextEdit *editor, ReadContext re
 }
 bool MarkdownFenceCompleter::isOpeningFence(const QString &source, int cursor) { return openingFence(source, cursor).start >= 0; }
 bool MarkdownFenceCompleter::isEditingFence() const { const auto context = m_read(); return isOpeningFence(context.first, context.second); }
-void MarkdownFenceCompleter::reset() { m_dismissed.clear(); m_completer->popup()->hide(); }
+void MarkdownFenceCompleter::reset() { m_dismissed.clear(); m_newFenceLineStart = -1; m_choiceNavigated = false; m_completer->popup()->hide(); }
 void MarkdownFenceCompleter::scheduleUpdate() {
     if (m_scheduled) return;
     m_scheduled = true;
@@ -81,6 +81,7 @@ void MarkdownFenceCompleter::update(bool force) {
     auto *popup = m_completer->popup();
     const QString selected = popup->isVisible() && m_completer->completionPrefix() == fence.prefix
         ? popup->currentIndex().data(Qt::UserRole).toString() : QString();
+    if (m_completer->completionPrefix() != fence.prefix) m_choiceNavigated = false;
     m_completer->setCompletionPrefix(fence.prefix);
     if (!m_completer->completionCount()) { m_completer->popup()->hide(); return; }
     auto rect = m_editor->cursorRect(); rect.setWidth(330);
@@ -98,12 +99,26 @@ void MarkdownFenceCompleter::complete(const QString &language) {
     int closeStart = -1, closeEnd = context.first.size();
     for (const auto &parsed : MarkdownParser::codeFences(context.first))
         if (parsed.headerEnd == fence.lineEnd) { closeStart = parsed.closeStart; closeEnd = parsed.end; break; }
+    const int headerLine = context.first.lastIndexOf('\n', fence.start - 1) + 1;
+    if (headerLine == m_newFenceLineStart) closeStart = -1;
+    m_newFenceLineStart = -1;
+    if (closeStart < 0) {
+        // An unfinished header creates a new, independent block. Existing
+        // paragraphs after that header are not code supplied by the user.
+        QString replacement = language + context.first.mid(fence.start + fence.length, fence.lineEnd - fence.start - fence.length)
+            + "\n\n" + fence.indent + fence.delimiter;
+        if (fence.lineEnd == context.first.size()) replacement += "\n";
+        else if (context.first.mid(fence.lineEnd, 2) != "\n\n") replacement += '\n';
+        const int bodyCaret = fence.start + language.size() + fence.lineEnd - fence.start - fence.length + 1;
+        m_replace(fence.start, fence.lineEnd - fence.start, replacement, bodyCaret);
+        m_editor->setFocus(Qt::PopupFocusReason); return;
+    }
     const int bodyStart = qMin(fence.lineEnd + 1, int(context.first.size()));
     QString body = context.first.mid(bodyStart, (closeStart < 0 ? context.first.size() : closeStart) - bodyStart);
     if (body.isEmpty() || !body.endsWith('\n')) body += '\n';
     const QString closer = closeStart < 0 ? fence.indent + fence.delimiter : context.first.mid(closeStart, closeEnd - closeStart);
     QString replacement = language + context.first.mid(fence.start + fence.length, fence.lineEnd - fence.start - fence.length) + '\n' + body + closer;
-    if (closeEnd == context.first.size()) replacement += "\n\n";
+    if (closeEnd == context.first.size()) replacement += "\n";
     else if (context.first.mid(closeEnd, 2) != "\n\n") replacement += '\n';
     const int bodyCaret = fence.start + language.size() + fence.lineEnd - fence.start - fence.length + 1;
     m_replace(fence.start, closeEnd - fence.start, replacement, bodyCaret);
@@ -124,18 +139,34 @@ bool MarkdownFenceCompleter::eventFilter(QObject *object, QEvent *event) {
     }
     if (event->type() != QEvent::KeyPress) return QObject::eventFilter(object, event);
     auto *key = static_cast<QKeyEvent *>(event);
+    if (key->text() == "`" || key->text() == "~") {
+        const auto context = m_read();
+        if (context.second >= 0) {
+            const int line = context.second ? context.first.lastIndexOf('\n', context.second - 1) + 1 : 0;
+            const QString prefix = context.first.mid(line, context.second - line).trimmed();
+            if (prefix.size() >= 2 && prefix == QString(prefix.size(), key->text().front())) m_newFenceLineStart = line;
+        }
+    }
     if (key->key() == Qt::Key_Space && key->modifiers() == Qt::ControlModifier) { update(true); return true; }
+    if (!popup->isVisible() && key->modifiers() == Qt::NoModifier
+        && (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter)) {
+        const auto context = m_read(); const auto fence = openingFence(context.first, context.second);
+        if (fence.start >= 0) { complete(context.first.mid(fence.start, fence.length)); return true; }
+    }
     if (!m_completer->popup()->isVisible()) return false;
     if (key->key() == Qt::Key_Escape) {
         const auto context = m_read(); m_dismissed = openingFence(context.first, context.second).signature;
         m_completer->popup()->hide(); m_editor->setFocus(Qt::PopupFocusReason); return true;
     }
     if (key->key() == Qt::Key_Tab || key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
-        const QString language = m_completer->popup()->currentIndex().data(Qt::UserRole).toString();
-        if (!language.isEmpty()) complete(language);
+        const auto context = m_read(); const auto fence = openingFence(context.first, context.second);
+        const QString language = key->key() != Qt::Key_Tab && !m_choiceNavigated && fence.start >= 0
+            ? context.first.mid(fence.start, fence.length) : m_completer->popup()->currentIndex().data(Qt::UserRole).toString();
+        complete(language);
         return true;
     }
     if (key->key() == Qt::Key_Up || key->key() == Qt::Key_Down) {
+        m_choiceNavigated = true;
         const int rows = m_completer->completionModel()->rowCount();
         if (!rows) return true;
         const int row = m_completer->popup()->currentIndex().row();

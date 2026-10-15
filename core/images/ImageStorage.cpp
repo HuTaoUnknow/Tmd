@@ -13,12 +13,13 @@
 
 namespace { bool fail(QString *error, const QString &message) { if (error) *error = message; return false; } }
 ImageStorage::ImageStorage(QString root, QString photoRoot) : m_dataRoot(QDir(root).absolutePath()),
-    m_photoRoot(photoRoot.isEmpty() ? QDir(root).absoluteFilePath(MarkdownSettingsStore::current().relativePhotoPath) : QDir(photoRoot).absolutePath()) {
+    m_photoRoot(photoRoot.isEmpty() ? (MarkdownSettingsStore::current().imageMode == 0
+        ? QDir(root).absoluteFilePath(MarkdownSettingsStore::current().relativePhotoPath) : absolutePhotoRoot(root)) : QDir(photoRoot).absolutePath()) {
     m_photoRoot = QDir::cleanPath(m_photoRoot);
 }
 QString ImageStorage::absolutePhotoRoot(const QString &dataRoot) {
     const auto &settings = MarkdownSettingsStore::current();
-    return settings.absolutePhotoPath.isEmpty() ? ImageStorage(dataRoot).photoRoot() : settings.absolutePhotoPath;
+    return settings.absolutePhotoPath.isEmpty() ? QDir::cleanPath(QDir(dataRoot).absoluteFilePath("../md_photo")) : settings.absolutePhotoPath;
 }
 bool ImageStorage::ensureRoot(QString *error) const {
     return QDir().mkpath(m_photoRoot) || fail(error, QStringLiteral("无法创建图片目录：%1").arg(m_photoRoot));
@@ -39,12 +40,10 @@ bool ImageStorage::writeAsset(const QString &directory, const QByteArray &bytes,
     created = true; return true;
 }
 bool ImageStorage::store(const QString &relative, const QByteArray &bytes, QString &reference, QStringList *created, QString *error) const {
-    const QString document = QDir(m_dataRoot).absoluteFilePath(relative);
     const QString normalized = QDir::cleanPath(relative);
     if (QDir::isAbsolutePath(relative) || normalized == ".." || normalized.startsWith("../") || !normalized.endsWith(".md", Qt::CaseInsensitive))
         return fail(error, QStringLiteral("图片必须归属于 md_data 内的 Markdown 文档。"));
-    const QString subdirectory = QFileInfo(normalized).path();
-    const QString directory = QDir(m_photoRoot).absoluteFilePath(subdirectory);
+    const QString directory = m_photoRoot;
     // Reject directory links that would put managed assets outside md_photo.
     QFileInfo ancestor(directory);
     while (!ancestor.exists() && ancestor.absoluteFilePath() != ancestor.absolutePath()) ancestor = QFileInfo(ancestor.absolutePath());
@@ -61,7 +60,7 @@ bool ImageStorage::store(const QString &relative, const QByteArray &bytes, QStri
     QString path; bool written;
     if (!writeAsset(directory, bytes, extension, path, written, error)) return false;
     if (written && created) created->append(path);
-    reference = MarkdownImages::encodedPath(QDir(QFileInfo(document).absolutePath()).relativeFilePath(path));
+    reference = MarkdownImages::encodedPath(path);
     return true;
 }
 bool ImageStorage::storeFile(const QString &relative, const QString &source, QString &reference, QStringList *created, QString *error) const {
@@ -95,22 +94,21 @@ void ImageStorage::rollback(const QStringList &created) const {
         }
     }
 }
-bool ImageStorage::prepareRelocation(const QString &source, const QString &relative, const QString &content, QString &rewritten, QStringList &created, QString *error) const {
+bool ImageStorage::prepareRelocation(const QString &source, const QString &relative, const QString &content, QString &rewritten, QStringList &created, QString *error,
+    const QString &, const QString &) const {
     const auto images = MarkdownImages::parse(content); QMap<QString, QString> replacements;
-    const QString target = QDir(m_dataRoot).filePath(relative);
     for (const auto &image : images) {
         if (MarkdownImages::isRemote(image.source) || MarkdownImages::isData(image.source) || replacements.contains(image.source)) continue;
-        const QString path = MarkdownImages::localPath(image.source, source);
+        QString path = MarkdownImages::localPath(image.source, source);
         if (path.isEmpty()) continue;
-        const QString decoded = QUrl::fromPercentEncoding(image.source.toUtf8());
-        if (QDir::isAbsolutePath(decoded) || image.source.startsWith("file:", Qt::CaseInsensitive)) continue;
         QString reference;
-        if (MarkdownFileIO::normalizedPath(path).startsWith(MarkdownFileIO::normalizedPath(m_photoRoot) + '/', Qt::CaseInsensitive)) {
+        const QString normalized = MarkdownFileIO::normalizedPath(path), root = MarkdownFileIO::normalizedPath(m_photoRoot);
+        if (QFileInfo(normalized).absolutePath().compare(root, Qt::CaseInsensitive) != 0) {
             QByteArray bytes;
             if (!ImageLoader::readLocal(image.source, source, bytes, error) || !store(relative, bytes, reference, &created, error)) {
                 rollback(created); created.clear(); return false;
             }
-        } else reference = MarkdownImages::encodedPath(QDir(QFileInfo(target).absolutePath()).relativeFilePath(path));
+        } else reference = MarkdownImages::encodedPath(path);
         replacements.insert(image.source, reference);
     }
     rewritten = MarkdownImages::replace(content, images, replacements); return true;

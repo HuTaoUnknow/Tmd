@@ -18,7 +18,8 @@ public:
     bool prepareImport(const QString &sourceDocument, const QString &targetRelativePath, const QString &content,
                        QString &rewritten, QStringList &created, QString *error = nullptr) const;
     bool prepareRelocation(const QString &sourceDocument, const QString &targetRelativePath, const QString &content,
-                           QString &rewritten, QStringList &created, QString *error = nullptr) const;
+                           QString &rewritten, QStringList &created, QString *error = nullptr,
+                           const QString &movedFrom = {}, const QString &movedTo = {}) const;
     void rollback(const QStringList &created) const;
     static bool writeAsset(const QString &directory, const QByteArray &bytes, const QString &extension,
                            QString &path, bool &created, QString *error = nullptr);

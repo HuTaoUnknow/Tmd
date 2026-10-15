@@ -20,9 +20,9 @@ The file is uppercase hexadecimal text, grouped into four characters with whites
 | Fonts / 字体 | Variable / 可变 | Three UTF-8 names; each begins with a 16-bit byte length / 三个 UTF-8 字体名，每个以 16 位字节长度开头 |
 | Checksum / 校验 | 4 | First four bytes of SHA-256 of all preceding bytes / 前述所有字节的 SHA-256 前四个字节 |
 
-Flags in order: automatic rendering, language completion, syntax highlighting, bold headings, heading rules, code borders, underlined links, striped tables, wrapped code. Image modes are `00` relative, `01` absolute, `10` remote URL; `11` is invalid. Reserved bits must be zero. Font sizes use tenths of a point; other numbers use the units and limits in `markdownNumberSpecs()`.
+Flags in order: automatic rendering, language completion, syntax highlighting, bold headings, heading rules, code borders, underlined links, striped tables, wrapped code. Image modes are `00` relative storage directory, `01` absolute storage directory (default), `10` remote URL; `11` is invalid. Local images in either directory mode use absolute references and flat storage. Reserved bits must be zero. Font sizes use tenths of a point; other numbers use the units and limits in `markdownNumberSpecs()`.
 
-开关依次为自动预加载、语言补全、语法高亮、标题加粗、标题下划线、代码边框、链接下划线、表格交替背景、代码自动换行。图片方式为 `00` 相对路径、`01` 绝对路径、`10` 图床链接，`11` 无效；保留位必须为零。字号采用十分之一磅，其他值的单位与限制由 `markdownNumberSpecs()` 定义。
+开关依次为自动预加载、语言补全、语法高亮、标题加粗、标题下划线、代码边框、链接下划线、表格交替背景、代码自动换行。图片方式为 `00` 相对保存目录、`01` 绝对保存目录（默认）、`10` 图床链接，`11` 无效；两种目录方式都平铺保存本地图片并使用绝对引用。保留位必须为零。字号采用十分之一磅，其他值的单位与限制由 `markdownNumberSpecs()` 定义。
 
 The default settings occupy fewer than 768 text characters. Parsing is cached in memory. Saving uses the atomic UTF-8 writer in `MarkdownFileIO`; decoding validates into a temporary value before replacing settings. Unsupported versions, unknown bits, invalid ranges or UTF-8, truncated data and checksum failures are rejected. This checksum detects accidental corruption; it is not authentication.
 

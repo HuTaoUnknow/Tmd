@@ -1,21 +1,33 @@
 #include "ui/document/MarkdownEditor.h"
+#include "core/markdown/MarkdownImport.h"
 #include "ui/document/ImageInput.h"
 #include "ui/document/MarkdownTypography.h"
 #include "ui/document/MarkdownFenceCompleter.h"
+#include "ui/document/MarkdownViewport.h"
+#include "ui/document/CodeSyntaxHighlighter.h"
 #include "core/settings/MarkdownSettings.h"
 #include "core/markdown/MarkdownParser.h"
+#include "core/markdown/MarkdownCodeEditing.h"
+#include "core/markdown/MarkdownListEditing.h"
+#include "core/markdown/MarkdownTableEditing.h"
+#include "core/markdown/MarkdownParagraphEditing.h"
+#include "core/markdown/MarkdownBlockSyntax.h"
 #include <QFontDatabase>
 #include <QMimeData>
 #include <QDropEvent>
 #include <QScrollBar>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QTextBlock>
+#include <QTextLayout>
 
 MarkdownEditor::MarkdownEditor(QWidget *parent) : QTextEdit(parent) {
     setObjectName("markdownEditor"); setAcceptRichText(false);
     setFont(MarkdownTypography::codeFont());
     document()->setDocumentMargin(28); setTabStopDistance(32);
     setPlaceholderText(QStringLiteral("Markdown 原文。可直接编辑、粘贴或拖入图片。"));
+    m_viewport = new MarkdownViewport(this);
+    m_highlighter = new CodeSyntaxHighlighter(document(), true);
     m_fenceCompleter = new MarkdownFenceCompleter(this,
         [this] { return MarkdownFenceCompleter::Context(source(), textCursor().position()); },
         [this](int start, int length, const QString &replacement, int caret) {
@@ -26,12 +38,15 @@ MarkdownEditor::MarkdownEditor(QWidget *parent) : QTextEdit(parent) {
         });
 }
 void MarkdownEditor::setSource(const QString &source) { m_fenceCompleter->reset(); setPlainText(source); document()->setModified(false); }
+int MarkdownEditor::viewportSourcePosition() const { return m_viewport->anchorPosition(); }
+void MarkdownEditor::alignSourcePosition(int position) { m_viewport->alignPosition(position); }
 void MarkdownEditor::refreshAppearance() {
     const auto &settings = MarkdownSettingsStore::current(); const bool modified = document()->isModified();
     setFont(MarkdownTypography::codeFont(m_zoomPercent)); setTabStopDistance(settings.number(MarkdownSettings::TabWidth));
     setStyleSheet(QString("QTextEdit#markdownEditor { background: %1; color: %2; }")
         .arg(settings.color(MarkdownSettings::PageBackground).name(), settings.color(MarkdownSettings::TextColor).name()));
     document()->setModified(modified); m_fenceCompleter->reset();
+    m_highlighter->refresh();
 }
 void MarkdownEditor::setZoomPercent(int percent) {
     percent = qBound(50, percent, 200); if (percent == m_zoomPercent) return;
@@ -53,15 +68,73 @@ void MarkdownEditor::goToPosition(int position) {
     verticalScrollBar()->setValue(verticalScrollBar()->value() + cursorRect(cursor).top() - viewport()->height() * 0.28); setFocus();
 }
 void MarkdownEditor::keyPressEvent(QKeyEvent *event) {
+    const auto apply = [this](const MarkdownEdit &edit) {
+        const QString beforeText = source();
+        if (edit.changed) {
+            int first = 0, before = beforeText.size(), after = edit.source.size();
+            while (first < before && first < after && beforeText[first] == edit.source[first]) ++first;
+            while (before > first && after > first && beforeText[before - 1] == edit.source[after - 1]) { --before; --after; }
+            auto cursor = textCursor(); cursor.beginEditBlock(); cursor.setPosition(first);
+            cursor.setPosition(before, QTextCursor::KeepAnchor); cursor.insertText(edit.source.mid(first, after - first)); cursor.endEditBlock();
+        }
+        auto cursor = textCursor(); cursor.setPosition(edit.anchor); cursor.setPosition(edit.caret, QTextCursor::KeepAnchor);
+        setTextCursor(cursor); ensureCursorVisible();
+    };
+    if (event->modifiers() == Qt::NoModifier || event->modifiers() == Qt::ShiftModifier) {
+        const bool shift = event->modifiers() == Qt::ShiftModifier;
+        const bool tab = event->key() == Qt::Key_Tab || event->key() == Qt::Key_Backtab;
+        const bool row = shift && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter);
+        if (tab || row) {
+            const auto tables = MarkdownTableEditing::tables(source()); const int caret = textCursor().position();
+            for (int t = 0; t < tables.size(); ++t) for (int r = 0; r < tables[t].rows.size(); ++r) for (int c = 0; c < tables[t].rows[r].size(); ++c) {
+                const auto &cell = tables[t].rows[r][c]; if (caret < cell.start || caret > cell.end) continue;
+                using Action = MarkdownTableEditing::Action;
+                apply(MarkdownTableEditing::operate(source(), t, r, c, row ? Action::AddRow : shift || event->key() == Qt::Key_Backtab ? Action::AddColumn : Action::NextCell));
+                event->accept(); return;
+            }
+        }
+    }
+    if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && event->modifiers() == Qt::ShiftModifier) {
+        QKeyEvent normal(QEvent::KeyPress, event->key(), Qt::NoModifier, event->text(), event->isAutoRepeat(), event->count());
+        keyPressEvent(&normal); event->accept(); return;
+    }
+    const bool indent = (event->key() == Qt::Key_Tab && (event->modifiers() == Qt::NoModifier || event->modifiers() == Qt::ShiftModifier))
+        || (event->key() == Qt::Key_Backtab && (event->modifiers() == Qt::NoModifier || event->modifiers() == Qt::ShiftModifier));
+    const bool newline = (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && event->modifiers() == Qt::NoModifier;
+    const bool backspace = event->key() == Qt::Key_Backspace && event->modifiers() == Qt::NoModifier && !textCursor().hasSelection();
+    if (indent || newline || backspace) {
+        const QString text = source();
+        auto edit = newline ? MarkdownTableEditing::newline(text, textCursor().anchor(), textCursor().position())
+                            : MarkdownEdit{text, textCursor().anchor(), textCursor().position()};
+        if (!edit.handled && backspace) edit = MarkdownListEditing::backspaceIndent(text, textCursor().position());
+        if (!edit.handled) edit = backspace ? MarkdownCodeEditing::backspace(text, textCursor().position())
+                             : indent ? MarkdownCodeEditing::indent(text, textCursor().anchor(), textCursor().position(), event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier)
+                                      : MarkdownCodeEditing::newline(text, textCursor().anchor(), textCursor().position());
+        if (!edit.handled && backspace) edit = MarkdownBlockSyntax::backspaceEmptyPrefix(text, textCursor().position());
+        if (!edit.handled && backspace) edit = MarkdownParagraphEditing::backspace(text, textCursor().position());
+        if (!edit.handled) edit = backspace ? MarkdownListEditing::backspace(text, textCursor().position())
+                                           : indent ? MarkdownListEditing::indent(text, textCursor().anchor(), textCursor().position(), event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier)
+                                                    : MarkdownListEditing::newline(text, textCursor().anchor(), textCursor().position());
+        if (!edit.handled && newline) edit = MarkdownParagraphEditing::newline(text, textCursor().anchor(), textCursor().position());
+        if (edit.handled) {
+            apply(edit);
+            event->accept(); return;
+        }
+    }
     if (event->key() == Qt::Key_Down && event->modifiers() == Qt::NoModifier && !textCursor().hasSelection()) {
+        const auto *layout = textCursor().block().layout();
+        if (layout->lineForTextPosition(textCursor().positionInBlock()).lineNumber() + 1 < layout->lineCount()) {
+            QTextEdit::keyPressEvent(event); return;
+        }
         const QString text = source(); const int caret = textCursor().position();
         for (const auto &fence : MarkdownParser::codeFences(text)) {
             if (!fence.closed() || caret < fence.bodyStart || caret >= fence.closeStart) continue;
+            const int rowEnd = text.indexOf('\n', caret);
+            if (rowEnd >= 0 && rowEnd + 1 < fence.closeStart) break;
             int next = fence.end;
             if (next < text.size() && text[next] == '\n') ++next;
-            if (next < text.size() && text[next] == '\n') ++next;
             auto cursor = textCursor();
-            if (next == fence.end) { cursor.movePosition(QTextCursor::End); cursor.insertText("\n\n"); next += 2; }
+            if (next == fence.end) { cursor.movePosition(QTextCursor::End); cursor.insertText("\n"); ++next; }
             cursor.setPosition(next); setTextCursor(cursor); ensureCursorVisible(); event->accept(); return;
         }
     }
@@ -75,6 +148,7 @@ void MarkdownEditor::insertFromMimeData(const QMimeData *data) {
     if (!urls.isEmpty()) { emit imageFilesInserted(urls); return; }
     const QImage image = ImageInput::image(data);
     if (!image.isNull()) { emit clipboardImageInserted(image); return; }
+    if (data->hasText()) { textCursor().insertText(MarkdownImport::paste(source(), textCursor().position(), data->text())); return; }
     QTextEdit::insertFromMimeData(data);
 }
 void MarkdownEditor::dropEvent(QDropEvent *event) {

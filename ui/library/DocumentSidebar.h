@@ -19,8 +19,11 @@ public:
     enum class DisplayMode { Expanded, Compact, Hidden };
     static constexpr int compactWidth = 64, compactThreshold = 180, hiddenThreshold = 36, circleThreshold = 80;
     explicit DocumentSidebar(QWidget *parent = nullptr);
+    void setLibraryRoot(const QString &root);
+    void remapDirectoryState(const QString &from, const QString &to);
     void setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directories = {});
     void updateTitle(const QString &path, const QString &title);
+    void updateModified(const QString &path, bool modified);
     void selectPath(const QString &path);
     void selectDirectory(const QString &path);
     DisplayMode displayMode() const { return isHidden() ? DisplayMode::Hidden : m_mode; }
@@ -33,7 +36,11 @@ signals:
     void renameDocumentRequested(const QString &path);
     void deleteDocumentRequested(const QString &path);
     void createDirectoryRequested(const QString &parentPath);
+    void renameDirectoryRequested(const QString &path);
     void deleteDirectoryRequested(const QString &path);
+    void movePathRequested(const QString &path, bool directory, const QString &destinationDirectory);
+    void moveDocumentsRequested(const QStringList &paths, const QString &destinationDirectory);
+    void openFileManagerRequested(const QString &path);
 protected:
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *object, QEvent *event) override;

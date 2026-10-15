@@ -9,8 +9,8 @@
 
 ImageInsertJob::ImageInsertJob(QString root, QString document, MarkdownSettings settings, QObject *parent)
     : QObject(parent), m_root(std::move(root)), m_document(std::move(document)), m_settings(std::move(settings)) {
-    m_photoRoot = m_settings.imageMode == 1 && !m_settings.absolutePhotoPath.isEmpty()
-        ? m_settings.absolutePhotoPath : QDir(m_root).absoluteFilePath(m_settings.relativePhotoPath);
+    m_photoRoot = m_settings.imageMode == 0 ? QDir(m_root).absoluteFilePath(m_settings.relativePhotoPath)
+        : m_settings.absolutePhotoPath.isEmpty() ? QDir(m_root).absoluteFilePath("../md_photo") : m_settings.absolutePhotoPath;
 }
 void ImageInsertJob::start(const QImage &image) {
     QByteArray bytes; QBuffer buffer(&bytes); buffer.open(QIODevice::WriteOnly);
@@ -24,11 +24,6 @@ void ImageInsertJob::start(const QUrl &source) {
         QByteArray bytes; QString error;
         if (!ImageLoader::readLocal(source.toLocalFile(), {}, bytes, &error)) { emit failed(error); return; }
         if (m_settings.imageMode == 2 && !m_settings.uploadEndpoint.isEmpty()) { upload(bytes, name); return; }
-        if (m_settings.imageMode == 1 && m_settings.absolutePhotoPath.isEmpty()) {
-            QImage image; QString extension;
-            if (!ImageLoader::decode(bytes, image, extension, &error)) { emit failed(error); return; }
-            emit ready(MarkdownImages::encodedPath(source.toLocalFile()), name, {}); return;
-        }
         store(bytes, name);
     } else if (MarkdownImages::isRemote(source.toString())) {
         if (m_settings.imageMode == 2) { emit ready(source.toString(QUrl::FullyEncoded), name, {}); return; }
@@ -42,8 +37,7 @@ void ImageInsertJob::store(const QByteArray &bytes, const QString &name) {
     // The job captures its destination and mode before asynchronous work starts.
     QString reference, error;
     if (!ImageStorage(m_root, m_photoRoot).store(m_document, bytes, reference, nullptr, &error)) { emit failed(error); return; }
-    if (m_settings.imageMode == 1) reference = MarkdownImages::encodedPath(MarkdownImages::localPath(reference, QDir(m_root).filePath(m_document)));
-    emit ready(reference, name, m_settings.imageMode == 2 ? QStringLiteral("图片已按相对路径保存；可在图片保存方式中配置图床上传接口。") : QString{});
+    emit ready(reference, name, m_settings.imageMode == 2 ? QStringLiteral("图片已保存到统一目录；可在图片保存方式中配置图床上传接口。") : QString{});
 }
 void ImageInsertJob::upload(const QByteArray &bytes, const QString &name) {
     m_upload = new ImageUploadJob(this);

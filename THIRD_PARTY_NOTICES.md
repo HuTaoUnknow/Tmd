@@ -7,6 +7,7 @@ Tmd code and original documentation use MIT. The following components keep their
 | Component | Use | License/source |
 | --- | --- | --- |
 | Qt 6.11.1 Core, Gui, Widgets, Network, Svg and required plugins | Application framework and rendering | LGPL-3.0 and the component-specific licenses in the bundled SPDX inventories; [Qt licensing](https://doc.qt.io/qt-6/licensing.html) |
+| MD4C (Qt Base v6.11.1 source) | Shared CommonMark/GFM syntax recognition | MIT; `licenses/md4c-MIT.txt`; [source](https://github.com/qt/qtbase/tree/v6.11.1/src/3rdparty/md4c) |
 | Open Sans | Embedded document font | SIL Open Font License 1.1; `licenses/open-sans-LICENSE.txt` |
 | DejaVu Sans Mono | Embedded code font | Bitstream Vera / DejaVu notices; `licenses/DejaVuSansMono_LICENSE` |
 | MinGW-w64 / GCC runtime DLLs | Windows compiler runtime | GCC runtime licensing and exception; see the upstream sources below |

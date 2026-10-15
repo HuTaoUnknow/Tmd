@@ -18,7 +18,7 @@
 #include <QVBoxLayout>
 
 namespace {
-const QString instructions = QStringLiteral("拖入文档或拖动连接点建立关系。点击连线或上节点接缝两侧可选中关系，Delete 移除。双击卡片重新索引；滚轮缩放，空白处拖动平移。前后最多各 5 层。");
+const QString instructions = QStringLiteral("拖入文档或拖动连接点建立关系。选中节点或连线后按 Delete 移除，MD 文档保留。双击卡片或左侧文档重新索引；滚轮缩放，空白处拖动平移。前后最多各 5 层。");
 class AvailableDocuments : public QTreeWidget {
 public:
     using QTreeWidget::QTreeWidget;
@@ -52,14 +52,18 @@ RelationDialog::RelationDialog(MarkdownManager *manager, QString source, QWidget
     splitter->addWidget(left); splitter->addWidget(m_canvas); splitter->setSizes({285, 900}); splitter->setStretchFactor(1, 1); layout->addWidget(splitter, 1);
     m_status->setObjectName("knowledgeTreeHint"); m_status->setWordWrap(true); m_status->setText(instructions); m_status->setMinimumHeight(44); layout->addWidget(m_status);
     auto *bottom = new QHBoxLayout;
+    auto *removeNode = new QPushButton(QStringLiteral("删除选中节点"), this); removeNode->setObjectName("removeTreeNodeButton");
+    removeNode->setToolTip(QStringLiteral("移除选中节点及其全部连线，保留对应 MD 文档")); removeNode->setEnabled(false); bottom->addWidget(removeNode);
     auto *remove = new QPushButton(QStringLiteral("移除选中连线"), this); remove->setObjectName("removeTreeRelationButton"); remove->setEnabled(false); bottom->addWidget(remove);
     auto *reindex = new QPushButton(QStringLiteral("以选中节点为中心"), this); reindex->setObjectName("reindexTreeButton"); bottom->addWidget(reindex);
     bottom->addStretch(1); auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this); buttons->button(QDialogButtonBox::Close)->setText(QStringLiteral("关闭")); bottom->addWidget(buttons); layout->addLayout(bottom);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(remove, &QPushButton::clicked, m_canvas, &KnowledgeTreeCanvas::removeSelectedRelation);
+    connect(removeNode, &QPushButton::clicked, m_canvas, &KnowledgeTreeCanvas::removeSelectedNode);
     connect(reindex, &QPushButton::clicked, this, [this] { setCurrentNode(m_canvas->selectedNode()); });
-    connect(m_canvas, &KnowledgeTreeCanvas::selectionChanged, this, [this, remove, reindex] {
+    connect(m_canvas, &KnowledgeTreeCanvas::selectionChanged, this, [this, remove, removeNode, reindex] {
         remove->setEnabled(m_canvas->hasSelectedEdge()); reindex->setEnabled(!m_canvas->selectedNode().isEmpty());
+        removeNode->setEnabled(!m_canvas->selectedNode().isEmpty());
     });
     connect(m_canvas, &KnowledgeTreeCanvas::previewChanged, this, [this](const QString &message) {
         m_status->setText(message.isEmpty() ? instructions : QStringLiteral("松开鼠标将保存：") + message);
@@ -77,6 +81,7 @@ RelationDialog::RelationDialog(MarkdownManager *manager, QString source, QWidget
         if (!m_manager->removeRelation(sourcePath, target, &error)) QMessageBox::warning(this, QStringLiteral("无法移除连线"), error);
     }, Qt::QueuedConnection);
     connect(m_canvas, &KnowledgeTreeCanvas::rootRequested, this, &RelationDialog::setCurrentNode, Qt::QueuedConnection);
+    connect(m_canvas, &KnowledgeTreeCanvas::nodeRemoveRequested, this, &RelationDialog::removeNode, Qt::QueuedConnection);
     connect(m_available, &QTreeWidget::itemDoubleClicked, this, [this](QTreeWidgetItem *item) { setCurrentNode(item->data(0, Qt::UserRole).toString()); });
     connect(m_search, &QLineEdit::textChanged, this, &RelationDialog::filter);
     connect(manager, &MarkdownManager::documentRenamed, this, [this](const QString &oldPath, const QString &newPath) { if (m_source == oldPath) m_source = newPath; });
@@ -92,14 +97,30 @@ RelationDialog::RelationDialog(MarkdownManager *manager, QString source, QWidget
 }
 void RelationDialog::setCurrentNode(const QString &path) {
     const auto *node = m_manager->loadNode(path); if (!node) return;
-    m_source = node->relativePath(); refresh();
+    m_emptyTree = false; m_source = node->relativePath(); refresh();
+}
+void RelationDialog::removeNode(const QString &path) {
+    if (!m_canvas->index().members.contains(path)) return;
+    const QString previous = m_source; const bool previousEmpty = m_emptyTree;
+    if (path == m_source) {
+        m_source.clear();
+        for (const QString &candidate : m_canvas->index().paths) if (candidate != path) { m_source = candidate; break; }
+        m_emptyTree = m_source.isEmpty();
+    }
+    QString error;
+    if (!m_manager->removeNodeRelations(path, &error)) {
+        m_source = previous; m_emptyTree = previousEmpty;
+        m_status->setText(QStringLiteral("节点未移除：") + error);
+        QMessageBox::warning(this, QStringLiteral("无法删除节点"), error); return;
+    }
+    refresh(); m_status->setText(QStringLiteral("已移除节点及其连线，MD 文档已保留：%1").arg(path));
 }
 void RelationDialog::refresh() {
     const auto nodes = m_manager->allNodes();
-    if (!m_manager->loadNode(m_source)) m_source = nodes.isEmpty() ? QString{} : nodes.front()->relativePath();
+    if (!m_emptyTree && !m_manager->loadNode(m_source)) m_source = nodes.isEmpty() ? QString{} : nodes.front()->relativePath();
     m_canvas->setGraph(m_manager, m_source); m_available->clear();
     const auto *current = m_manager->loadNode(m_source);
-    m_current->setText(current ? QStringLiteral("当前节点 · %1").arg(current->title()) : QStringLiteral("知识库中暂无文档"));
+    m_current->setText(current ? QStringLiteral("当前节点 · %1").arg(current->title()) : nodes.isEmpty() ? QStringLiteral("知识库中暂无文档") : QStringLiteral("从左侧选择文档建立知识树"));
     m_current->setToolTip(m_source);
     DocumentTreeBuilder builder(m_available); int available = 0;
     for (const auto *node : nodes) {

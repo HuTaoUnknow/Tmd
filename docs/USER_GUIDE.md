@@ -45,7 +45,15 @@ How can I connect my notes into a learning route?
 - Record what I can do next.
 ```
 
-The rendered view is editable. Use Source for precise changes to table syntax, image paths or code fences. Both views share undo history. Switching documents or closing the window prompts when changes remain unsaved.
+The rendered view is editable. Use Source for precise changes to table syntax, image paths or code fences. Both views share undo history. Switching documents keeps unsaved edits in memory; a gray-white dot at the right of each file row marks pending changes. `Ctrl+S` saves only the current document. Closing Tmd prompts once to save all pending documents, exit without saving, or cancel; a failed save keeps the window open and preserves the affected edits.
+
+In Document view, a space after a valid heading, list, numbered-list or quote prefix immediately activates its preview. Additional spaces and text belong to the editable body, including at the end of a line. Backspace at the start of an indented list item first removes one indentation level, even if the item is empty. For an unindented empty item, Backspace removes the activation space and reveals the original prefix, including the complete `- [ ]` or `- [x]` task marker; another space activates the preview again. Arrow keys can still enter a hidden prefix to edit it character by character.
+
+Enter continues a quote in a separate paragraph; Enter on an empty nested quote removes one quote layer. Down moves through code lines and leaves the panel only from its last line. Deleting code text preserves the fences; Backspace at the start of an otherwise empty code panel removes the whole panel.
+
+The document editor preserves ordinary spaces and physical newlines. Enter starts the next visible line; Shift+Enter behaves the same outside tables. Headings end in plain body text. Empty lists continue; Backspace outdents first, then restores or removes the prefix. Moving a parent item moves its descendants too.
+
+In tables, Tab moves to the next cell and leaves the table at the end. Shift+Tab inserts a whole column to the right; Shift+Enter inserts a whole row below; Enter breaks the current cell. Ragged tables are completed in both source and preview and remain unsaved until you save. Links use Ctrl+click to open; clicking edits. Double-click images to edit their Markdown; Backspace first selects the image, then removes its reference. HTML stays literal. See the [complete editing policy](syntax-review/RULES.md) for detailed examples and boundary behavior.
 
 ## 3. Search and navigate
 
@@ -71,25 +79,27 @@ Drag a document from the list toward a card. Check the preview and relationship 
 
 Learning routes run horizontally. Alternatives touch the top of their main card; details are smaller cards below it with orthogonal connectors. Select a connection and press Delete, or **移除选中连线 (Remove selected connection)**, to remove the relationship while keeping the document. Double-click a card to explore from that document.
 
+Select a card and click **删除选中节点 (Delete selected node)** or press Delete to remove all its incoming and outgoing connections in one operation. Its Markdown file and unsaved edits are preserved. Documents outside the remaining tree return to the left list. Removing the center switches to a remaining node; after clearing the tree, double-click a document in the left list to establish a new center.
+
 Changing the center preserves the positions, sizes and connections of the same tree. It updates the highlight and five-step visible scope; editing relationships recalculates the layout.
 
 Use the wheel to zoom the tree and drag empty space to pan. Double-click empty space to return to the current group. Tree zoom is independent of text zoom and remembers its setting. Documents beyond the five-step scope remain in the left list.
 
 ## 5. Add images
 
-Paste screenshots or copied image files, or drop image files into the editor. Relative storage is the default: images are copied into `md_photo`, mirroring the document's folder structure. The original file is kept. Images appear directly in the document.
+Paste screenshots or copied image files, or drop image files into the editor. Images are copied into one flat `md_photo` directory beside the library and referenced by absolute paths. Identical content shares one file; originals are kept. Export with images converts references to relative paths.
 
 **设置 → 图片保存方式 (Settings → Image storage)** opens a separate window with three options across the top. Select a mode and click Apply:
 
-- **相对路径 (Relative path)**: set a directory relative to `md_data`, defaulting to `../md_photo`. The resolved location is shown. New images mirror the document folder structure.
-- **绝对路径 (Absolute path)**: specify a directory to copy new images into and use absolute references. Leave empty to reference original local files and keep screenshots in the default image directory.
+- **相对目录 (Relative directory)**: set a storage directory relative to `md_data`, defaulting to `../md_photo`. Images are stored flat with absolute references.
+- **绝对目录 (Absolute directory)**: the default mode. Specify a complete storage directory, or leave empty to use `md_photo` beside the library. Local files and screenshots are copied into this directory with absolute references.
 - **图床 (Image host)**: manage named image URLs, add/edit/delete records, choose a default, or insert a saved link. Removing a record leaves remote images and document references intact.
 
-The upload interface accepts POST multipart/form-data. Configure the endpoint, file field, JSON URL path such as `data.url`, header/form/query authentication, credential prefix and extra form fields. Pasted and dropped images then upload and insert the returned URL on success. Without an endpoint, direct image links remain usable and local images use relative storage. This interface has not been validated against a real image hosting service.
+The upload interface accepts POST multipart/form-data. Configure the endpoint, file field, JSON URL path such as `data.url`, header/form/query authentication, credential prefix and extra form fields. Pasted and dropped images then upload and insert the returned URL on success. Without an endpoint, direct image links remain usable and local images use the flat directory with absolute references. This interface has not been validated against a real image hosting service.
 
 Token/Key field credentials use Windows DPAPI local protection and are omitted from configuration exports. Re-enter them when moving computers or switching services. New directory settings apply to future images; existing image paths are preserved.
 
-Rename documents through Tmd to maintain managed relative image paths. When moving files externally, check those paths yourself. F5 refreshes the document and images.
+Renaming, moving or copying documents through Tmd maintains image references and copies referenced local images from other directories into the shared directory. When moving files externally, check those paths yourself. F5 refreshes the document and images.
 
 ## 6. Import and export
 
@@ -110,6 +120,10 @@ Back up `md_data` and `md_photo` together. Close Tmd before upgrading. Uninstall
 Open **设置 → MD加载样式 (Settings → Markdown loading styles)**. All five main sections start collapsed; click an arrow row to reveal its controls. Choose primary and fallback body fonts and a separate code font. Adjust all six heading sizes, spacing, list indentation, quote and code backgrounds, table colors and related options. Text zoom uses these font sizes as its 100% baseline.
 
 Typing three backticks opens language suggestions in both Document and Source. Type to filter, press Tab or Enter to complete, Esc to dismiss, or Ctrl+Space to reopen. Language completion, syntax highlighting, code wrapping and automatic rendering while editing have separate switches.
+
+In Document mode, paired code fences have a language label at the top left and a copy icon at the top right. Copy keeps the code's blank lines, tabs and line breaks, without fences or following prose, and leaves the selection and caret unchanged. Empty language labels show plain text; unmatched fences remain literal.
+
+Both views use language-specific syntax colors, including HTML/XML tags and attributes, C/C++ types and preprocessor directives, multiline strings and comments, and JavaScript/CSS inside HTML or Vue. Adjacent code blocks keep separate lexical states. Plain text and unknown languages stay uncolored; turning off syntax colors keeps the labels and copy buttons available.
 
 **Apply** saves and refreshes the current document. The dialog shows the automatic `Tmd-settings.txt` location. Boolean options are bit-packed, numbers and colors use compact fixed fields, and font names use UTF-8. The payload is encoded as hexadecimal TXT, cached after parsing and saved atomically.
 

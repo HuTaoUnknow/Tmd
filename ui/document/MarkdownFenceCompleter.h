@@ -29,4 +29,6 @@ private:
     ReplaceFence m_replace;
     QString m_dismissed;
     bool m_scheduled = false;
+    bool m_choiceNavigated = false;
+    int m_newFenceLineStart = -1;
 };

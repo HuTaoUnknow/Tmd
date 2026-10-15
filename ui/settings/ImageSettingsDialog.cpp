@@ -26,7 +26,7 @@ ImageSettingsDialog::ImageSettingsDialog(const QString &dataRoot, QWidget *paren
     setObjectName("imageSettingsDialog"); setWindowTitle(QStringLiteral("图片保存方式")); resize(760, 680);
     auto *outer = new QVBoxLayout(this); m_modes->setObjectName("imageStorageModes");
     auto *modeRow = new QHBoxLayout; auto *modeButtons = new QButtonGroup(this); modeButtons->setExclusive(true);
-    const QStringList modeNames = {QStringLiteral("相对路径"), QStringLiteral("绝对路径"), QStringLiteral("图床")};
+    const QStringList modeNames = {QStringLiteral("相对目录"), QStringLiteral("绝对目录"), QStringLiteral("图床")};
     for (int i = 0; i < 3; ++i) {
         auto *button = new QToolButton(this); button->setObjectName(QString("imageStorageMode%1").arg(i)); button->setText(modeNames[i]);
         button->setCheckable(true); button->setMinimumHeight(40); button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -35,22 +35,22 @@ ImageSettingsDialog::ImageSettingsDialog(const QString &dataRoot, QWidget *paren
     }
     outer->addLayout(modeRow); m_modes->tabBar()->hide(); m_modes->setDocumentMode(true); outer->addWidget(m_modes, 1);
     QWidget *relativePage = new QWidget(m_modes), *absolutePage = new QWidget(m_modes), *hostPage = new QWidget(m_modes);
-    m_modes->addTab(relativePage, QStringLiteral("相对路径")); m_modes->addTab(absolutePage, QStringLiteral("绝对路径")); m_modes->addTab(hostPage, QStringLiteral("图床"));
+    m_modes->addTab(relativePage, QStringLiteral("相对目录")); m_modes->addTab(absolutePage, QStringLiteral("绝对目录")); m_modes->addTab(hostPage, QStringLiteral("图床"));
     m_modes->setCurrentIndex(m_values.imageMode);
     modeButtons->button(m_values.imageMode)->setChecked(true);
     connect(modeButtons, &QButtonGroup::idClicked, m_modes, &QTabWidget::setCurrentIndex);
     connect(m_modes, &QTabWidget::currentChanged, this, [modeButtons](int index) { if (auto *button = modeButtons->button(index)) button->setChecked(true); });
     auto pathPage = [&](QWidget *page, bool relative) {
         auto *layout = new QVBoxLayout(page);
-        auto *description = new QLabel(relative ? QStringLiteral("相对位置以 md_data 为基准。图片子目录与文档目录保持一致，有图片时才创建。现有图片保持原地址。")
-            : QStringLiteral("指定目录后，新插入的图片会复制到该位置，并在 Markdown 中使用绝对路径。留空时，本地文件引用原位置，截图使用默认图片目录。"), page);
+        auto *description = new QLabel(relative ? QStringLiteral("目录位置以 md_data 为基准。图片直接存入同一目录，正文使用绝对路径；携图导出时转换为相对路径。")
+            : QStringLiteral("图片统一复制到保存目录，不按文档目录分层，正文使用绝对路径。留空时使用知识库旁的 md_photo；携图导出时转换为相对路径。"), page);
         description->setWordWrap(true); layout->addWidget(description);
         auto *form = new QFormLayout; auto *row = new QWidget(page); auto *line = new QLineEdit(row); auto *browse = new QPushButton(QStringLiteral("选择目录"), row);
         auto *rowLayout = new QHBoxLayout(row); rowLayout->setContentsMargins(0, 0, 0, 0); rowLayout->addWidget(line, 1); rowLayout->addWidget(browse);
         auto *location = new QLabel(page); location->setWordWrap(true); form->addRow(relative ? QStringLiteral("相对位置") : QStringLiteral("保存位置"), row);
         form->addRow(QStringLiteral("实际位置"), location); layout->addLayout(form); layout->addStretch(1);
         if (relative) { m_relative = line; m_relativeLocation = location; line->setObjectName("relativeImageDirectory"); line->setText(m_values.relativePhotoPath); }
-        else { m_absolute = line; m_absoluteLocation = location; line->setObjectName("absoluteImageDirectory"); line->setText(m_values.absolutePhotoPath); line->setPlaceholderText(QStringLiteral("留空：本地文件引用原位置")); }
+        else { m_absolute = line; m_absoluteLocation = location; line->setObjectName("absoluteImageDirectory"); line->setText(m_values.absolutePhotoPath); line->setPlaceholderText(QStringLiteral("留空：知识库旁的 md_photo")); }
         connect(browse, &QPushButton::clicked, this, [this, line, relative] {
             const QString initial = relative ? QDir(m_dataRoot).absoluteFilePath(line->text()) : line->text();
             const QString directory = QFileDialog::getExistingDirectory(this, QStringLiteral("选择图片目录"), initial);

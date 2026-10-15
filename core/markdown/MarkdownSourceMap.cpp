@@ -1,6 +1,8 @@
 #include "core/markdown/MarkdownSourceMap.h"
 #include "core/markdown/MarkdownImages.h"
 #include "core/markdown/MarkdownAnalysis.h"
+#include "core/markdown/MarkdownSyntax.h"
+#include "core/markdown/MarkdownBlockSyntax.h"
 #include <QRegularExpression>
 #include <QTextDocumentFragment>
 #include <algorithm>
@@ -47,32 +49,39 @@ QVector<int> align(const QString &a, const QString &b) {
     return result;
 }
 }
-void MarkdownSourceMap::rebuild(const QString &source, const QString &display) {
+void MarkdownSourceMap::rebuild(const QString &source, const QString &display, const QVector<QPair<int, int>> &blockBoundaries) {
     m_source = source; m_display = display; m_containers.clear(); m_boundaries.clear();
+    for (const auto &boundary : blockBoundaries) m_boundaries.insert(boundary.first, boundary.second);
     QString visible; QVector<Span> candidates;
-    const auto analysis = MarkdownAnalysis::scan(source);
+    const auto analysis = MarkdownAnalysis::forRendering(source);
+    const auto syntax = MarkdownSyntax::scan(source, &analysis);
+    QMap<int, int> editablePrefixEnds;
+    for (const auto &marker : MarkdownBlockSyntax::markers(source, &analysis)) if (marker.prefix) editablePrefixEnds.insert(marker.lineStart, marker.end);
     QVector<char> opaque(source.size(), 0);
-    for (const auto &range : analysis.comments) std::fill(opaque.begin() + range.start, opaque.begin() + range.end, 1);
     QSet<int> imagePositions; for (const auto &image : MarkdownImages::parse(source, analysis)) imagePositions.insert(image.position);
     auto append = [&](QChar character, int start, int end) { visible += character; candidates.append({start, end}); };
-    static const QRegularExpression prefix("^ {0,3}(?:#{1,6} +|(?:> ?)+|(?:[-+*]|[0-9]+[.)]) +(?:\\[[ xX]\\] +)?)");
-    static const QRegularExpression hidden("^ {0,3}(?:\\[[^]]+\\]:.*|(?:[-*_] *){3,}|[=-]+ *|\\|? *:?-{3,}:? *(?:\\| *:?-{3,}:? *)+\\|?)$");
+    static const QRegularExpression hidden(R"(^ {0,3}(?:\[[^]]+\]:.*|(?:-[ \t]*){3,}|(?:[*][ \t]*){3,}|(?:_[ \t]*){3,}|\|? *:?-{3,}:? *(?:\| *:?-{3,}:? *)+\|?)$)");
     for (const auto &classified : analysis.lines) {
         const int lineStart = classified.start, end = classified.end;
         const QString line = source.mid(lineStart, end - lineStart);
-        if (classified.fenceMarker) continue;
+        const bool revealed = std::any_of(m_literalRanges.cbegin(), m_literalRanges.cend(), [&](const auto &r) { return r.start <= lineStart && r.end >= end; });
+        if (classified.fenceMarker || (!revealed && syntax.underlineLines.contains(classified.start))) continue;
         const bool code = classified.code;
-        if (!code && hidden.match(line).hasMatch()) continue;
+        if (!code && !revealed && hidden.match(line).hasMatch()) continue;
         int start = code ? classified.contentStart : lineStart;
         if (!code) {
-            auto match = prefix.match(line); if (match.hasMatch()) start += match.capturedLength();
-            while (start < end) { match = prefix.match(source.mid(start, end - start)); if (!match.hasMatch()) break; start += match.capturedLength(); }
+            // The renderer and the caret map must agree on the exact active
+            // prefix. In particular, an unfinished task marker is literal.
+            start = editablePrefixEnds.value(lineStart, lineStart);
         }
         const bool table = !code && line.contains('|') && (line.trimmed().startsWith('|') || line.count('|') >= 2);
         for (int i = start; i < end;) {
             if (opaque[i]) { ++i; continue; }
             const QChar character = source[i];
-            if (code) { append(character, i, i + 1); ++i; continue; }
+            if (std::any_of(m_literalRanges.cbegin(), m_literalRanges.cend(), [&](const auto &r) { return i >= r.start && i < r.end; })) {
+                append(character, i, i + 1); ++i; continue;
+            }
+            if (code || classified.html || classified.comment) { append(character, i, i + 1); ++i; continue; }
             if (character == '\\' && i + 1 < end && source[i + 1].isPunct()) { append(source[i + 1], i, i + 2); i += 2; continue; }
             if (character == '&') {
                 const int semi = source.indexOf(';', i + 1);
@@ -86,8 +95,11 @@ void MarkdownSourceMap::rebuild(const QString &source, const QString &display) {
                 const int close = source.indexOf('>', i + 1);
                 if (close >= 0 && close < end) {
                     const QString inside = source.mid(i + 1, close - i - 1);
-                    if (inside.startsWith("img ", Qt::CaseInsensitive)) append(QChar::ObjectReplacementCharacter, i, close + 1);
-                    else if (inside.startsWith("http") || inside.contains('@')) { for (int j = i + 1; j < close; ++j) append(source[j], j, j + 1); }
+                    QString tag = inside.trimmed(); if (tag.endsWith('/')) { tag.chop(1); tag = tag.trimmed(); }
+                    if (table && tag.compare("br", Qt::CaseInsensitive) == 0) append(QChar::LineSeparator, i, close + 1);
+                    else if (inside.startsWith("https://") || inside.startsWith("http://") || QRegularExpression("^[^ <>@]+@[^ <>@]+$").match(inside).hasMatch())
+                        { for (int j = i + 1; j < close; ++j) append(source[j], j, j + 1); }
+                    else for (int j = i; j <= close; ++j) append(source[j], j, j + 1);
                     i = close + 1; continue;
                 }
             }
@@ -140,29 +152,165 @@ void MarkdownSourceMap::rebuild(const QString &source, const QString &display) {
         while (after < m_spans.size() && m_spans[after].start < 0) ++after;
         const int begin = before < 0 ? 0 : m_spans[before].end, end = after == m_spans.size() ? source.size() : m_spans[after].start;
         int found = source.indexOf(display[i], begin);
-        if ((found < 0 || found >= end) && display[i] == ' ') found = source.indexOf('\n', begin);
+        if (display[i] == ' ') {
+            const int newline = source.indexOf('\n', begin);
+            if (newline >= begin && newline < end && (found < 0 || found >= end || newline < found)) found = newline;
+        }
         if (found >= begin && found < end) m_spans[i] = {found, found + 1};
     }
+    // Keep link/image transactions, but take formatting delimiters from the
+    // semantic parser so unmatched punctuation never becomes an edit container.
+    m_containers.erase(std::remove_if(m_containers.begin(), m_containers.end(), [&](const auto &c) {
+        return c.start >= 0 && c.start < source.size() && QString("`*_~").contains(source[c.start]);
+    }), m_containers.end());
+    for (const auto &format : syntax.formats) m_containers.append({format.start, format.end, format.contentStart, format.contentEnd, format.code});
+    std::sort(m_containers.begin(), m_containers.end(), [](const auto &a, const auto &b) { return a.start < b.start; });
     indexInlineCodes();
 }
-void MarkdownSourceMap::indexInlineCodes() {
-    m_inlineCodes.clear();
-    for (const auto &container : m_containers) if (container.inlineCode)
-        m_inlineCodes.append({-1, -1, container.start, container.end, container.contentStart, container.contentEnd});
-    // Source spans and containers are in document order. One pass replaces
-    // the previous containers-by-characters search on every cursor movement.
-    int active = 0;
-    for (int i = 0; i < m_spans.size() && active < m_inlineCodes.size(); ++i) {
-        const auto &span = m_spans[i]; if (span.start < 0) continue;
-        while (active < m_inlineCodes.size() && span.start >= m_inlineCodes[active].contentEnd) ++active;
-        if (active == m_inlineCodes.size()) break;
-        auto &code = m_inlineCodes[active];
-        if (span.start >= code.contentStart && span.end <= code.contentEnd) {
-            if (code.displayStart < 0) code.displayStart = i;
-            code.displayEnd = i + 1;
+QVector<MarkdownSourceMap::WhitespaceEdit> MarkdownSourceMap::editableWhitespaceEdits() const {
+    QVector<WhitespaceEdit> result;
+    const auto analysis = MarkdownAnalysis::forRendering(m_source);
+    const auto syntax = MarkdownSyntax::scan(m_source, &analysis);
+    const auto markers = MarkdownBlockSyntax::markers(m_source, &analysis);
+    QMap<int, int> markerEnds;
+    for (const auto &marker : markers) markerEnds[marker.lineStart] = qMax(markerEnds.value(marker.lineStart), marker.end);
+    QMap<int, int> prefixEnds;
+    for (const auto &marker : markers) if (marker.prefix) prefixEnds.insert(marker.lineStart, marker.end);
+    const auto add = [&](int start, int end) {
+        if (start == end) return;
+        const int position = displayPosition(start); int removed = 0;
+        while (position + removed < m_spans.size()) {
+            const auto &span = m_spans[position + removed];
+            if (span.start < start || span.end > end || (m_display[position + removed] != ' ' && m_display[position + removed] != '\t')) break;
+            ++removed;
         }
+        const QString whitespace = m_source.mid(start, end - start);
+        if (m_display.mid(position, removed) != whitespace) result.append({position, removed, whitespace});
+    };
+    static const QRegularExpression hidden(R"(^ {0,3}(?:\[[^]]+\]:.*|(?:-[ \t]*){3,}|(?:[*][ \t]*){3,}|(?:_[ \t]*){3,})$)");
+    for (const auto &line : analysis.lines) {
+        if (line.code || line.fenceMarker || line.start < syntax.frontMatterEnd
+            || syntax.underlineLines.contains(line.start)) continue;
+        const int prefixEnd = prefixEnds.value(line.start, -1); int gapEnd = prefixEnd;
+        if (prefixEnd < 0) {
+            int leading = line.start;
+            while (leading < line.end && (m_source[leading] == ' ' || m_source[leading] == '\t')) ++leading;
+            if (!hidden.match(m_source.mid(line.start, line.end - line.start)).hasMatch()) add(line.start, leading);
+        }
+        while (gapEnd >= 0 && gapEnd < line.end && (m_source[gapEnd] == ' ' || m_source[gapEnd] == '\t')) ++gapEnd;
+        if (prefixEnd >= 0) add(prefixEnd, gapEnd);
+        int start = line.end;
+        while (start > line.start && (m_source[start - 1] == ' ' || m_source[start - 1] == '\t')) --start;
+        if (start == line.end || start == line.start || (prefixEnd >= 0 && start < gapEnd)) continue;
+        const QString text = m_source.mid(line.start, line.end - line.start);
+        if (hidden.match(text).hasMatch() || text.trimmed().endsWith('|')) continue;
+        if (markerEnds.value(line.start) > start) continue;
+        add(start, line.end);
     }
-    m_inlineCodes.erase(std::remove_if(m_inlineCodes.begin(), m_inlineCodes.end(), [](const auto &code) { return !code.valid(); }), m_inlineCodes.end());
+    return result;
+}
+void MarkdownSourceMap::indexInlineCodes() {
+    m_inlineCodes.clear(); m_inlineFormats.clear();
+    QVector<QPair<int, int>> mapped;
+    for (int i = 0; i < m_spans.size(); ++i) if (m_spans[i].start >= 0) mapped.append({m_spans[i].start, i});
+    for (const auto &c : m_containers) {
+        if (c.start < 0 || c.end > m_source.size() || !QString("`*_~").contains(m_source[c.start])) continue;
+        const auto first = std::lower_bound(mapped.cbegin(), mapped.cend(), c.contentStart,
+            [](const auto &p, int at) { return p.first < at; });
+        const auto after = std::lower_bound(first, mapped.cend(), c.contentEnd,
+            [](const auto &p, int at) { return p.first < at; });
+        if (first == after) continue;
+        InlineFormat format{first->second, (after - 1)->second + 1, c.start, c.end, c.contentStart, c.contentEnd,
+            m_source.mid(c.start, c.contentStart - c.start), m_source.mid(c.contentEnd, c.end - c.contentEnd), c.inlineCode};
+        m_inlineFormats.append(format); if (format.code) m_inlineCodes.append(format);
+    }
+    const auto order = [](const auto &a, const auto &b) { return a.displayStart < b.displayStart; };
+    std::stable_sort(m_inlineFormats.begin(), m_inlineFormats.end(), order);
+    QVector<InlineFormat> merged;
+    for (const auto &format : m_inlineFormats) {
+        if (!merged.isEmpty() && merged.back().displayStart == format.displayStart && merged.back().displayEnd == format.displayEnd) {
+            auto &whole = merged.back(); whole.sourceStart = qMin(whole.sourceStart, format.sourceStart); whole.sourceEnd = qMax(whole.sourceEnd, format.sourceEnd);
+            whole.contentStart = qMax(whole.contentStart, format.contentStart); whole.contentEnd = qMin(whole.contentEnd, format.contentEnd); whole.code |= format.code;
+            whole.opening = m_source.mid(whole.sourceStart, whole.contentStart - whole.sourceStart); whole.closing = m_source.mid(whole.contentEnd, whole.sourceEnd - whole.contentEnd);
+        } else merged.append(format);
+    }
+    m_inlineFormats = merged; indexBlockMarkers(mapped); m_formatEndPrefix.clear(); m_markerBoundaries.clear(); m_markerRanges.clear(); int furthest = 0;
+    auto boundary = [&](int display, int first, int last) {
+        m_markerRanges[display].append({first, last});
+        auto &group = m_markerBoundaries[display]; group.displayPosition = display;
+        group.sourceStart = group.sourceStart < 0 ? first : qMin(group.sourceStart, first);
+        group.sourceEnd = qMax(group.sourceEnd, last);
+    };
+    for (const auto &format : m_inlineFormats) {
+        boundary(format.displayStart, format.sourceStart, format.contentStart);
+        boundary(format.displayEnd, format.contentEnd, format.sourceEnd);
+    }
+    for (const auto &marker : m_blockMarkers) boundary(marker.displayPosition, marker.sourceStart, marker.sourceEnd);
+    for (auto &ranges : m_markerRanges)
+        std::sort(ranges.begin(), ranges.end(), [](const auto &a, const auto &b) { return a.start < b.start; });
+    for (const auto &format : m_inlineFormats) { furthest = qMax(furthest, format.displayEnd); m_formatEndPrefix.append(furthest); }
+    std::sort(m_inlineCodes.begin(), m_inlineCodes.end(), order);
+}
+void MarkdownSourceMap::indexBlockMarkers(const QVector<QPair<int, int>> &mapped) {
+    m_blockMarkers.clear(); QMap<int, int> explicitPositions;
+    for (auto it = m_boundaries.cbegin(); it != m_boundaries.cend(); ++it) explicitPositions.insert(it.value(), it.key());
+    const auto firstAt = [&](int source) { return std::lower_bound(mapped.cbegin(), mapped.cend(), source,
+        [](const auto &p, int at) { return p.first < at; }); };
+    for (auto marker : MarkdownBlockSyntax::markers(m_source)) {
+        int display = -1;
+        const auto visible = firstAt(marker.start);
+        // A prefix already visible as literal text must not be painted twice.
+        if (visible != mapped.cend() && visible->first < marker.end) {
+            if (!marker.prefix) continue;
+            marker.end = visible->first;
+        }
+        if (marker.end <= marker.start) continue;
+        if (marker.prefix) {
+            const auto body = firstAt(marker.end);
+            if (body != mapped.cend() && body->first <= marker.lineEnd) display = body->second;
+            if (explicitPositions.contains(marker.end)) display = explicitPositions.value(marker.end);
+            if (display < 0 && m_display.isEmpty()) display = 0;
+        } else {
+            const auto before = firstAt(marker.start);
+            if (before != mapped.cbegin()) {
+                const int index = (before - 1)->second;
+                if (m_spans[index].start >= marker.lineStart && m_spans[index].end <= marker.start) display = index + 1;
+            }
+        }
+        if (display < 0) continue;
+        m_blockMarkers.append({display, marker.start, marker.end, marker.lineStart, marker.lineEnd,
+            m_source.mid(marker.start, marker.end - marker.start), marker.prefix});
+        if (marker.prefix && !m_boundaries.contains(display)) m_boundaries.insert(display, marker.end);
+    }
+}
+bool MarkdownSourceMap::isInsideBlockMarker(int source) const {
+    for (const auto &marker : m_blockMarkers) if (source >= marker.sourceStart && source < marker.sourceEnd) return true;
+    return false;
+}
+MarkdownSourceMap::MarkerBoundary MarkdownSourceMap::markerBoundaryAt(int position) const {
+    return m_markerBoundaries.value(position);
+}
+int MarkdownSourceMap::stepAcrossMarker(int display, int source, bool right) const {
+    const auto boundary = markerBoundaryAt(display);
+    if (!boundary.valid()) return -1;
+    if (source < boundary.sourceStart || source > boundary.sourceEnd) return -1;
+    const auto found = m_markerRanges.constFind(display); if (found == m_markerRanges.cend()) return -1;
+    if (right) {
+        for (const auto &range : found.value()) if (source < range.end) return qMax(source, range.start) + 1;
+    } else {
+        for (auto it = found.value().crbegin(); it != found.value().crend(); ++it) if (source > it->start) return qMin(source, it->end) - 1;
+    }
+    return -1;
+}
+MarkdownSourceMap::InlineFormat MarkdownSourceMap::inlineFormatAt(int position) const {
+    InlineFormat result;
+    const auto after = std::upper_bound(m_inlineFormats.cbegin(), m_inlineFormats.cend(), position,
+        [](int at, const auto &format) { return at < format.displayStart; });
+    for (int i = after - m_inlineFormats.cbegin() - 1; i >= 0 && m_formatEndPrefix[i] >= position; --i) {
+        const auto &format = m_inlineFormats[i];
+        if (position <= format.displayEnd && (!result.valid() || format.sourceEnd - format.sourceStart < result.sourceEnd - result.sourceStart)) result = format;
+    }
+    return result;
 }
 MarkdownSourceMap::InlineCode MarkdownSourceMap::inlineCodeAt(int position) const {
     const auto found = std::lower_bound(m_inlineCodes.cbegin(), m_inlineCodes.cend(), position,
@@ -178,20 +326,35 @@ int MarkdownSourceMap::sourcePosition(int position) const {
     return m_source.size();
 }
 int MarkdownSourceMap::displayPosition(int position) const {
+    // Every delimiter character has a source caret even though the glyph is
+    // painted separately. Preserve intermediate positions during reloads.
+    for (const auto &boundary : m_markerBoundaries)
+        if (position >= boundary.sourceStart && position <= boundary.sourceEnd) return boundary.displayPosition;
     int result = 0, distance = INT_MAX;
     for (int i = 0; i < m_spans.size(); ++i) if (m_spans[i].start >= 0) {
         const int delta = qAbs(m_spans[i].start - position);
         if (delta < distance) { result = i; distance = delta; }
+        const int endDistance = qAbs(m_spans[i].end - position);
+        if (m_spans[i].end >= 0 && endDistance < distance) { result = i + 1; distance = endDistance; }
     }
     for (auto it = m_boundaries.cbegin(); it != m_boundaries.cend(); ++it) {
         const int delta = qAbs(it.value() - position);
         if (delta <= distance) { result = it.key(); distance = delta; }
     }
-    if (!m_spans.isEmpty() && position >= sourcePosition(m_spans.size())) return m_spans.size();
+    // A table's final frame separator has no source glyph. An exact body or
+    // empty-cell boundary must win over the document-end fallback.
+    if (distance > 0 && !m_spans.isEmpty() && position >= m_source.size()) return m_spans.size();
     return result;
 }
 MarkdownSourceMap::EditPlan MarkdownSourceMap::planEdit(int position, int removed, const QString &inserted) const {
-    if (position == 0 && removed >= m_display.size() && removed > 0) return {{{0, int(m_source.size())}}, 0, inserted};
+    const bool singlePrefixedBody = !m_display.contains('\n') && std::any_of(m_blockMarkers.cbegin(), m_blockMarkers.cend(), [](const auto &marker) { return marker.prefix; });
+    if (position == 0 && removed >= m_display.size() && removed > 0 && !singlePrefixedBody) {
+        const auto analysis = MarkdownAnalysis::forRendering(m_source);
+        const bool singleFencedBody = analysis.fences.size() == 1 && analysis.fences[0].closed()
+            && m_source.left(analysis.fences[0].start).trimmed().isEmpty()
+            && m_source.mid(analysis.fences[0].end).trimmed().isEmpty();
+        if (!singleFencedBody) return {{{0, int(m_source.size())}}, 0, inserted};
+    }
     const int end = qMin(position + removed, int(m_spans.size()));
     int insertion = sourcePosition(position); QVector<Span> ranges;
     if (removed > 0) for (int i = position; i < end; ++i) if (m_spans[i].start >= 0) { insertion = m_spans[i].start; break; }
@@ -209,6 +372,7 @@ MarkdownSourceMap::EditPlan MarkdownSourceMap::planEdit(int position, int remove
         int next = i + 1; while (next < m_spans.size() && m_spans[next].start < 0) ++next;
         if (next < m_spans.size()) ranges.append({m_spans[i].start, m_spans[next].start});
     }
+    if (inserted.isEmpty()) ranges = MarkdownSpelling::protectDeletions(m_source, ranges);
     std::sort(ranges.begin(), ranges.end(), [](Span a, Span b) { return a.start < b.start; });
     QVector<Span> merged;
     for (const auto &range : ranges) {
@@ -256,6 +420,7 @@ QString MarkdownSourceMap::applyEdit(int position, int removed, const QString &s
         for (const auto &range : plan.ranges) if (range.start <= container.start && range.end >= container.end) deleted = true;
         if (!deleted) containers.append({translate(container.start, true), translate(container.end, false), translate(container.contentStart, false), translate(container.contentEnd, true), container.inlineCode});
     }
+    for (auto &range : m_literalRanges) { range.start = translate(range.start, false); range.end = translate(range.end, true); }
     m_spans = updated; m_containers = containers; m_source = plan.source;
     QMap<int, int> boundaries;
     for (auto it = m_boundaries.cbegin(); it != m_boundaries.cend(); ++it) {

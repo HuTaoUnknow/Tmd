@@ -123,6 +123,21 @@ bool MarkdownManager::removeRelation(const QString &source, const QString &targe
     m_relations = next; applyRelations(); ++m_graphRevision; emit relationsChanged();
     return true;
 }
+bool MarkdownManager::removeNodeRelations(const QString &path, QString *error) {
+    if (!loadNode(path)) return fail(error, QStringLiteral("请选择存在的 Markdown 节点。"));
+    const QString key = keyFor(path);
+    RelationStore next = m_relations;
+    bool changed = next.remove(key) > 0;
+    for (auto source = next.begin(); source != next.end();) {
+        changed = source->remove(key) > 0 || changed;
+        if (source->isEmpty()) source = next.erase(source); else ++source;
+    }
+    if (!changed) return true;
+    // Commit every incoming and outgoing connection together; document state is untouched.
+    if (!persistRelations(next, error)) return false;
+    m_relations = next; applyRelations(); ++m_graphRevision; emit relationsChanged();
+    return true;
+}
 bool MarkdownManager::setRelation(const QString &source, const QString &target, NodeRelationType type, QString *error) {
     const QString sourceKey = keyFor(source), targetKey = keyFor(target);
     if (!loadNode(source) || !loadNode(target)) return fail(error, QStringLiteral("请选择存在的 Markdown 节点。"));

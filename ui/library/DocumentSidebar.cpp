@@ -1,5 +1,6 @@
 #include "ui/library/DocumentSidebar.h"
 #include "ui/library/DocumentTreeBuilder.h"
+#include "ui/library/DocumentFileTree.h"
 #include "ui/common/AppIcon.h"
 #include "core/library/MarkdownNode.h"
 #include <QFileInfo>
@@ -16,6 +17,7 @@
 #include <QPainter>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QApplication>
 #include <QKeyEvent>
 #include <QResizeEvent>
 #include <QRegularExpression>
@@ -37,7 +39,7 @@ QColor blend(const QColor &from, const QColor &to, qreal progress) {
 }
 
 DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new QStackedWidget(this)),
-    m_quickButton(new QToolButton(this)), m_search(new QLineEdit(this)), m_tree(new QTreeWidget(this)) {
+    m_quickButton(new QToolButton(this)), m_search(new QLineEdit(this)), m_tree(new DocumentFileTree(this)) {
     setObjectName("documentSidebar");
     setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Expanding);
     auto *outer = new QVBoxLayout(this); outer->setContentsMargins(0, 0, 0, 0);
@@ -56,6 +58,8 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
     m_tree->setObjectName("documentTree"); m_tree->setHeaderHidden(true); m_tree->setIndentation(16);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu); m_tree->viewport()->installEventFilter(this);
     connect(m_tree, &QTreeWidget::customContextMenuRequested, this, &DocumentSidebar::showContextMenu);
+    connect(static_cast<DocumentFileTree *>(m_tree), &DocumentFileTree::moveRequested, this, &DocumentSidebar::movePathRequested);
+    connect(static_cast<DocumentFileTree *>(m_tree), &DocumentFileTree::moveDocumentsRequested, this, &DocumentSidebar::moveDocumentsRequested);
     m_pages->addWidget(full);
     auto *rail = new QWidget(m_pages); rail->setObjectName("documentSidebarCompact");
     m_compactIcon = new QLabel(rail); m_compactIcon->setObjectName("compactBrandIcon"); m_compactIcon->setToolTip(QStringLiteral("Tmd"));
@@ -70,7 +74,7 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
     connect(m_quickButton, &QToolButton::clicked, this, &DocumentSidebar::openQuickSearch);
     connect(m_search, &QLineEdit::textChanged, this, &DocumentSidebar::filter);
     connect(m_tree, &QTreeWidget::itemClicked, this, [this](QTreeWidgetItem *item) {
-        if (m_rightClick) return;
+        if (m_rightClick || m_tree->selectedItems().size() > 1 || QApplication::keyboardModifiers().testFlag(Qt::ControlModifier) || QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) return;
         const QString path = item->data(0, Qt::UserRole).toString();
         if (!path.isEmpty()) emit documentActivated(path);
     });
@@ -79,16 +83,24 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
         if (!path.isEmpty()) emit documentActivated(path);
     });
 }
+void DocumentSidebar::setLibraryRoot(const QString &root) { static_cast<DocumentFileTree *>(m_tree)->setLibraryRoot(root); }
+void DocumentSidebar::remapDirectoryState(const QString &from, const QString &to) { static_cast<DocumentFileTree *>(m_tree)->remapDirectoryState(from, to); }
 void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directoryPaths) {
     const QSignalBlocker blocker(m_tree);
+    static_cast<DocumentFileTree *>(m_tree)->finishTransientExpansion();
     m_tree->clear();
     m_entries.clear();
     DocumentTreeBuilder builder(m_tree);
     for (const auto &path : directoryPaths) builder.directory(path);
     for (const auto *node : nodes) {
         const QString title = node->title(); m_entries.append({node->relativePath(), title});
-        builder.document(node->relativePath(), title);
+        auto *item = builder.document(node->relativePath(), title);
+        item->setData(0, DocumentTreeBuilder::ModifiedRole, node->isModified());
+        if (node->isModified()) item->setToolTip(0, item->toolTip(0) + QStringLiteral("\n未保存"));
     }
+    QTreeWidgetItemIterator items(m_tree);
+    while (*items) { (*items)->setFlags((*items)->flags() | Qt::ItemIsDragEnabled); ++items; }
+    static_cast<DocumentFileTree *>(m_tree)->restoreDirectoryStates();
     filter();
     if (m_quickPopup && m_quickPopup->isVisible()) refreshQuickResults();
 }
@@ -97,23 +109,32 @@ void DocumentSidebar::updateTitle(const QString &path, const QString &title) {
     DocumentTreeBuilder::updateTitle(m_tree, path, title);
     filter(); if (m_quickPopup && m_quickPopup->isVisible()) refreshQuickResults();
 }
+void DocumentSidebar::updateModified(const QString &path, bool modified) { DocumentTreeBuilder::updateModified(m_tree, path, modified); }
 void DocumentSidebar::selectPath(const QString &path) {
     m_current = path;
     const QSignalBlocker blocker(m_tree);
     if (path.isEmpty()) { m_tree->setCurrentItem(nullptr); m_tree->clearSelection(); return; }
     QTreeWidgetItemIterator it(m_tree);
     while (*it) {
-        if ((*it)->data(0, Qt::UserRole).toString() == path) { m_tree->setCurrentItem(*it); return; }
+        if ((*it)->data(0, Qt::UserRole).toString() == path) {
+            m_tree->setCurrentItem(*it); static_cast<DocumentFileTree *>(m_tree)->restoreDirectoryStates(); return;
+        }
         ++it;
     }
     m_tree->clearSelection();
 }
 void DocumentSidebar::selectDirectory(const QString &path) {
     m_search->clear();
+    const QSignalBlocker blocker(m_tree);
     QTreeWidgetItemIterator it(m_tree);
     while (*it) {
         if ((*it)->data(0, Qt::UserRole + 2).toString() == path) {
-            m_tree->setCurrentItem(*it); m_tree->scrollToItem(*it); return;
+            auto *item = *it; bool visible = true;
+            for (auto *parent = item->parent(); parent; parent = parent->parent()) visible = visible && parent->isExpanded();
+            m_tree->setCurrentItem(item);
+            static_cast<DocumentFileTree *>(m_tree)->restoreDirectoryStates();
+            if (visible) m_tree->scrollToItem(item);
+            return;
         }
         ++it;
     }
@@ -131,22 +152,25 @@ void DocumentSidebar::showContextMenu(const QPoint &position) {
         const int separator = document.lastIndexOf('/');
         parentPath = separator < 0 ? QString() : document.left(separator);
     }
-    auto *newDocument = menu->addAction(QStringLiteral("新建 MD 文档")); newDocument->setObjectName("contextCreateDocument");
+    auto *newDocument = menu->addAction(document.isEmpty() ? QStringLiteral("新建MD文档") : QStringLiteral("新建")); newDocument->setObjectName("contextCreateDocument");
     connect(newDocument, &QAction::triggered, this, [this, parentPath] { emit createDocumentRequested(parentPath); });
     if (!document.isEmpty()) {
-        menu->addSeparator();
         auto *rename = menu->addAction(QStringLiteral("重命名")); rename->setObjectName("contextRenameDocument");
-        auto *remove = menu->addAction(QStringLiteral("删除（移入回收站）")); remove->setObjectName("contextDeleteDocument");
+        auto *remove = menu->addAction(QStringLiteral("删除")); remove->setObjectName("contextDeleteDocument");
         connect(rename, &QAction::triggered, this, [this, document] { emit renameDocumentRequested(document); });
         connect(remove, &QAction::triggered, this, [this, document] { emit deleteDocumentRequested(document); });
     } else {
         auto *create = menu->addAction(QStringLiteral("新建文件夹")); create->setObjectName("contextCreateDirectory");
         connect(create, &QAction::triggered, this, [this, directory] { emit createDirectoryRequested(directory); });
         if (!directory.isEmpty()) {
-            menu->addSeparator();
-            auto *remove = menu->addAction(QStringLiteral("删除文件夹（移入回收站）")); remove->setObjectName("contextDeleteDirectory");
+            auto *rename = menu->addAction(QStringLiteral("重命名文件夹")); rename->setObjectName("contextRenameDirectory");
+            connect(rename, &QAction::triggered, this, [this, directory] { emit renameDirectoryRequested(directory); });
+            auto *remove = menu->addAction(QStringLiteral("删除文件夹")); remove->setObjectName("contextDeleteDirectory");
             connect(remove, &QAction::triggered, this, [this, directory] { emit deleteDirectoryRequested(directory); });
         }
+        menu->addSeparator();
+        auto *explorer = menu->addAction(QStringLiteral("在文件管理器打开")); explorer->setObjectName("contextOpenFileManager");
+        connect(explorer, &QAction::triggered, this, [this, directory] { emit openFileManagerRequested(directory); });
     }
     menu->popup(m_tree->viewport()->mapToGlobal(position));
 }

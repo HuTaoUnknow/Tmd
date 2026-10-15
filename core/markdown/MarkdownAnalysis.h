@@ -9,6 +9,7 @@ struct MarkdownAnalysis {
     struct Line {
         int start = 0, end = 0, contentStart = 0, number = 0;
         bool code = false, fenceMarker = false, html = false, comment = false;
+        int listMarkerStart = -1;
     };
     struct Fence {
         int start = 0, headerEnd = 0, bodyStart = 0, closeStart = -1, end = 0;
@@ -21,6 +22,8 @@ struct MarkdownAnalysis {
     QVector<Range> opaque;
     QVector<Range> comments;
     QVector<InlineCode> inlineCodes;
-    static MarkdownAnalysis scan(const QString &source);
+    QVector<Range> literalFences;
+    static MarkdownAnalysis scan(const QString &source, bool indentedCode = false);
+    static MarkdownAnalysis forRendering(const QString &source);
     QVector<char> literalMask(int sourceLength) const;
 };

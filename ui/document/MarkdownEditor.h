@@ -11,6 +11,8 @@ public:
     void setSource(const QString &source);
     QString source() const { return document()->toRawText().replace(QChar::ParagraphSeparator, '\n'); }
     void goToPosition(int position);
+    int viewportSourcePosition() const;
+    void alignSourcePosition(int position);
     void setHostedLinkInput(bool enabled) { m_hostedLinks = enabled; }
     void setZoomPercent(int percent);
     int zoomPercent() const { return m_zoomPercent; }
@@ -29,4 +31,6 @@ private:
     bool m_hostedLinks = false;
     int m_zoomPercent = 100, m_wheelRemainder = 0;
     class MarkdownFenceCompleter *m_fenceCompleter;
+    class MarkdownViewport *m_viewport;
+    class CodeSyntaxHighlighter *m_highlighter;
 };

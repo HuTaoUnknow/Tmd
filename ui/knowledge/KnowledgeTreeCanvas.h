@@ -34,10 +34,12 @@ public:
     void restoreView();
     void centerCurrent();
     void removeSelectedRelation();
+    void removeSelectedNode();
 signals:
     void nodeActivated(const QString &path);
     void relationRequested(const QString &source, const QString &target, NodeRelationType type);
     void relationRemoveRequested(const QString &source, const QString &target);
+    void nodeRemoveRequested(const QString &path);
     void rootRequested(const QString &path);
     void selectionChanged();
     void previewChanged(const QString &message);

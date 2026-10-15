@@ -14,8 +14,10 @@ public:
 private:
     void refresh();
     void filter();
+    void removeNode(const QString &path);
     MarkdownManager *m_manager;
     QString m_source;
+    bool m_emptyTree = false;
     QTreeWidget *m_available;
     QLineEdit *m_search;
     KnowledgeTreeCanvas *m_canvas;

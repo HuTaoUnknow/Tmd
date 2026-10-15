@@ -1,4 +1,5 @@
 #include "core/markdown/MarkdownAnalysis.h"
+#include "core/markdown/MarkdownSyntax.h"
 #include <QRegularExpression>
 #include <algorithm>
 
@@ -10,31 +11,46 @@ bool escaped(const QString &source, int position) {
 }
 }
 
-MarkdownAnalysis MarkdownAnalysis::scan(const QString &source) {
-    static const QRegularExpression prefix("^((?: {0,3}(?:>[ \\t]?|(?:[-+*]|[0-9]+[.)])[ \\t]+))* {0,3})");
-    static const QRegularExpression quotes("^(?: {0,3}>[ \\t]?)*");
+MarkdownAnalysis MarkdownAnalysis::scan(const QString &source, bool indentedCode) {
+    static const QRegularExpression prefix("^((?: {0,3}(?:> +|(?:[-+*]|[0-9]+[.)]) +))* {0,3})");
+    static const QRegularExpression quotes("^(?: {0,3}> +)*");
     static const QRegularExpression list("[-+*]|[0-9]+[.)]");
+    static const QRegularExpression listStart("^( *)([-+*]|[0-9]{1,9}[.)])( +)");
     static const QRegularExpression fence("^(`{3,}|~{3,})(.*)$");
     static const QRegularExpression rawHtml("^<(pre|script|style|textarea)(?=[ \\t>])", QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression htmlTag("^</?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul)(?=[ \\t>/])", QRegularExpression::CaseInsensitiveOption);
     MarkdownAnalysis result;
+    const int metadataEnd = MarkdownSyntax::frontMatterEnd(source);
+    if (metadataEnd) result.opaque.append({0, metadataEnd});
     int active = -1, fenceQuotes = 0, listIndent = 0, fenceIndent = 0;
     QString htmlEnd;
     bool htmlUntilBlank = false, htmlOpaque = false;
     int number = 0;
+    QVector<QPair<int, int>> listParents;
+    int listQuoteDepth = 0, listBlankLines = 0;
     for (int start = 0; start < source.size();) {
         int end = source.indexOf('\n', start);
         if (end < 0) end = source.size();
         const QString line = source.mid(start, end - start);
-        const QString container = prefix.match(line).captured(1);
+        QString container = prefix.match(line).captured(1);
         const int quoteEnd = quotes.match(line).capturedLength();
         const int quoteDepth = container.count('>');
         int indent = 0;
         while (quoteEnd + indent < line.size() && line[quoteEnd + indent] == ' ') ++indent;
+        if (quoteDepth != listQuoteDepth) listParents.clear();
+        listQuoteDepth = quoteDepth;
+        const auto rawList = listStart.match(line.mid(quoteEnd));
+        if (indent >= 4 && rawList.hasMatch() && !listParents.isEmpty() && indent >= listParents.front().second)
+            container = line.left(quoteEnd + rawList.capturedLength());
         const QString listPrefix = container.mid(quoteEnd);
         const bool listMarker = list.match(listPrefix).hasMatch();
         const QString content = line.mid(container.size());
         Line classified{start, end, start + int(container.size()), number++};
+        if (start < metadataEnd) {
+            classified.code = true; classified.contentStart = start;
+            classified.fenceMarker = start == 0 || line.trimmed() == "---";
+            result.lines.append(classified); start = end + 1; continue;
+        }
 
         if (active >= 0 && (quoteDepth < fenceQuotes || (listIndent && indent < listIndent && !content.trimmed().isEmpty()))) {
             result.fences[active].end = start;
@@ -81,14 +97,27 @@ MarkdownAnalysis MarkdownAnalysis::scan(const QString &source) {
                 htmlOpaque = false; // Comment ranges are collected precisely below.
             } else if (htmlTag.match(content).hasMatch()) {
                 classified.html = htmlUntilBlank = true;
-            } else if (!listMarker && indent >= 4) {
+            } else if (indentedCode && !listMarker && indent >= 4) {
                 classified.code = true;
                 classified.contentStart = start + quoteEnd + 4;
-            } else if (line.startsWith('\t')) {
+            } else if (indentedCode && line.startsWith('\t')) {
                 classified.code = true;
                 classified.contentStart = start + 1;
             }
             if (!htmlEnd.isEmpty() && content.contains(htmlEnd, Qt::CaseInsensitive)) htmlEnd.clear();
+        }
+        if (!classified.code && !classified.html) {
+            if (listMarker && rawList.hasMatch()) {
+                classified.listMarkerStart = start + quoteEnd + indent;
+                while (!listParents.isEmpty() && listParents.back().first >= indent) listParents.removeLast();
+                listParents.append({indent, indent + int(rawList.captured(2).size() + rawList.captured(3).size())});
+                listBlankLines = 0;
+            } else if (line.trimmed().isEmpty()) {
+                if (++listBlankLines >= 2) listParents.clear();
+            } else {
+                listBlankLines = 0;
+                if (!listParents.isEmpty() && indent < listParents.front().second) listParents.clear();
+            }
         }
         result.lines.append(classified);
         start = end + 1;
@@ -111,6 +140,7 @@ MarkdownAnalysis MarkdownAnalysis::scan(const QString &source) {
         int count = 1;
         while (i + count < source.size() && source[i + count] == '`') ++count;
         for (int end = i + count; end < source.size();) {
+            if (source[end] == '\n') break;
             if (mask[end]) break;
             if (source[end] != '`') { ++end; continue; }
             int run = 1;
@@ -129,6 +159,25 @@ MarkdownAnalysis MarkdownAnalysis::scan(const QString &source) {
     return result;
 }
 
+MarkdownAnalysis MarkdownAnalysis::forRendering(const QString &source) {
+    QString classified = source; QVector<Range> literals;
+    auto result = scan(classified);
+    for (;;) {
+        bool changed = false;
+        for (const auto &fence : result.fences) if (!fence.closed()) {
+            const int start = fence.start + fence.indent.size(), end = start + fence.delimiter.size();
+            literals.append({start, end});
+            for (int i = start; i < end; ++i) classified[i] = QChar(0xe000);
+            changed = true;
+        }
+        if (!changed) break;
+        result = scan(classified);
+    }
+    result.literalFences = literals;
+    for (auto &line : result.lines) for (const auto &literal : literals)
+        if (literal.start >= line.start && literal.start <= line.end) { line.code = true; line.fenceMarker = false; break; }
+    return result;
+}
 QVector<char> MarkdownAnalysis::literalMask(int sourceLength) const {
     QVector<char> mask(sourceLength, 0);
     auto fill = [&](int start, int end) {

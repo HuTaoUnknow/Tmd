@@ -1,0 +1,60 @@
+{
+  "verifiedAt": "2026-10-15T19:40:04+08:00",
+  "rules": {
+    "confirmed": 54,
+    "existing": 13,
+    "openQuestions": 0
+  },
+  "build": {
+    "configuration": "Debug",
+    "qt": "6.11.1",
+    "compiler": "MinGW GCC 13.1.0",
+    "generator": "MinGW Makefiles",
+    "binary": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tree_md.exe",
+    "sha256": "6285A9DD35E349D06548F3101A9FBA1904B1E984197CE11BA91EA4D84F22B475",
+    "result": "passed"
+  },
+  "fullRegression": {
+    "groups": 14,
+    "failed": 0,
+    "seconds": 436.0,
+    "report": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/syntax-policy-final.xml",
+    "scope": "完整回归通过；之后补充普通缩进边界修正，受影响范围另行复测"
+  },
+  "finalChangeRegression": {
+    "groups": 5,
+    "failed": 0,
+    "seconds": 172.0,
+    "report": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/syntax-policy-indent.xml",
+    "names": [
+      "tmd_markdown_core",
+      "tmd_editing_list_audit",
+      "tmd_library_regressions",
+      "tmd_document_regressions",
+      "tmd_editing_policy"
+    ]
+  },
+  "policyTests": {
+    "functionalCases": 34,
+    "qtTestPassed": 36,
+    "failed": 0,
+    "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt"
+  },
+  "publication": {
+    "github": "user authorized v1.1.0 publication on 2026-10-15",
+    "installer": "user authorized desktop installer on 2026-10-15",
+    "debugLaunch": "opened and main window verified on 2026-10-15"
+  },
+  "releaseRegression": {
+    "version": "1.1.0",
+    "configuration": "Release",
+    "generator": "Ninja",
+    "groups": 14,
+    "failed": 0,
+    "seconds": 361.13,
+    "binary": "build-release-v110/tree_md.exe",
+    "sha256": "8BDC1478E2E9E3CD3611A8B99F59230A8B8E7465D05CF4FEE9A17A27E63F78EB",
+    "report": "build-release-v110/release-validation.xml",
+    "testedOn": "2026-10-15"
+  }
+}

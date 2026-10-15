@@ -2,6 +2,7 @@
 #include <QMainWindow>
 #include <QImage>
 #include <QUrl>
+#include <QMap>
 class MarkdownManager;
 class ImageInsertJob;
 class MarkdownEditor;
@@ -34,6 +35,7 @@ private:
     bool saveCurrent();
     bool saveAs();
     bool mayLeaveDocument();
+    bool mayCloseLibrary();
     void createDocument();
     void createDocumentInDirectory(const QString &parentPath);
     void createDocumentAtPath(const QString &path);
@@ -43,7 +45,11 @@ private:
     void deleteDocument();
     void deleteDocument(const QString &path);
     void createDirectory(const QString &parentPath);
+    void renameDirectory(const QString &path);
     void deleteDirectory(const QString &path);
+    void movePath(const QString &path, bool directory, const QString &destinationDirectory);
+    void moveDocuments(const QStringList &paths, const QString &destinationDirectory);
+    void openFileManager(const QString &path);
     void finishRemoval(bool currentRemoved);
     void refreshDocuments();
     void refreshView();
@@ -51,6 +57,7 @@ private:
     void refreshGraph();
     void reloadCurrent();
     void renderDocument(bool force = false);
+    void undoRedo(bool redo);
     void updateEditorStatus();
     void insertImageFiles(const QList<QUrl> &urls);
     void insertClipboardImage(const QImage &image);
@@ -79,6 +86,10 @@ private:
     QAction *m_documentAction, *m_sourceAction;
     QString m_current;
     bool m_loading = false, m_busy = false;
+    struct RenderedEditCaret { int before, after; };
+    QMap<int, RenderedEditCaret> m_renderedEditCarets;
+    bool m_syncingDocument = false, m_restoringHistory = false;
+    int m_pendingDocumentCaret = -1;
     bool m_exporting = false;
     enum class LayoutMode { Landscape, Portrait, NarrowPortrait };
     LayoutMode m_layoutMode = LayoutMode::Landscape;

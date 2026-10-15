@@ -33,6 +33,8 @@
 #include <QToolButton>
 #include <QActionGroup>
 #include <QDesktopServices>
+#include "core/platform/FileManager.h"
+#include "core/library/LibraryPathPolicy.h"
 #include <QCheckBox>
 #include <QGridLayout>
 #include <QProgressDialog>
@@ -48,6 +50,7 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
       m_graph(new KnowledgeGraphWidget(this)), m_relationPanel(new QWidget(this)), m_title(new QLabel(this)),
       m_notice(new QLabel(this)), m_reload(new QPushButton(QStringLiteral("重新加载"), this)), m_parseTimer(new QTimer(this)) {
     setObjectName("mainWindow"); setWindowTitle("Tmd"); resize(1360, 880); setMinimumSize(420, 620);
+    m_documents->setLibraryRoot(m_manager->rootPath());
     setFont(QFont("Segoe UI", 10));
     auto *toolbar = addToolBar(QStringLiteral("文档")); toolbar->setObjectName("mainToolbar"); toolbar->setMovable(false);
     auto *fileMenu = new QMenu(QStringLiteral("文件"), toolbar); fileMenu->setObjectName("fileMenu");
@@ -148,7 +151,11 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_documents, &DocumentSidebar::renameDocumentRequested, this, [this](const QString &path) { renameDocument(path); }, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::deleteDocumentRequested, this, [this](const QString &path) { deleteDocument(path); }, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::createDirectoryRequested, this, &MainWindow::createDirectory, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::renameDirectoryRequested, this, &MainWindow::renameDirectory, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::deleteDirectoryRequested, this, &MainWindow::deleteDirectory, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::movePathRequested, this, &MainWindow::movePath, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::moveDocumentsRequested, this, &MainWindow::moveDocuments, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::openFileManagerRequested, this, &MainWindow::openFileManager, Qt::QueuedConnection);
     // The clicked graphics item remains alive until the mouse event finishes.
     connect(m_graph, &KnowledgeGraphWidget::nodeActivated, this, [this](const QString &path) { openDocument(path); }, Qt::QueuedConnection);
     connect(m_outline, &OutlineSidebar::headingActivated, this, [this](int position) { if (m_sourceAction->isChecked()) m_editor->goToPosition(position); else m_document->goToSourcePosition(position); });
@@ -157,21 +164,36 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_document, &MarkdownDocumentView::imageInputPositionRequested, this, [this](int position) { QTextCursor cursor(m_editor->document()); cursor.setPosition(qBound(0, position, m_editor->document()->characterCount() - 1)); m_editor->setTextCursor(cursor); });
     connect(m_document, &MarkdownDocumentView::imageFilesInserted, this, &MainWindow::insertImageFiles);
     connect(m_document, &MarkdownDocumentView::clipboardImageInserted, this, &MainWindow::insertClipboardImage);
+    connect(m_document, &MarkdownDocumentView::sourceEditStarted, this, [this](int position) { m_pendingDocumentCaret = position; });
+    connect(m_document, &MarkdownDocumentView::sourceEditFinished, this, [this] { m_pendingDocumentCaret = -1; });
     connect(m_document, &MarkdownDocumentView::sourceEdited, this, [this](const QString &source, int position) {
+        const int documentCaret = m_pendingDocumentCaret; m_pendingDocumentCaret = -1;
         if (m_loading || m_current.isEmpty()) return;
         const QString previous = m_editor->source(); int prefix = 0, oldEnd = previous.size(), newEnd = source.size();
+        if (previous == source) return;
         while (prefix < oldEnd && prefix < newEnd && previous[prefix] == source[prefix]) ++prefix;
         while (oldEnd > prefix && newEnd > prefix && previous[oldEnd - 1] == source[newEnd - 1]) { --oldEnd; --newEnd; }
-        QTextCursor cursor(m_editor->document()); cursor.beginEditBlock(); cursor.setPosition(prefix); cursor.setPosition(oldEnd, QTextCursor::KeepAnchor);
-        cursor.insertText(source.mid(prefix, newEnd - prefix)); cursor.endEditBlock();
-        cursor.setPosition(qBound(0, position, m_editor->document()->characterCount() - 1)); m_editor->setTextCursor(cursor);
+        const int previousCaret = documentCaret >= 0 ? documentCaret : position < prefix ? position : position <= newEnd ? oldEnd : position + oldEnd - newEnd;
+        const int undoSteps = m_editor->document()->availableUndoSteps();
+        for (auto it = m_renderedEditCarets.upperBound(undoSteps); it != m_renderedEditCarets.end();) it = m_renderedEditCarets.erase(it);
+        m_syncingDocument = true;
+        QTextCursor cursor(m_editor->document()); cursor.setPosition(qBound(0, previousCaret, previous.size()));
+        m_editor->setTextCursor(cursor); cursor.beginEditBlock(); cursor.setPosition(prefix); cursor.setPosition(oldEnd, QTextCursor::KeepAnchor);
+        cursor.insertText(source.mid(prefix, newEnd - prefix));
+        cursor.setPosition(qBound(0, position, m_editor->document()->characterCount() - 1)); cursor.endEditBlock(); m_editor->setTextCursor(cursor);
+        m_renderedEditCarets.insert(m_editor->document()->availableUndoSteps(), {previousCaret, position});
+        m_syncingDocument = false;
         updateEditorStatus();
     });
-    connect(m_document, &MarkdownDocumentView::undoRequested, this, [this] { m_editor->undo(); renderDocument(); });
-    connect(m_document, &MarkdownDocumentView::redoRequested, this, [this] { m_editor->redo(); renderDocument(); });
+    connect(m_document, &MarkdownDocumentView::undoRequested, this, [this] { undoRedo(false); });
+    connect(m_document, &MarkdownDocumentView::redoRequested, this, [this] { undoRedo(true); });
     auto undoAvailability = [this] { m_document->setUndoAvailability(m_editor->document()->isUndoAvailable(), m_editor->document()->isRedoAvailable()); };
     connect(m_editor->document(), &QTextDocument::undoAvailable, this, undoAvailability);
     connect(m_editor->document(), &QTextDocument::redoAvailable, this, undoAvailability);
+    connect(m_editor->document(), &QTextDocument::undoCommandAdded, this, [this] {
+        if (!m_syncingDocument && !m_restoringHistory)
+            for (auto it = m_renderedEditCarets.upperBound(m_editor->document()->availableUndoSteps()); it != m_renderedEditCarets.end();) it = m_renderedEditCarets.erase(it);
+    });
     connect(m_document, &QTextBrowser::anchorClicked, this, [this](const QUrl &url) {
         if (url.toString().startsWith('#')) { m_document->scrollToAnchor(url.fragment()); return; }
         if (url.isLocalFile() && QFileInfo(url.toLocalFile()).suffix().compare("md", Qt::CaseInsensitive) == 0) openDocument(url.toLocalFile());
@@ -179,16 +201,28 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     });
     for (const auto &shortcut : {QKeySequence::Undo, QKeySequence::Redo}) {
         auto *a = new QAction(this); a->setShortcut(shortcut); addAction(a);
-        connect(a, &QAction::triggered, this, [this, shortcut] { if (shortcut == QKeySequence::Undo) m_editor->undo(); else m_editor->redo(); if (m_documentAction->isChecked()) renderDocument(); });
+        connect(a, &QAction::triggered, this, [this, shortcut] { undoRedo(shortcut == QKeySequence::Redo); });
     }
     connect(m_reload, &QPushButton::clicked, this, &MainWindow::reloadCurrent);
     connect(m_manager, &MarkdownManager::documentsChanged, this, [this] { if (!m_busy) refreshView(); });
+    connect(m_manager, &MarkdownManager::documentChanged, this, [this](const QString &path) {
+        const auto *node = m_manager->loadNode(path); if (!node) return;
+        m_documents->updateModified(path, node->isModified());
+        if (path == m_current) {
+            m_editor->document()->setModified(node->isModified());
+            setWindowTitle(m_current + (node->isModified() ? " *" : "") + " — Tmd");
+        }
+    });
     connect(m_manager, &MarkdownManager::relationsChanged, this, [this] { if (!m_busy) refreshGraph(); });
     connect(m_manager, &MarkdownManager::documentTitleChanged, this, [this](const QString &path, const QString &title) {
         m_documents->updateTitle(path, title); m_graph->updateTitle(path, title);
         if (path == m_current) m_title->setText(title);
     });
-    connect(m_manager, &MarkdownManager::documentRenamed, this, [this](const QString &oldPath, const QString &newPath) { if (m_current == oldPath) m_current = newPath; });
+    connect(m_manager, &MarkdownManager::documentRenamed, this, [this](const QString &oldPath, const QString &newPath) {
+        if (m_current != oldPath) return;
+        m_current = newPath; const auto *node = m_manager->loadNode(newPath);
+        setWindowTitle(newPath + (node && node->isModified() ? " *" : "") + " — Tmd");
+    });
     connect(m_manager, &MarkdownManager::refreshFailed, this, [this](const QString &error) {
         m_notice->setText(QStringLiteral("自动刷新失败，已保留当前内容：") + error); m_notice->show();
     });
@@ -295,10 +329,11 @@ QString MainWindow::askDocumentPath(const QString &title, const QString &initial
 }
 bool MainWindow::openDocument(const QString &path) {
     if (path == m_current && m_manager->loadNode(path)) { m_documents->selectPath(path); return true; }
-    if (!mayLeaveDocument()) { m_documents->selectPath(m_current); return false; }
+    if (!m_current.isEmpty() && !m_manager->loadNode(m_current) && !mayLeaveDocument()) { m_documents->selectPath(m_current); return false; }
     auto *node = m_manager->loadNode(path);
     if (!node) { showError(QStringLiteral("文档不存在，请刷新列表。")); return false; }
-    m_current = node->relativePath(); m_loading = true; m_editor->setSource(node->content()); m_loading = false;
+    m_current = node->relativePath(); m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(node->content()); m_loading = false;
+    m_editor->document()->setModified(node->isModified());
     m_editor->setEnabled(true); m_document->setEnabled(true); m_parseTimer->stop(); m_documents->selectPath(m_current);
     refreshOutline(); refreshView(); m_views->currentWidget()->setFocus();
     return true;
@@ -324,7 +359,7 @@ bool MainWindow::saveAs() {
     const bool success = m_manager->copyDocument(m_current, path, m_editor->source(), &error); m_busy = false;
     if (!success) { showError(error); return false; }
     m_current = m_manager->loadNode(path)->relativePath();
-    m_loading = true; m_editor->setSource(m_manager->loadNode(path)->content()); m_loading = false;
+    m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(m_manager->loadNode(path)->content()); m_loading = false;
     m_editor->document()->setModified(false); m_editor->setEnabled(true); m_document->setEnabled(true); refreshView(); refreshOutline(); refreshGraph();
     return true;
 }
@@ -337,6 +372,24 @@ bool MainWindow::mayLeaveDocument() {
     if (choice == QMessageBox::Save) return saveCurrent();
     if (node) { QString error; if (!m_manager->reloadDocument(m_current, &error)) { showError(error); return false; } }
     return true;
+}
+bool MainWindow::mayCloseLibrary() {
+    if (!m_current.isEmpty() && !m_manager->loadNode(m_current) && !mayLeaveDocument()) return false;
+    const QStringList pending = m_manager->modifiedDocuments();
+    if (pending.isEmpty()) return true;
+    QMessageBox box(QMessageBox::Question, QStringLiteral("保存未保存文档"),
+        QStringLiteral("有 %1 篇文档尚未保存，是否全部保存后退出？").arg(pending.size()),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, this);
+    box.setObjectName("saveAllDocumentsDialog"); box.setDetailedText(pending.join('\n')); box.setDefaultButton(QMessageBox::Save);
+    box.button(QMessageBox::Save)->setText(QStringLiteral("全部保存")); box.button(QMessageBox::Discard)->setText(QStringLiteral("不保存"));
+    const auto choice = box.exec();
+    if (choice == QMessageBox::Discard) return true;
+    if (choice != QMessageBox::Save) return false;
+    const auto result = m_manager->saveAllModified();
+    if (result.success()) return true;
+    QStringList errors;
+    for (auto failure = result.failures.cbegin(); failure != result.failures.cend(); ++failure) errors.append(failure.key() + "：" + failure.value());
+    showError(QStringLiteral("以下文档未能保存，窗口保持打开：\n") + errors.join('\n')); return false;
 }
 void MainWindow::createDocument() {
     const QString path = askDocumentPath(QStringLiteral("新建知识节点"), QStringLiteral("新节点.md")); if (path.isEmpty()) return;
@@ -406,6 +459,28 @@ void MainWindow::createDirectory(const QString &parentPath) {
     refreshView(); m_documents->selectDirectory(path);
     statusBar()->showMessage(QStringLiteral("已创建文件夹：%1").arg(path), 4000);
 }
+void MainWindow::renameDirectory(const QString &path) {
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, QStringLiteral("重命名文件夹"),
+        QStringLiteral("请输入新的文件夹名称："), QLineEdit::Normal, QFileInfo(path).fileName(), &ok).trimmed();
+    if (!ok || name.isEmpty() || name == QFileInfo(path).fileName()) return;
+    if (name.contains('/') || name.contains('\\')) { showError(QStringLiteral("请输入一个文件夹名称，不要包含路径分隔符。")); return; }
+    const int separator = path.lastIndexOf('/');
+    const QString target = (separator < 0 ? QString() : path.left(separator + 1)) + name;
+#ifdef Q_OS_WIN
+    const auto sensitivity = Qt::CaseInsensitive;
+#else
+    const auto sensitivity = Qt::CaseSensitive;
+#endif
+    if (m_current.startsWith(path + '/', sensitivity) && !mayLeaveDocument()) return;
+    QString error; m_busy = true;
+    const bool success = m_manager->renameDirectory(path, target, &error); m_busy = false;
+    if (!success) { refreshView(); showError(error); return; }
+    m_documents->remapDirectoryState(path, target);
+    refreshView(); refreshOutline(); refreshGraph(); renderDocument(true);
+    m_documents->selectDirectory(target);
+    statusBar()->showMessage(QStringLiteral("已重命名文件夹：%1").arg(target), 4000);
+}
 void MainWindow::deleteDirectory(const QString &path) {
 #ifdef Q_OS_WIN
     const auto sensitivity = Qt::CaseInsensitive;
@@ -416,17 +491,48 @@ void MainWindow::deleteDirectory(const QString &path) {
     if (current && !mayLeaveDocument()) return;
     int documents = 0;
     for (const auto *node : m_manager->allNodes()) if (node->relativePath().startsWith(path + '/', sensitivity)) ++documents;
-    if (QMessageBox::question(this, QStringLiteral("文件夹移入回收站"),
-        QStringLiteral("将文件夹 %1 及其全部子文件和文档（%2 篇 Markdown）移入 Windows 系统回收站？\n可以在回收站中还原整个文件夹。相关知识树连线将移除，md_photo 中的图片会保留。").arg(path).arg(documents),
+    if (QMessageBox::question(this, QStringLiteral("删除文件夹"),
+        QStringLiteral("删除文件夹 %1 及其全部子文件和文档（%2 篇 Markdown）？\n相关知识树连线将移除，图片会保留。").arg(path).arg(documents),
         QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
     QString error; m_busy = true;
     const bool success = m_manager->deleteDirectory(path, &error); m_busy = false;
     if (!success) { showError(error); return; }
-    finishRemoval(current); statusBar()->showMessage(QStringLiteral("已移入回收站：%1").arg(path), 4000);
+    finishRemoval(current); statusBar()->showMessage(QStringLiteral("已删除文件夹：%1").arg(path), 4000);
+}
+void MainWindow::movePath(const QString &path, bool directory, const QString &destinationDirectory) {
+#ifdef Q_OS_WIN
+    const auto sensitivity = Qt::CaseInsensitive;
+#else
+    const auto sensitivity = Qt::CaseSensitive;
+#endif
+    const bool current = m_current.compare(path, sensitivity) == 0 || m_current.startsWith(path + '/', sensitivity);
+    if (current && !mayLeaveDocument()) return;
+    QString error; m_busy = true;
+    const bool success = m_manager->movePath(path, destinationDirectory, &error); m_busy = false;
+    if (!success) { refreshView(); showError(error); return; }
+    if (directory) m_documents->remapDirectoryState(path, (destinationDirectory.isEmpty() ? QString() : destinationDirectory + '/') + QFileInfo(path).fileName());
+    refreshView(); refreshOutline(); refreshGraph(); renderDocument(true);
+    if (directory) m_documents->selectDirectory((destinationDirectory.isEmpty() ? QString() : destinationDirectory + '/') + QFileInfo(path).fileName());
+    statusBar()->showMessage(QStringLiteral("已移动：%1").arg(path), 4000);
+}
+void MainWindow::moveDocuments(const QStringList &paths, const QString &destinationDirectory) {
+    if (paths.contains(m_current) && !mayLeaveDocument()) return;
+    QString error; m_busy = true;
+    const bool success = m_manager->moveDocuments(paths, destinationDirectory, &error); m_busy = false;
+    if (!success) { refreshView(); showError(error); return; }
+    refreshView(); refreshOutline(); refreshGraph(); renderDocument(true);
+    statusBar()->showMessage(QStringLiteral("已移动 %1 篇文档").arg(paths.size()), 4000);
+}
+void MainWindow::openFileManager(const QString &path) {
+    QString error, absolute;
+    if (path.isEmpty()) absolute = m_manager->rootPath();
+    else if (const auto *node = m_manager->loadNode(path)) absolute = node->filePath();
+    else absolute = LibraryPathPolicy(m_manager->rootPath()).directory(path, &error);
+    if (absolute.isEmpty() || !FileManager::openPath(absolute, &error)) showError(error);
 }
 void MainWindow::finishRemoval(bool currentRemoved) {
     if (currentRemoved) {
-        m_parseTimer->stop(); m_current.clear(); m_loading = true; m_editor->setSource({}); m_loading = false;
+        m_parseTimer->stop(); m_current.clear(); m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource({}); m_loading = false;
         m_editor->setEnabled(false); m_document->setEnabled(false);
     }
     refreshView(); refreshOutline(); refreshGraph();
@@ -438,7 +544,7 @@ void MainWindow::refreshView() {
     const auto *node = m_manager->loadNode(m_current);
     if (node && !node->isModified() && node->content() != m_editor->source()) {
         const int position = m_editor->textCursor().position();
-        m_loading = true; m_editor->setSource(node->content()); m_loading = false; m_editor->goToPosition(position); refreshOutline();
+        m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(node->content()); m_loading = false; m_editor->goToPosition(position); refreshOutline();
     }
     m_title->setText(node ? node->title() : m_current.isEmpty() ? QStringLiteral("你的知识，从一个节点开始") : m_current);
     setWindowTitle(m_current.isEmpty() ? "Tmd" : m_current + ((node ? node->isModified() : m_editor->document()->isModified()) ? " *" : "") + " — Tmd");
@@ -462,7 +568,7 @@ void MainWindow::reloadCurrent() {
     const auto *node = m_manager->loadNode(m_current); if (!node) return;
     if (node->isModified() && QMessageBox::question(this, QStringLiteral("重新加载"), QStringLiteral("放弃当前编辑，读取外部修改后的文档？"), QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
     QString error; if (!m_manager->reloadDocument(m_current, &error)) { showError(error); return; }
-    m_loading = true; m_editor->setSource(m_manager->loadNode(m_current)->content()); m_loading = false;
+    m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(m_manager->loadNode(m_current)->content()); m_loading = false;
     refreshView(); refreshOutline();
 }
 void MainWindow::setRelationsVisible(bool visible) { m_relationAction->setChecked(visible); }
@@ -473,21 +579,42 @@ void MainWindow::openKnowledgeTree() {
 }
 
 void MainWindow::setSourceMode(bool sourceMode) {
+    const bool switching = m_views->currentWidget() != (sourceMode ? static_cast<QWidget *>(m_editor) : static_cast<QWidget *>(m_document));
+    const int anchor = switching ? (sourceMode ? m_document->viewportSourcePosition() : m_editor->viewportSourcePosition()) : -1;
     m_documentAction->setChecked(!sourceMode); m_sourceAction->setChecked(sourceMode);
     if (!sourceMode) renderDocument();
     m_views->setCurrentWidget(sourceMode ? static_cast<QWidget *>(m_editor) : static_cast<QWidget *>(m_document));
     m_views->currentWidget()->setFocus();
+    if (switching) {
+        if (sourceMode) m_editor->alignSourcePosition(anchor);
+        else m_document->alignSourcePosition(anchor);
+    }
     updateEditorStatus();
 }
 void MainWindow::renderDocument(bool force) {
     m_document->setMarkdownSource(QDir(m_manager->rootPath()).filePath(m_current), m_editor->source(), force);
+}
+void MainWindow::undoRedo(bool redo) {
+    if (redo ? !m_editor->document()->isRedoAvailable() : !m_editor->document()->isUndoAvailable()) return;
+    const auto previous = m_renderedEditCarets.constFind(m_editor->document()->availableUndoSteps());
+    const int beforeCaret = previous == m_renderedEditCarets.cend() ? -1 : previous->before;
+    m_restoringHistory = true;
+    if (redo) m_editor->redo(); else m_editor->undo();
+    m_restoringHistory = false;
+    const auto current = m_renderedEditCarets.constFind(m_editor->document()->availableUndoSteps());
+    const int caret = redo ? (current == m_renderedEditCarets.cend() ? -1 : current->after) : beforeCaret;
+    if (caret >= 0) { auto cursor = m_editor->textCursor(); cursor.setPosition(qBound(0, caret, m_editor->document()->characterCount() - 1)); m_editor->setTextCursor(cursor); }
+    if (m_documentAction->isChecked()) {
+        const auto cursor = m_editor->textCursor();
+        renderDocument(); m_document->restoreSourceCursor(cursor.anchor(), cursor.position());
+    }
 }
 void MainWindow::updateEditorStatus() {
     const QString path = m_current.isEmpty() ? m_manager->rootPath() : m_current;
     if (m_sourceAction->isChecked()) statusBar()->showMessage(QStringLiteral("%1    ·    原文    ·    第 %2 行，第 %3 列    ·    Ctrl+S 保存").arg(path).arg(m_editor->textCursor().blockNumber() + 1).arg(m_editor->textCursor().positionInBlock() + 1));
     else statusBar()->showMessage(QStringLiteral("%1    ·    文档    ·    可直接编辑、粘贴或拖入图片    ·    Ctrl+S 保存").arg(path));
 }
-void MainWindow::closeEvent(QCloseEvent *event) { if (mayLeaveDocument()) event->accept(); else event->ignore(); }
+void MainWindow::closeEvent(QCloseEvent *event) { if (mayCloseLibrary()) event->accept(); else event->ignore(); }
 
 void MainWindow::insertImageReference(const QString &reference, const QString &alt) {
     QTextCursor cursor = m_editor->textCursor(); cursor.beginEditBlock();

@@ -12,9 +12,13 @@
 #include "ui/knowledge/KnowledgeNodeWidget.h"
 #include "ui/library/OutlineSidebar.h"
 #include "ui/library/DocumentSidebar.h"
+#include "ui/library/DocumentFileTree.h"
+#include "ui/library/DocumentTreeBuilder.h"
+#include "core/platform/FileManager.h"
 #include "ui/common/Theme.h"
 #include "ui/common/AppIcon.h"
 #include "core/markdown/MarkdownSourceMap.h"
+#include "core/markdown/CodeSyntax.h"
 #include "ui/document/MarkdownTypography.h"
 #include "core/knowledge/KnowledgeIndex.h"
 #include "ui/knowledge/KnowledgeTreeCanvas.h"
@@ -31,15 +35,19 @@
 #include <QTemporaryDir>
 #include <QTextBlock>
 #include <QTextLayout>
+#include <QTextBoundaryFinder>
+#include <QInputMethodEvent>
 #include <algorithm>
 #include <QMessageBox>
 #include <QTimer>
 #include <thread>
+#include <QtCore/qscopeguard.h>
 #ifdef Q_OS_WIN
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <sddl.h>
 #endif
 #include <QtTest>
 #include <QBuffer>
@@ -137,7 +145,7 @@ private slots:
     void graphShowsAllBranchesAndCardClick();
     void applicationEditingNavigationAndSource();
     void imageSyntaxPreservesCodeAndTitles();
-    void imageImportMirrorsDirectoriesAndDeduplicates();
+    void imageImportUsesFlatAbsoluteDirectoryAndDeduplicates();
     void imageImportFailureRollsBack();
     void imageRelocationAndMetadataRollback();
     void imageExportLocalEmbeddedAndRemote();
@@ -151,6 +159,29 @@ private slots:
     void renderedListsTablesAndUndo();
     void renderedParagraphsCodeAndDeletion();
     void headingsRequireSpaceWhenRendered();
+    void formattedLinesPreserveTypedSpaces_data();
+    void formattedLinesPreserveTypedSpaces();
+    void linePrefixSpaceEntersPreviewAndBackspaceRestores_data();
+    void linePrefixSpaceEntersPreviewAndBackspaceRestores();
+    void listBackspaceRestoresMarkerInSameRow_data();
+    void listBackspaceRestoresMarkerInSameRow();
+    void unsavedDocumentsKeepDotsAndSaveIndividually();
+    void closeSaveAllFailureKeepsUnsavedDocuments();
+    void linePrefixesRequireSpaceAndStayOnTheirLine();
+    void activeLineMarkersSupportCharacterEditing();
+    void standardBoundariesMatchRenderedHeadings();
+    void inlineFormattingShowsSourceMarkers();
+    void inlineArrowsAdvanceOneCharacter();
+    void inlineCodeDoesNotAbsorbFollowingText();
+    void inlineMarkerEditingKeepsExactSourcePosition();
+    void inlineMarkersShareCodeBackgroundAndSelection();
+    void inlineMouseSelectionHasIndependentMarkers();
+    void inlineCodeHasRoundedCorners();
+    void enterStartsBodyWithoutDecorationIndent();
+    void fencedCodeIndentation();
+    void codeHeadersCopyOnlyTheirOwnBody();
+    void codeHighlightingTracksLanguageAndBlockBoundaries();
+    void emptyListAndQuoteEnterReturnsToBody();
     void headingBackspaceRestoresMarker();
     void emptyHeadingsKeepEditablePositions();
     void headingEditingUndoAndParagraphIntegrity();
@@ -159,6 +190,8 @@ private slots:
     void fontZoomBoundsAndSourceIntegrity();
     void knowledgeIndexTraversesCyclesAndIncomingReferences();
     void treeRelationReplacementIsAtomic();
+    void treeNodeRemovalIsAtomicAndPreservesDocuments();
+    void knowledgeTreeSelectedNodeRemoval();
     void knowledgeTreeDropPreviewAndPersistence();
     void knowledgeTreeCardConnectionsAndRemoval();
     void knowledgeTreeDirectorySearchAndReindex();
@@ -186,6 +219,23 @@ private slots:
     void directoryLifecycleAndRecycleRelations();
     void recycleFailurePreservesFilesAndRelations();
     void sidebarContextTargetsAndEmptyDirectories();
+    void sidebarScrollBlankCreatesAtRoot();
+    void sidebarRemembersExpansionAndDragRestores();
+    void sidebarBoxSelectionAndTextDragging();
+    void batchMoveDocumentsPreservesImagesAndRollsBack();
+    void directoryRenamePreservesContentAndCurrentDocument();
+    void editingViewsHaveHalfPageBlank();
+    void modeSwitchAlignsCurrentThirdLine();
+    void movePathsPreserveImagesAndRelations();
+    void watchedDirectoriesMoveAcrossInstances();
+    void directoryMoveReportsLocksAndRetries();
+    void directoryMoveWithSharedDescendantHandles();
+    void directoryMoveStagingRollsBackOnDeniedDestination();
+    void directoryMoveImageRewriteFailureRestoresOriginal();
+    void movePathsRejectConflictsAndDirtyDocuments();
+    void sidebarColorsDragAndExplorerTargets();
+    void listEnterIndentAndBackspace();
+    void applicationMoveKeepsCurrentAndUnsaved();
     void contextNewMarkdownNamesAndPreservesEdits();
     void popupMenusShareRoundedBlackTheme();
     void applicationContextActionsPreserveOtherEdits();
@@ -196,6 +246,9 @@ private slots:
     void fencePopupKeyboardSelection();
     void fenceCompletionRespectsCodeBoundaries();
     void fenceCompletionPreservesExistingBlocks();
+    void fenceCompletionKeepsFollowingParagraphsOutside();
+    void fencedFirstLineBackspacePreservesDelimiters();
+    void unpairedFencesStayLiteralAndEditable();
     void emptyFencedBlocksKeepTypingInside();
     void inlineCodeCursorCanLeaveAndReenter();
     void inlineCodeMouseCanTypeAfter();
@@ -292,18 +345,31 @@ void TreeMdTests::sidebarContextTargetsAndEmptyDirectories() {
     QSignalSpy created(&sidebar, &DocumentSidebar::createDirectoryRequested);
     QSignalSpy newDocument(&sidebar, &DocumentSidebar::createDocumentRequested);
     QSignalSpy removedFolder(&sidebar, &DocumentSidebar::deleteDirectoryRequested);
+    QSignalSpy renamedFolder(&sidebar, &DocumentSidebar::renameDirectoryRequested);
     auto openMenu = [&](QTreeWidgetItem *item) {
         const QPoint position = item ? tree->visualItemRect(item).center() : QPoint(tree->viewport()->width() / 2, tree->viewport()->height() - 5);
         QMetaObject::invokeMethod(tree, "customContextMenuRequested", Qt::DirectConnection, Q_ARG(QPoint, position));
         return sidebar.findChild<QMenu *>("documentContextMenu");
     };
     auto *menu = openMenu(other); QVERIFY(menu); QVERIFY(!menu->findChild<QAction *>("contextCreateDirectory"));
+    QCOMPARE(menu->actions().size(), 3);
+    QCOMPARE(menu->actions()[0]->text(), QString::fromUtf8("新建"));
+    QCOMPARE(menu->actions()[1]->text(), QString::fromUtf8("重命名"));
+    QCOMPARE(menu->actions()[2]->text(), QString::fromUtf8("删除"));
+    QVERIFY(!menu->findChild<QAction *>("contextOpenFileManager"));
     menu->findChild<QAction *>("contextCreateDocument")->trigger(); QCOMPARE(newDocument.back().front().toString(), QString("folder"));
     for (auto *action : menu->actions()) { QVERIFY(!action->text().contains("...")); QVERIFY(!action->text().contains(QChar(0x2026))); }
     menu->findChild<QAction *>("contextRenameDocument")->trigger(); QCOMPARE(renamed.front().front().toString(), QString("folder/B.md"));
     menu->findChild<QAction *>("contextDeleteDocument")->trigger(); QCOMPARE(removed.front().front().toString(), QString("folder/B.md"));
     menu->hide(); QTest::qWait(1);
     menu = openMenu(empty); QVERIFY(menu); QVERIFY(!menu->findChild<QAction *>("contextRenameDocument"));
+    QCOMPARE(menu->actions().size(), 6);
+    QCOMPARE(menu->actions()[0]->text(), QString::fromUtf8("新建MD文档"));
+    QCOMPARE(menu->actions()[1]->text(), QString::fromUtf8("新建文件夹"));
+    QCOMPARE(menu->actions()[2]->text(), QString::fromUtf8("重命名文件夹"));
+    QCOMPARE(menu->actions()[3]->text(), QString::fromUtf8("删除文件夹"));
+    for (int i = 0; i < menu->actions().size(); ++i) QCOMPARE(menu->actions()[i]->isSeparator(), i == 4);
+    menu->findChild<QAction *>("contextRenameDirectory")->trigger(); QCOMPARE(renamedFolder.front().front().toString(), QString("empty"));
     menu->findChild<QAction *>("contextCreateDocument")->trigger(); QCOMPARE(newDocument.back().front().toString(), QString("empty"));
     menu->findChild<QAction *>("contextCreateDirectory")->trigger(); QCOMPARE(created.front().front().toString(), QString("empty"));
     menu->findChild<QAction *>("contextDeleteDirectory")->trigger(); QCOMPARE(removedFolder.front().front().toString(), QString("empty"));
@@ -641,7 +707,8 @@ void TreeMdTests::imageSyntaxPreservesCodeAndTitles() {
         "`![code](bad.png)`\n````md\n![code](bad2.png)\n```\n![code](bad3.png)\n````\n    ![code](bad4.png)\n\\![escaped](bad5.png)\n"
         "<img src=\"html.png\" alt=\"html\">\n![data](data:image/png;base64,AAAA)\n";
     const auto images = MarkdownImages::parse(body);
-    QCOMPARE(images.size(), 6); QCOMPARE(images[0].source, QString("photos/a(b).png")); QCOMPARE(images[0].alt, QString("nested [alt]"));
+    QCOMPARE(images.size(), 7); QCOMPARE(images[0].source, QString("photos/a(b).png")); QCOMPARE(images[0].alt, QString("nested [alt]"));
+    QVERIFY(std::any_of(images.cbegin(), images.cend(), [](const auto &image) { return image.source == "bad4.png"; })); // N43: local indentation is ordinary text.
     QCOMPARE(images[1].source, QString("a b.png")); QCOMPARE(images[2].start, images[3].start);
     const QString rewritten = MarkdownImages::replace(body, images, {{"photos/a(b).png", "new.png"}, {"folder/ref.png", "ref-new.png"}});
     QVERIFY(rewritten.contains("(new.png \"keep title\")")); QVERIFY(rewritten.contains("[PIC]: <ref-new.png> 'caption'"));
@@ -650,7 +717,7 @@ void TreeMdTests::imageSyntaxPreservesCodeAndTitles() {
     QVERIFY(!MarkdownImages::encodedPath(path).contains(' '));
     QCOMPARE(MarkdownImages::localPath(MarkdownImages::encodedPath(path), "C:/data/test.md"), QStringLiteral("C:/图片/空 格(1).png"));
 }
-void TreeMdTests::imageImportMirrorsDirectoriesAndDeduplicates() {
+void TreeMdTests::imageImportUsesFlatAbsoluteDirectoryAndDeduplicates() {
     QTemporaryDir dir; const QString root = dir.filePath("md_data"); MarkdownManager manager(root); ImageStorage storage(root); QString error;
     QVERIFY(storage.ensureRoot(&error)); QVERIFY(QFileInfo(storage.photoRoot()).isDir());
     QVERIFY(manager.createDocument("empty/deep/no-images.md", "# Text\n")); QVERIFY(!QFileInfo::exists(dir.filePath("md_photo/empty")));
@@ -660,10 +727,15 @@ void TreeMdTests::imageImportMirrorsDirectoriesAndDeduplicates() {
     QVERIFY(MarkdownFileIO::writeFile(source, content)); QVERIFY2(manager.importDocument(source, "notes/deep/doc.md", &error), qPrintable(error));
     const QString imported = manager.loadNode("notes/deep/doc.md")->content(); const auto images = MarkdownImages::parse(imported);
     QCOMPARE(images.size(), 3); QCOMPARE(images[0].source, images[1].source); QCOMPARE(assetCount(storage.photoRoot()), 1);
-    QVERIFY(images[0].source.startsWith("../../../md_photo/notes/deep/")); QVERIFY(imported.contains("\"caption\""));
+    QVERIFY(QDir::isAbsolutePath(QUrl::fromPercentEncoding(images[0].source.toUtf8()))); QVERIFY(imported.contains("\"caption\""));
     QCOMPARE(images[2].source, QString("https://example.test/image.png"));
     QString original; QVERIFY(MarkdownFileIO::readFile(source, original)); QCOMPARE(original, content);
     const QString imagePath = MarkdownImages::localPath(images[0].source, manager.loadNode("notes/deep/doc.md")->filePath());
+    QCOMPARE(QFileInfo(imagePath).absolutePath(), storage.photoRoot());
+    QVERIFY2(manager.importDocument(source, "other/doc.md", &error), qPrintable(error));
+    QCOMPARE(MarkdownImages::parse(manager.loadNode("other/doc.md")->content())[0].source, images[0].source);
+    QCOMPARE(assetCount(storage.photoRoot()), 1);
+    QCOMPARE(QDir(storage.photoRoot()).entryList(QDir::Dirs | QDir::NoDotAndDotDot).size(), 0);
     QFile image(imagePath); QVERIFY(image.open(QIODevice::ReadOnly)); QCOMPARE(image.readAll(), bytes);
     QString reference; QVERIFY(!storage.store("../outside.md", bytes, reference, nullptr, &error));
 }
@@ -678,12 +750,18 @@ void TreeMdTests::imageImportFailureRollsBack() {
 void TreeMdTests::imageRelocationAndMetadataRollback() {
     QTemporaryDir dir; const QString root = dir.filePath("md_data"); MarkdownManager manager(root); ImageStorage storage(root);
     QString reference, error; QVERIFY(storage.store("one/doc.md", png(), reference, nullptr, &error));
-    const QString body = "# Test\n" + MarkdownImages::markup(reference) + "\n![absolute](<C:/external/pic.png>)\n";
+    const QString external = dir.filePath("external/pic.png"); QVERIFY(bytesFile(external, png(Qt::blue)));
+    const QString body = "# Test\n" + MarkdownImages::markup(reference) + "\n![absolute](<" + MarkdownImages::encodedPath(external) + ">)\n";
     QVERIFY(manager.createDocument("one/doc.md", body));
     QVERIFY2(manager.renameDocument("one/doc.md", "two/deep/doc.md", &error), qPrintable(error));
     auto *node = manager.loadNode("two/deep/doc.md"); const auto images = MarkdownImages::parse(node->content());
-    QVERIFY(QFileInfo::exists(MarkdownImages::localPath(images[0].source, node->filePath()))); QVERIFY(images[0].source.contains("md_photo/two/deep/"));
-    QCOMPARE(images[1].source, QString("C:/external/pic.png"));
+    QCOMPARE(images[0].source, reference);
+    for (const auto &image : images) {
+        const QString path = MarkdownImages::localPath(image.source, node->filePath());
+        QVERIFY(QFileInfo::exists(path)); QCOMPARE(QFileInfo(path).absolutePath(), storage.photoRoot());
+        QVERIFY(QDir::isAbsolutePath(QUrl::fromPercentEncoding(image.source.toUtf8())));
+    }
+    QVERIFY(QFileInfo::exists(external));
     QVERIFY(MarkdownFileIO::writeFile(dir.filePath("md_data/.tree-md-relations.json"), "not json"));
     QVERIFY(!manager.renameDocument("two/deep/doc.md", "rollback/doc.md", &error));
     QVERIFY(!QFileInfo::exists(dir.filePath("md_photo/rollback"))); QVERIFY(QFileInfo::exists(dir.filePath("md_data/two/deep/doc.md")));
@@ -693,7 +771,7 @@ void TreeMdTests::imageExportLocalEmbeddedAndRemote() {
     QTemporaryDir dir; QTcpServer server; QVERIFY(server.listen(QHostAddress::LocalHost)); imageServer(server, png(Qt::blue));
     QVERIFY(bytesFile(dir.filePath("source/local.png"), png(Qt::green)));
     const QString remote = QString("http://127.0.0.1:%1/image.png").arg(server.serverPort());
-    const QString body = "# Export\n![local](local.png \"title\")\n![remote](" + remote + ")\n![data](data:image/png;base64," + QString::fromLatin1(png(Qt::red).toBase64()) + ")\n`![example](missing.png)`\n";
+    const QString body = "# Export\n![local](" + MarkdownImages::encodedPath(dir.filePath("source/local.png")) + " \"title\")\n![remote](" + remote + ")\n![data](data:image/png;base64," + QString::fromLatin1(png(Qt::red).toBase64()) + ")\n`![example](missing.png)`\n";
     const QString source = dir.filePath("source/a.md"), target = dir.filePath("export/a.md"); QVERIFY(MarkdownFileIO::writeFile(source, body));
     MarkdownExportJob job; QSignalSpy done(&job, &MarkdownExportJob::finished); job.start(body, source, target, true);
     QTRY_COMPARE_WITH_TIMEOUT(done.size(), 1, 5000); QVERIFY2(done[0][0].toBool(), qPrintable(done[0][1].toString()));
@@ -730,7 +808,9 @@ void TreeMdTests::applicationImageDropPasteAndPathModes() {
     QApplication::sendEvent(editor->viewport(), &enter); QVERIFY(enter.isAccepted());
     QDropEvent drop(QPointF(60, 70), Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(editor->viewport(), &drop);
     QTRY_COMPARE(MarkdownImages::parse(editor->source()).size(), 1);
-    const auto image = MarkdownImages::parse(editor->source()).front(); QVERIFY(image.source.contains("../../md_photo/deep/"));
+    const auto image = MarkdownImages::parse(editor->source()).front();
+    QVERIFY(QDir::isAbsolutePath(QUrl::fromPercentEncoding(image.source.toUtf8())));
+    QCOMPARE(QFileInfo(MarkdownImages::localPath(image.source, dir.filePath("md_data/deep/doc.md"))).absolutePath(), dir.filePath("md_photo"));
     QVERIFY(QFileInfo::exists(dir.filePath("input/pic.png"))); QCOMPARE(assetCount(dir.filePath("md_photo")), 1);
     editor->undo(); QCOMPARE(editor->source(), original);
     QImage clipboard(16, 16, QImage::Format_ARGB32); clipboard.fill(Qt::red); QApplication::clipboard()->setImage(clipboard); editor->paste();
@@ -744,8 +824,11 @@ void TreeMdTests::applicationImageDropPasteAndPathModes() {
         if (mode == 2) QApplication::clipboard()->setText(hosted);
         else { auto *input = new QMimeData; input->setUrls(mime.urls()); QApplication::clipboard()->setMimeData(input); }
         editor->paste(); const auto images = MarkdownImages::parse(editor->source()); QCOMPARE(images.size(), 1);
-        if (mode == 0) QVERIFY(images[0].source.contains("md_photo/deep/"));
-        if (mode == 1) QCOMPARE(MarkdownImages::localPath(images[0].source, dir.filePath("md_data/deep/doc.md")), QDir::fromNativeSeparators(dir.filePath("input/pic.png")));
+        if (mode != 2) {
+            QVERIFY(QDir::isAbsolutePath(QUrl::fromPercentEncoding(images[0].source.toUtf8())));
+            QCOMPARE(QFileInfo(MarkdownImages::localPath(images[0].source, dir.filePath("md_data/deep/doc.md"))).absolutePath(), dir.filePath("md_photo"));
+            QVERIFY(QFileInfo::exists(dir.filePath("input/pic.png")));
+        }
         if (mode == 2) QCOMPARE(images[0].source, hosted);
         editor->undo(); QCOMPARE(editor->source(), original);
     }
@@ -802,7 +885,7 @@ void TreeMdTests::outlineFencesAndSetext() {
     QCOMPARE(headings[2].text, QString("Setext")); QCOMPARE(headings[2].line, 10); QCOMPARE(headings[2].level, 1);
     QCOMPARE(text.mid(headings[1].position, 2), QString("##"));
     QVERIFY(MarkdownParser::outline("#\n##\n###\n#word\n").isEmpty());
-    QCOMPARE(MarkdownParser::outline("# \n##\t\n").size(), 2);
+    QCOMPARE(MarkdownParser::outline("# \n##\t\n").size(), 1);
 }
 void TreeMdTests::transientWindowsLockKeepsAtomicSave() {
 #ifdef Q_OS_WIN
@@ -1025,13 +1108,18 @@ void TreeMdTests::documentRenderInlineImagesAndSourceIntegrity() {
         if (block.textList()) list = true;
         for (auto it = block.begin(); !it.atEnd(); ++it) {
             const auto fragment = it.fragment(); if (!fragment.isValid()) continue;
-            if (fragment.text().contains("bold") && fragment.charFormat().fontWeight() >= QFont::Bold) bold = true;
+
             if (!fragment.charFormat().isImageFormat()) continue;
             ++images; const auto format = fragment.charFormat().toImageFormat();
             QVERIFY(format.width() > 0); QVERIFY(format.width() <= view.viewport()->width() - 64 + 1);
             const QImage image = qvariant_cast<QImage>(view.document()->resource(QTextDocument::ImageResource, QUrl(format.name())));
             QCOMPARE(image.size(), QSize(32, 24));
         }
+    }
+    const auto boldText = view.document()->find("bold"); bold = !boldText.isNull();
+    for (int p = boldText.selectionStart(); bold && p < boldText.selectionEnd(); ++p) {
+        QTextCursor character(view.document()); character.setPosition(p); character.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+        bold &= character.charFormat().fontWeight() >= QFont::Bold;
     }
     QCOMPARE(images, 5); QVERIFY(table); QVERIFY(list); QVERIFY(bold);
     view.resize(180, 300); QCoreApplication::processEvents(); QCOMPARE(editor.source(), source);
@@ -1069,7 +1157,7 @@ void TreeMdTests::fileMenuLayoutAndModeSwitch() {
     for (const auto &name : names) { auto *a = window.findChild<QAction *>(name); QVERIFY(a); QVERIFY(menu->actions().contains(a)); QVERIFY(!toolbar->actions().contains(a)); }
     QCOMPARE(menu->actions()[4]->isSeparator(), true);
     auto *copy = window.findChild<QMenu *>("saveCopyMenu"); auto *imageMode = window.findChild<QAction *>("imageSettingsAction"); QVERIFY(copy); QVERIFY(imageMode); QCOMPARE(copy->actions().size(), 2);
-    QVERIFY(imageMode->text().contains(QStringLiteral("图片保存方式"))); QCOMPARE(MarkdownSettingsStore::current().imageMode, quint8(0)); QVERIFY(!imageMode->menu());
+    QVERIFY(imageMode->text().contains(QStringLiteral("图片保存方式"))); QCOMPARE(MarkdownSettingsStore::current().imageMode, quint8(1)); QVERIFY(!imageMode->menu());
     QVERIFY(!window.findChild<QAction *>("insertImageAction")); QVERIFY(!window.findChild<QWidget *>("imagePreview")); QVERIFY(!window.findChild<QWidget *>("sourceView"));
     QVERIFY(view->isVisible()); QVERIFY(!editor->isVisible()); QCOMPARE(editor->source(), source);
     window.findChild<QAction *>("sourceModeAction")->trigger(); QVERIFY(editor->isVisible()); QVERIFY(!view->isVisible());
@@ -1130,17 +1218,570 @@ void TreeMdTests::renderedParagraphsCodeAndDeletion() {
     MarkdownDocumentView view; view.resize(700, 540); view.show(); view.setMarkdownSource("doc.md", "# Title\n\nParagraph\n\n```cpp\nint value;\n```\n");
     auto cursor = view.document()->find("Paragraph"); cursor.setPosition(cursor.selectionEnd()); view.setTextCursor(cursor); view.setFocus();
     QTest::keyClick(&view, Qt::Key_Return); QTest::qWait(500); QVERIFY(view.textCursor().block().text().isEmpty());
-    QTest::keyClicks(&view, "New"); QVERIFY(view.markdownSource().contains("Paragraph\n\nNew"));
+    QTest::keyClicks(&view, "New"); QVERIFY(view.markdownSource().contains("Paragraph\nNew"));
     QTest::qWait(500); cursor = view.document()->find("New"); QVERIFY(!cursor.isNull()); QCOMPARE(cursor.block().text(), QString("New"));
     cursor.setPosition(cursor.selectionStart()); view.setTextCursor(cursor); QTest::keyClick(&view, Qt::Key_Backspace);
     QVERIFY(view.markdownSource().contains("ParagraphNew")); QVERIFY(view.markdownSource().contains("```cpp\nint value;\n```"));
     cursor = view.document()->find("int value;"); cursor.setPosition(cursor.selectionStart() + 4); view.setTextCursor(cursor);
     QTest::keyClick(&view, Qt::Key_Return); QTest::keyClicks(&view, "long "); QVERIFY(view.markdownSource().contains("```cpp\nint \nlong value;\n```"));
-    view.setMarkdownSource("doc.md", "one\ntwo\n"); cursor = view.document()->find("one two"); QVERIFY(!cursor.isNull());
+    view.setMarkdownSource("doc.md", "one\ntwo\n"); cursor = view.document()->find("one"); QVERIFY(!cursor.isNull());
     cursor.setPosition(cursor.selectionStart() + 3); cursor.setPosition(cursor.position() + 1, QTextCursor::KeepAnchor); cursor.removeSelectedText(); QCOMPARE(view.markdownSource(), QString("onetwo\n"));
     view.setMarkdownSource("doc.md", "before ![photo][ref] after\n\n[ref]: unchanged.png\n");
     cursor = view.document()->find(QString(QChar::ObjectReplacementCharacter)); QVERIFY(!cursor.isNull()); cursor.removeSelectedText();
     QCOMPARE(view.markdownSource(), QString("before  after\n\n[ref]: unchanged.png\n"));
+}
+
+void TreeMdTests::standardBoundariesMatchRenderedHeadings() {
+    for (const QString source : {QString("- item\n---"), QString("> quote\n---"), QString("Text\n> ---"), QString("Text\n- - -"),
+        QString("First\nSecond\n---"), QString("- item\n  ---"), QString("| A | B |\n| --- | --- |\n---"), QString("Text\n\n---"), QString("_italic_\n\n# Heading")}) {
+        MarkdownDocumentView view; view.setMarkdownSource("boundaries.md", source);
+        const auto headings = MarkdownParser::outline(source); int index = 0;
+        for (auto b = view.document()->begin(); b.isValid(); b = b.next()) if (b.blockFormat().headingLevel()) {
+            QVERIFY(index < headings.size()); QCOMPARE(b.blockFormat().headingLevel(), headings[index].level);
+            QCOMPARE(b.text(), headings[index].text); ++index;
+        }
+        QCOMPARE(index, headings.size()); QCOMPARE(view.markdownSource(), source);
+    }
+}
+void TreeMdTests::inlineFormattingShowsSourceMarkers() {
+    for (const QString delimiter : {QString("`"), QString("``"), QString("*"), QString("**"), QString("_"), QString("__"), QString("~~"), QString("***")}) {
+        MarkdownDocumentView view; view.resize(740, 420); view.show(); view.setFocus();
+        const QString source = "before " + delimiter + "value" + delimiter + " after"; view.setMarkdownSource("inline.md", source);
+        QSignalSpy edits(&view, &MarkdownDocumentView::sourceEdited);
+        auto cursor = view.document()->find("value"); cursor.setPosition(cursor.selectionStart() + 2); view.setTextCursor(cursor);
+        QCOMPARE(view.visibleInlineMarkers(), QStringList({delimiter, delimiter})); QCOMPARE(view.markdownSource(), source); QCOMPARE(edits.size(), 0);
+        auto outside = view.document()->find("after"); outside.setPosition(outside.selectionStart() + 2); view.setTextCursor(outside);
+        QVERIFY(view.visibleInlineMarkers().isEmpty()); QCOMPARE(view.toPlainText(), QString("before value after"));
+        cursor = view.document()->find("value"); cursor.setPosition(cursor.selectionEnd()); view.setTextCursor(cursor);
+        for (int i = 0; i < delimiter.size(); ++i) QTest::keyClick(&view, Qt::Key_Right);
+        QCOMPARE(view.inlineCursorSourcePosition(), source.indexOf(" after"));
+        QTest::keyClicks(&view, "x");
+        QCOMPARE(view.markdownSource(), "before " + delimiter + "value" + delimiter + "x after");
+        QVERIFY(!view.currentCharFormat().fontItalic()); QVERIFY(!view.currentCharFormat().fontFixedPitch());
+        QCOMPARE(view.currentCharFormat().fontWeight(), int(QFont::Normal));
+    }
+    MarkdownDocumentView nested; nested.setMarkdownSource("nested.md", "**outer `code`** tail");
+    auto cursor = nested.document()->find("code"); cursor.setPosition(cursor.selectionStart() + 2); nested.setTextCursor(cursor);
+    QCOMPARE(nested.visibleInlineMarkers(), QStringList({"**", "`", "`**"})); QCOMPARE(nested.markdownSource(), QString("**outer `code`** tail"));
+    MarkdownDocumentView italic; italic.setMarkdownSource("italic.md", "_italic_");
+    cursor = italic.document()->find("italic"); QVERIFY(cursor.charFormat().fontItalic()); QVERIFY(!cursor.charFormat().fontUnderline());
+}
+
+void TreeMdTests::inlineArrowsAdvanceOneCharacter() {
+    for (const QString &source : {QString("A**bold**B"), QString("A*italic*B"), QString("A`code`B"), QString("A***both***B"),
+        QString("A~~strike~~B"), QString("A**outer `code` tail**B"), QString("A**bold***italic*B"), QString::fromUtf8("前😀**加粗**后")}) {
+        MarkdownDocumentView view; view.resize(740, 300); view.show(); view.setFocus(); view.setMarkdownSource("arrows.md", source);
+        QSignalSpy edits(&view, &MarkdownDocumentView::sourceEdited);
+        QTextBoundaryFinder characters(QTextBoundaryFinder::Grapheme, source);
+        int expected = 0; QCOMPARE(view.inlineCursorSourcePosition(), expected);
+        while (expected < source.size()) {
+            characters.setPosition(expected); expected = characters.toNextBoundary(); QVERIFY(expected >= 0);
+            const int before = view.inlineCursorSourcePosition(); const auto rect = view.cursorRect();
+            QTest::keyClick(&view, Qt::Key_Right);
+            QCOMPARE(view.inlineCursorSourcePosition(), expected);
+            if (QString("`*_~").contains(source[before])) QVERIFY(view.cursorRect().left() != rect.left());
+        }
+        QTest::keyClick(&view, Qt::Key_Right); QCOMPARE(view.inlineCursorSourcePosition(), expected);
+        while (expected > 0) {
+            characters.setPosition(expected); expected = characters.toPreviousBoundary(); QVERIFY(expected >= 0);
+            QTest::keyClick(&view, Qt::Key_Left); QCOMPARE(view.inlineCursorSourcePosition(), expected);
+        }
+        QTest::keyClick(&view, Qt::Key_Left); QCOMPARE(view.inlineCursorSourcePosition(), 0);
+        QCOMPARE(view.markdownSource(), source); QCOMPARE(edits.size(), 0);
+        auto selected = view.document()->find("bold");
+        if (!selected.isNull()) {
+            view.setTextCursor(selected); QTest::keyClick(&view, Qt::Key_Right);
+            QCOMPARE(view.textCursor().position(), selected.selectionEnd());
+            QCOMPARE(view.inlineCursorSourcePosition(), source.startsWith("A**bold***") ? 10 : 9);
+        }
+    }
+    MarkdownDocumentView view; view.setMarkdownSource("example.md", "`123`");
+    const int before = view.cursorRect().left(); QTest::keyClick(&view, Qt::Key_Right);
+    QCOMPARE(view.textCursor().position(), 0); QCOMPARE(view.inlineCursorSourcePosition(), 1); QVERIFY(view.cursorRect().left() > before);
+    QTest::keyClick(&view, Qt::Key_Right); QCOMPARE(view.textCursor().position(), 1); QCOMPARE(view.inlineCursorSourcePosition(), 2);
+    QTest::keyClick(&view, Qt::Key_Left); QCOMPARE(view.inlineCursorSourcePosition(), 1);
+    QTest::keyClick(&view, Qt::Key_Left); QCOMPARE(view.inlineCursorSourcePosition(), 0);
+}
+void TreeMdTests::inlineMarkerEditingKeepsExactSourcePosition() {
+    MarkdownDocumentView view; view.resize(740, 300); view.show(); view.setFocus();
+    view.setMarkdownSource("edit.md", "`123` tail");
+    QTest::keyClick(&view, Qt::Key_Right); QTest::keyClicks(&view, "X");
+    QCOMPARE(view.markdownSource(), QString("`X123` tail"));
+    view.setMarkdownSource("other.md", "**bold** tail");
+    QTest::keyClick(&view, Qt::Key_Right); QCOMPARE(view.inlineCursorSourcePosition(), 1);
+    view.setMarkdownSource("other.md", view.markdownSource(), true); QCOMPARE(view.inlineCursorSourcePosition(), 1);
+    QTest::keyClicks(&view, "X"); QCOMPARE(view.markdownSource(), QString("*X*bold** tail"));
+    view.setMarkdownSource("delete.md", "`123` tail");
+    QTest::keyClick(&view, Qt::Key_Right); QTest::keyClick(&view, Qt::Key_Backspace);
+    QCOMPARE(view.markdownSource(), QString("123` tail")); QCOMPARE(view.inlineCursorSourcePosition(), 0);
+    view.setMarkdownSource("forward-delete.md", "`123` tail"); QTest::keyClick(&view, Qt::Key_Delete);
+    QCOMPARE(view.markdownSource(), QString("123` tail"));
+    view.setMarkdownSource("mouse.md", "**bold** tail");
+    QTest::keyClick(&view, Qt::Key_Right); const auto betweenStars = view.cursorRect();
+    auto cursor = view.document()->find("tail"); cursor.setPosition(cursor.selectionEnd()); view.setTextCursor(cursor);
+    // Reveal the marker again before testing a click between its two characters.
+    cursor = view.document()->find("bold"); cursor.setPosition(cursor.selectionStart() + 2); view.setTextCursor(cursor);
+    QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier, betweenStars.center());
+    QCOMPARE(view.inlineCursorSourcePosition(), 1);
+    QTest::keyClicks(&view, "X"); QCOMPARE(view.markdownSource(), QString("*X*bold** tail"));
+}
+void TreeMdTests::inlineCodeDoesNotAbsorbFollowingText() {
+    for (const QString prefix : {QString(), QString("before "), QString("# Heading ")}) {
+        MarkdownDocumentView view; view.resize(740, 300); view.show(); view.setFocus(); view.setMarkdownSource("typed.md", prefix.trimmed()); view.moveCursor(QTextCursor::End);
+        QTest::keyClicks(&view, (prefix.isEmpty() ? "" : " ") + QString("`123`")); QTest::qWait(550);
+        QCOMPARE(view.markdownSource(), prefix + "`123`"); QCOMPARE(view.inlineCursorSourcePosition(), prefix.size() + 5);
+        QVERIFY(!view.currentCharFormat().fontFixedPitch()); QCOMPARE(view.currentCharFormat().background().style(), Qt::NoBrush);
+        QTest::keyClicks(&view, " after text"); QCOMPARE(view.markdownSource(), prefix + "`123` after text");
+        QTest::qWait(550); QVERIFY(view.document()->find("123").charFormat().fontFixedPitch());
+        const auto after = view.document()->find("after text"); QVERIFY(!after.charFormat().fontFixedPitch()); QCOMPARE(after.charFormat().background().style(), Qt::NoBrush);
+        const QString saved = view.markdownSource(); view.setMarkdownSource("reopened.md", saved);
+        QVERIFY(view.document()->find("123").charFormat().fontFixedPitch());
+        QVERIFY(!view.document()->find("after text").charFormat().fontFixedPitch());
+        QCOMPARE(view.document()->find("after text").charFormat().background().style(), Qt::NoBrush);
+    }
+    QTemporaryDir directory; MarkdownManager manager(directory.path()); QVERIFY(manager.createDocument("README.md", "before"));
+    MainWindow window(directory.path()); window.show(); auto *rendered = window.findChild<MarkdownDocumentView *>(); auto *raw = window.findChild<MarkdownEditor *>();
+    QVERIFY(rendered); QVERIFY(raw); window.setSourceMode(false); rendered->setFocus(); rendered->moveCursor(QTextCursor::End);
+    QTest::keyClicks(rendered, " `123`"); QTest::qWait(650); QTest::keyClicks(rendered, " after"); QTest::qWait(650);
+    QCOMPARE(raw->source(), QString("before `123` after")); QVERIFY(!rendered->document()->find("after").charFormat().fontFixedPitch());
+    QCOMPARE(rendered->document()->find("after").charFormat().background().style(), Qt::NoBrush);
+    QTest::keyClick(rendered, Qt::Key_S, Qt::ControlModifier); QString disk; QVERIFY(MarkdownFileIO::readFile(directory.filePath("README.md"), disk)); QCOMPARE(disk, raw->source());
+}
+void TreeMdTests::inlineMarkersShareCodeBackgroundAndSelection() {
+    for (const QString &source : {QString("before `code` after"), QString("`code` after"), QString("# Heading `code` after")}) {
+        MarkdownDocumentView view; view.resize(680, 300); view.show(); view.setMarkdownSource("markers.md", source);
+        auto code = view.document()->find("code"); auto cursor = code; cursor.setPosition(code.selectionStart() + 2); view.setTextCursor(cursor);
+        view.setMarkdownSource("markers.md", source, true);
+        QCOMPARE(view.visibleInlineMarkers(), QStringList({"`", "`"}));
+        auto backgroundAtBoundary = [&](int position) {
+            QTextCursor boundary(view.document()); boundary.setPosition(position); const auto rect = view.QTextBrowser::cursorRect(boundary);
+            const auto image = view.grab().toImage(); const auto point = view.viewport()->mapTo(&view, QPoint(rect.left() - 3, rect.top() + 2));
+            return image.pixelColor(qRound(point.x() * image.devicePixelRatio()), qRound(point.y() * image.devicePixelRatio()));
+        };
+        code = view.document()->find("code");
+        QCOMPARE(backgroundAtBoundary(code.selectionStart()), MarkdownTypography::codeBackground(true));
+        QCOMPARE(backgroundAtBoundary(code.selectionEnd()), MarkdownTypography::codeBackground(true));
+        view.setTextCursor(code); view.setMarkdownSource("markers.md", source, true);
+        QCOMPARE(view.textCursor().selectedText(), QString("code")); QCOMPARE(view.visibleInlineMarkers(), QStringList({"`", "`"}));
+        code = view.document()->find("code");
+        QCOMPARE(backgroundAtBoundary(code.selectionStart()), view.palette().color(QPalette::Highlight));
+        QCOMPARE(backgroundAtBoundary(code.selectionEnd()), view.palette().color(QPalette::Highlight));
+        QCOMPARE(view.markdownSource(), source);
+    }
+}
+void TreeMdTests::inlineMouseSelectionHasIndependentMarkers() {
+    MarkdownDocumentView view; view.resize(680, 300); view.show(); view.setFocus();
+    const QString source = QString::fromUtf8("当`code`后");
+    auto load = [&] { view.setMarkdownSource("drag.md", source, true); view.moveCursor(QTextCursor::Start); };
+    auto pointAt = [&](int sourcePosition) {
+        view.moveCursor(QTextCursor::Start);
+        for (int i = 0; i < sourcePosition; ++i) QTest::keyClick(&view, Qt::Key_Right);
+        return view.cursorRect().center();
+    };
+    auto moveTo = [&](const QPoint &point) {
+        QMouseEvent move(QEvent::MouseMove, point, view.viewport()->mapToGlobal(point), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view.viewport(), &move);
+    };
+    for (bool reverse : {false, true}) {
+        load(); const auto first = pointAt(1), last = pointAt(2);
+        QTest::mousePress(view.viewport(), Qt::LeftButton, Qt::NoModifier, reverse ? last : first);
+        moveTo(reverse ? first : last); QTest::mouseRelease(view.viewport(), Qt::LeftButton, Qt::NoModifier, reverse ? first : last);
+        QTest::keyClick(&view, Qt::Key_C, Qt::ControlModifier); QCOMPARE(QApplication::clipboard()->text(), QString("`"));
+        QCOMPARE(view.markdownSource(), source);
+        QTest::keyClick(&view, Qt::Key_Delete); QCOMPARE(view.markdownSource(), QString::fromUtf8("当code`后"));
+    }
+    load(); view.moveCursor(QTextCursor::End); QTest::keyClicks(&view, " *pending*");
+    const auto first = pointAt(1), last = pointAt(7);
+    QTest::mousePress(view.viewport(), Qt::LeftButton, Qt::NoModifier, first); moveTo(last);
+    const auto duringDrag = view.toPlainText(); const auto markers = view.visibleInlineMarkers();
+    QVERIFY(duringDrag.contains("*pending*"));
+    QTest::qWait(600); QCOMPARE(view.toPlainText(), duringDrag); QCOMPARE(view.visibleInlineMarkers(), markers);
+    QTest::mouseRelease(view.viewport(), Qt::LeftButton, Qt::NoModifier, last);
+    QTest::qWait(550); QVERIFY(!view.toPlainText().contains("*pending*"));
+    QTest::keyClick(&view, Qt::Key_C, Qt::ControlModifier); QCOMPARE(QApplication::clipboard()->text(), QString("`code`"));
+    QApplication::clipboard()->setText("replacement"); QTest::keyClick(&view, Qt::Key_V, Qt::ControlModifier);
+    QCOMPARE(view.markdownSource(), QString::fromUtf8("当replacement后 *pending*"));
+}
+void TreeMdTests::inlineCodeHasRoundedCorners() {
+    MarkdownDocumentView view; view.resize(680, 300); view.show(); view.setMarkdownSource("rounded.md", "A `MMMM` Z"); view.moveCursor(QTextCursor::End);
+    const auto code = view.document()->find("MMMM"); QTextCursor cursor(view.document()); cursor.setPosition(code.selectionStart());
+    const auto first = view.QTextBrowser::cursorRect(cursor); cursor.setPosition(code.selectionEnd()); const auto last = view.QTextBrowser::cursorRect(cursor);
+    const auto image = view.grab().toImage();
+    auto color = [&](const QPoint &point) { const auto mapped = view.viewport()->mapTo(&view, point); return image.pixelColor(qRound(mapped.x() * image.devicePixelRatio()), qRound(mapped.y() * image.devicePixelRatio())); };
+    QCOMPARE(color(QPoint(first.left(), first.top())), view.palette().color(QPalette::Base));
+    QCOMPARE(color(QPoint((first.left() + last.left()) / 2, first.top() + 1)), MarkdownTypography::codeBackground(true));
+    QCOMPARE(view.markdownSource(), QString("A `MMMM` Z"));
+    const QString captures = qEnvironmentVariable("TMD_UI_CHECK_DIRECTORY");
+    if (!captures.isEmpty()) { QVERIFY(QDir().mkpath(captures)); QVERIFY(view.grab().save(QDir(captures).filePath("inline-code-rounded.png"))); }
+}
+void TreeMdTests::enterStartsBodyWithoutDecorationIndent() {
+    QStringList sources = {"Title\n=====", "Title\n-----", "## Title ###", "# `code`", "`code`", "**bold**", "Plain"};
+    for (int level = 1; level <= 6; ++level) sources.append(QString(level, '#') + " Title");
+    for (const auto &source : sources) {
+        MarkdownDocumentView view; view.resize(680, 300); view.show(); view.setMarkdownSource("enter-body.md", source); view.setFocus();
+        view.moveCursor(QTextCursor::End); QTest::keyClick(&view, Qt::Key_Return);
+        const auto format = view.textCursor().blockFormat();
+        QCOMPARE(format.headingLevel(), 0); QCOMPARE(format.leftMargin(), qreal(0)); QCOMPARE(format.textIndent(), qreal(0));
+        QCOMPARE(view.cursorRect().left(), qRound(view.document()->documentMargin()));
+        QCOMPARE(view.currentCharFormat().fontPointSize(), MarkdownTypography::bodyFont().pointSizeF());
+        QVERIFY(!view.currentCharFormat().fontFixedPitch());
+        QTest::qWait(550); QCOMPARE(view.cursorRect().left(), qRound(view.document()->documentMargin()));
+        QTest::keyClicks(&view, "Body"); QTest::qWait(550);
+        QCOMPARE(view.markdownSource(), source + "\nBody"); // N01: Enter writes one physical newline.
+        QCOMPARE(view.textCursor().blockFormat().leftMargin(), qreal(0));
+    }
+}
+void TreeMdTests::codeHeadersCopyOnlyTheirOwnBody() {
+    MarkdownDocumentView view; view.resize(650, 520); view.refreshAppearance(); view.show();
+    const QString source = "```html\n<p class=\"x\">中文</p>\n\n```\n```C++\nreturn 1;\n```\n```cpp\nint value = 2;\n```\n\nAfter";
+    QSignalSpy edits(&view, &MarkdownDocumentView::sourceEdited); view.setMarkdownSource("headers.md", source);
+    const auto button = [&](int index) -> QToolButton * {
+        for (auto *candidate : view.findChildren<QToolButton *>("copyCodeButton"))
+            if (candidate->property("codeIndex").toInt() == index) return candidate;
+        return nullptr;
+    };
+    QTRY_COMPARE(view.findChildren<QToolButton *>("copyCodeButton").size(), 3);
+    QVERIFY(button(0)); QTRY_VERIFY(button(0)->isVisible()); QVERIFY(button(0)->accessibleName().contains("HTML"));
+    QVERIFY(button(1)->accessibleName().contains("C++")); QVERIFY(button(2)->accessibleName().contains("C++"));
+    auto selection = view.document()->find(QStringLiteral("中文")); QVERIFY(!selection.isNull()); view.setTextCursor(selection);
+    const auto saved = view.textCursor(); QTest::mouseClick(button(0), Qt::LeftButton);
+    QCOMPARE(QApplication::clipboard()->text(), QString("<p class=\"x\">中文</p>\n\n"));
+    QCOMPARE(view.textCursor().position(), saved.position()); QCOMPARE(view.textCursor().anchor(), saved.anchor());
+    QCOMPARE(view.markdownSource(), source); QCOMPARE(edits.size(), 0); QCOMPARE(button(0)->toolTip(), QStringLiteral("已复制"));
+    view.setTextCursor(view.document()->find("return 1;")); view.ensureCursorVisible(); QTRY_VERIFY(button(1)->isVisible());
+    QTest::mouseClick(button(1), Qt::LeftButton); QCOMPARE(QApplication::clipboard()->text(), QString("return 1;\n"));
+    view.setTextCursor(view.document()->find("int value")); view.ensureCursorVisible(); QTRY_VERIFY(button(2)->isVisible());
+    QTest::mouseClick(button(2), Qt::LeftButton); QCOMPARE(QApplication::clipboard()->text(), QString("int value = 2;\n"));
+    QVERIFY(button(2)->geometry().right() < view.viewport()->width());
+    QVERIFY(button(2)->geometry().bottom() < view.cursorRect(view.document()->find("int value")).top());
+    view.setZoomPercent(150); view.resize(360, 520); view.verticalScrollBar()->setValue(0); view.viewport()->update();
+    QTRY_VERIFY(button(0)->isVisible()); QTRY_VERIFY(button(0)->geometry().right() < view.viewport()->width()); QCOMPARE(view.markdownSource(), source);
+    const QString captures = qEnvironmentVariable("TMD_CODE_CAPTURE_DIR");
+    if (!captures.isEmpty()) { QVERIFY(QDir().mkpath(captures)); QVERIFY(view.grab().save(QDir(captures).filePath("code-headers-narrow.png"))); }
+    view.setZoomPercent(100); view.resize(800, 520); view.setMarkdownSource("headers.md", "# Code\n\n" + source);
+    view.verticalScrollBar()->setValue(0); view.viewport()->update();
+    if (!captures.isEmpty()) { QTest::qWait(30); QVERIFY(view.grab().save(QDir(captures).filePath("code-headers.png"))); }
+    if (!captures.isEmpty()) {
+        view.resize(850, 800); view.setMarkdownSource("gallery.md", "# Code\n\n```html\n<div class=\"card\">Hello &amp; welcome</div>\n<script>const message = \"https://example.com\";</script>\n```\n\n```xml\n<?xml version=\"1.0\"?>\n<!-- configuration -->\n<item name=\"Tmd\" enabled=\"true\" />\n```\n\n```c++\n#include <vector>\n// Strings keep their own colors\nconst auto url = \"https://example.com\";\nfor (int i = 0; i < 3; ++i) {\n    print(url);\n}\n```\n");
+        view.verticalScrollBar()->setValue(0); QTest::qWait(30); QVERIFY(view.grab().save(QDir(captures).filePath("code-languages.png")));
+    }
+    view.setMarkdownSource("empty.md", "```xml\n\n```");
+    QTRY_COMPARE(view.findChildren<QToolButton *>("copyCodeButton").size(), 1); QTRY_VERIFY(button(0)->isVisible());
+    QVERIFY(button(0)->accessibleName().contains("XML")); QVERIFY(view.placeholderText().isEmpty());
+    QTest::mouseClick(button(0), Qt::LeftButton); QCOMPARE(QApplication::clipboard()->text(), QString("\n"));
+    view.setMarkdownSource("empty.md", "```xml\n```"); view.viewport()->update();
+    QTRY_VERIFY(button(0)->isVisible()); QTest::mouseClick(button(0), Qt::LeftButton); QVERIFY(QApplication::clipboard()->text().isEmpty());
+    view.setMarkdownSource("literal.md", "```html\n<p>Unclosed");
+    QTRY_VERIFY(view.findChildren<QToolButton *>("copyCodeButton").isEmpty());
+}
+void TreeMdTests::codeHighlightingTracksLanguageAndBlockBoundaries() {
+    const auto foreground = [](const QTextCursor &cursor) {
+        const int at = cursor.selectionStart() - cursor.block().position();
+        for (const auto &range : cursor.block().layout()->formats())
+            if (at >= range.start && at < range.start + range.length && range.format.hasProperty(QTextFormat::ForegroundBrush)) return range.format.foreground().color();
+        return QColor();
+    };
+    MarkdownDocumentView view; view.resize(700, 400); view.show();
+    const QString source = "```cpp\n/* unfinished comment\n```\n```cpp\nreturn 1;\n```\n\nBody";
+    view.setMarkdownSource("colors.md", source);
+    QTRY_COMPARE(foreground(view.document()->find("unfinished")), CodeSyntax::color(CodeSyntax::Kind::Comment));
+    QTRY_COMPARE(foreground(view.document()->find("return")), CodeSyntax::color(CodeSyntax::Kind::Keyword));
+    QVERIFY(!foreground(view.document()->find("Body")).isValid()); QCOMPARE(view.markdownSource(), source);
+    MarkdownEditor editor; editor.resize(700, 400); editor.show();
+    const QString raw = "```cpp\n/* comment\nstill comment\n*/ int count = 42;\n```\n```python\nreturn 1\n```";
+    editor.setSource(raw);
+    QTRY_COMPARE(foreground(editor.document()->find("still")), CodeSyntax::color(CodeSyntax::Kind::Comment));
+    QTRY_COMPARE(foreground(editor.document()->find("int count")), CodeSyntax::color(CodeSyntax::Kind::Type));
+    QTRY_COMPARE(foreground(editor.document()->find("return")), CodeSyntax::color(CodeSyntax::Kind::Keyword));
+    QCOMPARE(editor.source(), raw); QVERIFY(!editor.document()->isModified());
+    auto literal = editor.document()->find("42"); literal.insertText("\"return //\"");
+    const QString edited = QString(raw).replace("42", "\"return //\"");
+    QTRY_COMPARE(foreground(editor.document()->find("return //")), CodeSyntax::color(CodeSyntax::Kind::String));
+    auto language = editor.document()->find("```python"); language.insertText("```plaintext");
+    QTRY_VERIFY(!foreground(editor.document()->find("return 1")).isValid());
+    QCOMPARE(editor.source(), QString(edited).replace("```python", "```plaintext"));
+    auto light = MarkdownSettingsStore::current(); light.colors[MarkdownSettings::PageBackground] = QColor(Qt::white).rgba();
+    light.colors[MarkdownSettings::BlockBackground] = QColor("#f2f4f6").rgba(); light.colors[MarkdownSettings::TextColor] = QColor(Qt::black).rgba();
+    QVERIFY(MarkdownSettingsStore::save(light)); view.refreshAppearance(); editor.refreshAppearance();
+    QTRY_COMPARE(foreground(view.document()->find("return")), CodeSyntax::color(CodeSyntax::Kind::Keyword, false));
+    QTRY_COMPARE(foreground(editor.document()->find("int count")), CodeSyntax::color(CodeSyntax::Kind::Type, false));
+    auto settings = MarkdownSettingsStore::current(); settings.flags &= ~MarkdownSettings::SyntaxColors; QVERIFY(MarkdownSettingsStore::save(settings));
+    view.refreshAppearance(); editor.refreshAppearance();
+    QTRY_VERIFY(!foreground(view.document()->find("return")).isValid());
+    QTRY_COMPARE(view.findChildren<QToolButton *>("copyCodeButton").size(), 2);
+}
+void TreeMdTests::fencedCodeIndentation() {
+    const QString original = "```cpp\none\n  two\n```\n\nTail", indented = "```cpp\n    one\n      two\n```\n\nTail";
+    for (bool rendered : {false, true}) {
+        MarkdownDocumentView documentView; MarkdownEditor sourceView; QTextEdit *view = rendered ? static_cast<QTextEdit *>(&documentView) : &sourceView;
+        view->resize(700, 400); view->show(); view->setFocus();
+        auto load = [&](const QString &text) { if (rendered) documentView.setMarkdownSource("indent.md", text); else sourceView.setSource(text); };
+        auto text = [&] { return rendered ? documentView.markdownSource() : sourceView.source(); };
+        load(original);
+        auto first = view->document()->find("one"), last = view->document()->find("two"); auto cursor = last;
+        cursor.setPosition(last.selectionEnd()); cursor.setPosition(first.selectionStart(), QTextCursor::KeepAnchor); view->setTextCursor(cursor);
+        QTest::keyClick(view, Qt::Key_Tab); QCOMPARE(text(), indented); QVERIFY(view->textCursor().hasSelection());
+        QTest::keyClick(view, Qt::Key_Backtab, Qt::ShiftModifier); QCOMPARE(text(), original); QVERIFY(view->textCursor().hasSelection());
+        if (!rendered) { QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(text(), indented); QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(text(), original); }
+        load(original); first = view->document()->find("one"); first.setPosition(first.selectionStart()); view->setTextCursor(first);
+        QTest::keyClick(view, Qt::Key_Tab); QCOMPARE(text(), QString("```cpp\n    one\n  two\n```\n\nTail"));
+        QTest::keyClick(view, Qt::Key_End); QTest::keyClick(view, Qt::Key_Return); QTest::keyClicks(view, "three");
+        QCOMPARE(text(), QString("```cpp\n    one\n    three\n  two\n```\n\nTail"));
+        QTest::keyClick(view, Qt::Key_Backtab, Qt::ShiftModifier);
+        QCOMPARE(text(), QString("```cpp\n    one\nthree\n  two\n```\n\nTail"));
+        QTest::keyClick(view, Qt::Key_Down); QCOMPARE(view->textCursor().block().text(), QString("  two"));
+        QTest::keyClick(view, Qt::Key_Down); QTest::keyClicks(view, "next"); QVERIFY(text().endsWith("next\nTail"));
+        for (const QString &empty : {QString("```cpp\n\n```"), QString("```cpp\n```"), QString("> ```cpp\n> ```"), QString("- ```cpp\n  ```")}) {
+            load(empty);
+            if (rendered) {
+                QTextCursor code(documentView.document()); for (auto block = documentView.document()->begin(); block.isValid(); block = block.next())
+                    if (block.blockFormat().hasProperty(QTextFormat::BlockCodeFence)) { code = QTextCursor(block); break; }
+                view->setTextCursor(code);
+            } else { auto code = view->textCursor(); code.setPosition(empty.indexOf('\n') + 1); view->setTextCursor(code); }
+            QTest::keyClick(view, Qt::Key_Tab); QTest::keyClicks(view, "line");
+            const QString expected = empty.startsWith('>') ? "> ```cpp\n>     line\n> ```" : empty.startsWith('-') ? "- ```cpp\n      line\n  ```" : "```cpp\n    line\n```";
+            QCOMPARE(text(), expected);
+        }
+    }
+}
+
+void TreeMdTests::emptyListAndQuoteEnterReturnsToBody() {
+    for (const QString source : {QString("- item"), QString("1. item"), QString("- [x] item"), QString("> quote")}) {
+        MarkdownDocumentView view; view.resize(700,400); view.show(); view.setMarkdownSource("enter.md", source); view.moveCursor(QTextCursor::End); view.setFocus();
+        QTest::keyClick(&view, Qt::Key_Return); QTest::keyClick(&view, Qt::Key_Return);
+        const bool list = !source.startsWith('>'); // N14: empty lists continue; N17: empty quotes exit.
+        QCOMPARE(bool(view.textCursor().block().textList()), list); QCOMPARE(view.textCursor().blockFormat().intProperty(QTextFormat::BlockQuoteLevel), 0);
+        QCOMPARE(view.textCursor().blockFormat().headingLevel(), 0); QTest::keyClicks(&view, "next"); QTest::qWait(500);
+        const QString continuation = source.startsWith("- [") ? "- [ ] " : source.startsWith("1.") ? "2. \n3. " : "- \n- ";
+        const QString expected = list ? source + '\n' + (source.startsWith("- [") ? continuation + '\n' + continuation : continuation) + "next" : source + "\n\nnext";
+        QCOMPARE(view.markdownSource(), expected); QCOMPARE(bool(view.document()->find("next").block().textList()), list);
+    }
+    MarkdownDocumentView view; view.setMarkdownSource("enter.md", "Text"); view.moveCursor(QTextCursor::End);
+    QTest::keyClick(&view, Qt::Key_Return); QTest::keyClicks(&view, "---"); QTest::qWait(500);
+    QCOMPARE(view.markdownSource(), QString("Text\n---")); QCOMPARE(MarkdownParser::outline(view.markdownSource()).size(), 1); // N06: adjacent underline makes a heading.
+}
+
+void TreeMdTests::linePrefixesRequireSpaceAndStayOnTheirLine() {
+    const QString sentence = QString::fromUtf8("当`<script>`被过滤时:");
+    for (const QString marker : {QString("-"), QString("*"), QString("+"), QString("1."), QString("-word"), QString("-\titem"), QString("#\tTitle"), QString(">word")}) {
+        const QString source = sentence + '\n' + marker; MarkdownDocumentView view; view.setMarkdownSource("strict.md", source);
+        QCOMPARE(view.markdownSource(), source); QVERIFY(view.toPlainText().contains(marker));
+        for (auto b=view.document()->begin(); b.isValid(); b=b.next()) { QVERIFY(!b.textList()); QCOMPARE(b.blockFormat().headingLevel(),0); QCOMPARE(b.blockFormat().intProperty(QTextFormat::BlockQuoteLevel),0); }
+        QVERIFY(MarkdownParser::outline(source).isEmpty());
+    }
+    for (const QString marker : {QString("- "), QString("* "), QString("+ "), QString("1. "), QString("- [ ] ")}) {
+        MarkdownDocumentView view; view.resize(720,400); view.show(); view.setFocus();
+        const QString source = sentence + '\n' + marker; view.setMarkdownSource("empty.md", source);
+        const auto previous = view.document()->find(QString::fromUtf8("当")); QVERIFY(!previous.isNull()); QVERIFY(!previous.block().textList());
+        QCOMPARE(previous.block().blockFormat().headingLevel(),0); QVERIFY(MarkdownParser::outline(source).isEmpty());
+        view.moveCursor(QTextCursor::End); QVERIFY(view.textCursor().block().textList());
+        QTest::keyClicks(&view,"item"); QTest::qWait(550); QCOMPARE(view.markdownSource(),source+"item");
+        QVERIFY(!view.document()->find(QString::fromUtf8("当")).block().textList()); QVERIFY(view.document()->find("item").block().textList());
+    }
+    MarkdownDocumentView view; view.resize(720,400); view.show(); view.setFocus(); view.setMarkdownSource("typed.md","Before"); view.moveCursor(QTextCursor::End);
+    QTest::keyClick(&view,Qt::Key_Return); QTest::keyClicks(&view,"-"); QTest::qWait(550); QVERIFY(!view.textCursor().block().textList());
+    QTest::keyClick(&view,Qt::Key_Space); QTest::qWait(550); QVERIFY(view.textCursor().block().textList());
+    QVERIFY(!view.document()->find("Before").block().textList());
+}
+void TreeMdTests::activeLineMarkersSupportCharacterEditing() {
+    for (const QString prefix : {QString("### "),QString("- "),QString("+ "),QString("* "),QString("12. "),QString("> "),QString("> - "),QString("- [ ] ")}) {
+        MarkdownDocumentView view; view.resize(740,400); view.show(); view.setFocus();
+        const QString source="Before\n\n"+prefix+"value\n\nAfter"; view.setMarkdownSource("markers.md",source);
+        auto cursor=view.document()->find("value"); cursor.setPosition(cursor.selectionStart()+2); view.setTextCursor(cursor);
+        QVERIFY(view.visibleBlockMarkers().isEmpty()); QSignalSpy changes(&view,&MarkdownDocumentView::sourceEdited);
+        cursor=view.document()->find("value"); cursor.setPosition(cursor.selectionStart()); view.setTextCursor(cursor);
+        const int content=source.indexOf("value"); QCOMPARE(view.inlineCursorSourcePosition(),content);
+        for (int i=1;i<=prefix.size();++i) { const int x=view.cursorRect().left(); QTest::keyClick(&view,Qt::Key_Left); QCOMPARE(view.inlineCursorSourcePosition(),content-i); if (i > 1) QVERIFY(view.cursorRect().left()<x); }
+        for (int i=1;i<=prefix.size();++i) { const int x=view.cursorRect().left(); QTest::keyClick(&view,Qt::Key_Right); QCOMPARE(view.inlineCursorSourcePosition(),content-prefix.size()+i); if (i < prefix.size()) QVERIFY(view.cursorRect().left()>x); }
+        QCOMPARE(view.markdownSource(),source); QCOMPARE(changes.size(),0);
+        auto after=view.document()->find("After"); after.setPosition(after.selectionEnd()); view.setTextCursor(after); QVERIFY(view.visibleBlockMarkers().isEmpty());
+    }
+    MarkdownDocumentView view; view.resize(740,400); view.show(); view.setFocus(); view.setMarkdownSource("edit.md","## value");
+    QTest::keyClick(&view,Qt::Key_Left); QTest::keyClick(&view,Qt::Key_Left); QCOMPARE(view.inlineCursorSourcePosition(),1);
+    const auto markerCaret=view.cursorRect(); view.setMarkdownSource("edit.md",view.markdownSource(),true); QCOMPARE(view.inlineCursorSourcePosition(),1);
+    QTest::keyClicks(&view,"#"); QCOMPARE(view.markdownSource(),QString("### value")); QCOMPARE(view.textCursor().blockFormat().headingLevel(),3);
+    QTest::keyClick(&view,Qt::Key_Backspace); QCOMPARE(view.markdownSource(),QString("## value")); QCOMPARE(view.inlineCursorSourcePosition(),1);
+    QTest::mouseClick(view.viewport(),Qt::LeftButton,Qt::NoModifier,markerCaret.center()); QCOMPARE(view.inlineCursorSourcePosition(),1);
+    QTest::keyClick(&view,Qt::Key_Delete); QCOMPARE(view.markdownSource(),QString("# value"));
+    view.setMarkdownSource("suffix.md","## value ##"); auto value=view.document()->find("value"); value.setPosition(value.selectionEnd()); view.setTextCursor(value);
+    QVERIFY(view.visibleBlockMarkers().contains(" ##"));
+    for (int i=1;i<=3;++i) { QTest::keyClick(&view,Qt::Key_Right); QCOMPARE(view.inlineCursorSourcePosition(),8+i); }
+    view.setMarkdownSource("ime.md","## value"); QTest::keyClick(&view,Qt::Key_Left); QTest::keyClick(&view,Qt::Key_Left);
+    QInputMethodEvent input; input.setCommitString(QString::fromUtf8("文")); QApplication::sendEvent(&view,&input);
+    QCOMPARE(view.markdownSource(),QString::fromUtf8("#文# value")); QCOMPARE(view.inlineCursorSourcePosition(),2);
+    view.setMarkdownSource("quote.md","> one\n> two"); auto two=view.document()->find("two"); two.setPosition(two.selectionStart()+1); view.setTextCursor(two);
+    QVERIFY(view.visibleBlockMarkers().isEmpty()); QCOMPARE(view.toPlainText(),QString("one\ntwo"));
+    const QString nested="## **bold `code`**"; view.setMarkdownSource("nested.md",nested);
+    auto code=view.document()->find("code"); code.setPosition(code.selectionStart()+2); view.setTextCursor(code); QVERIFY(view.visibleBlockMarkers().isEmpty());
+    auto beginning=view.document()->find("bold"); beginning.setPosition(beginning.selectionStart()); view.setTextCursor(beginning);
+    QTest::keyClick(&view,Qt::Key_Left); QTest::keyClick(&view,Qt::Key_Left); QTest::keyClick(&view,Qt::Key_Left);
+    QCOMPARE(view.inlineCursorSourcePosition(),0);
+    QTest::keyClick(&view,Qt::Key_Right); QCOMPARE(view.inlineCursorSourcePosition(),1); QCOMPARE(view.markdownSource(),nested);
+}
+void TreeMdTests::formattedLinesPreserveTypedSpaces_data() {
+    QTest::addColumn<QString>("line");
+    for (const QString line : {QString("--"), QString("## Title"), QString("# Title"), QString("plain"),
+                              QString("- item"), QString("12. item"), QString("> quote"), QString("- [ ] task"),
+                              QString("###### Title"), QString("> ## Title"), QString("+ item"), QString("* item"),
+                              QString("3) item"), QString("- [x] task"), QString("##word"), QString("--word"),
+                              QString("**bold** tail"), QString("`code` tail"), QString("https://example.com")})
+        QTest::newRow(qPrintable(line)) << line;
+}
+void TreeMdTests::formattedLinesPreserveTypedSpaces() {
+    QFETCH(QString, line);
+    MarkdownDocumentView view; view.resize(740, 400); view.show(); view.setFocus();
+    view.setMarkdownSource("spaces.md", line + "\n\nAfter");
+    auto cursor = view.document()->begin(); QTextCursor caret(cursor); caret.movePosition(QTextCursor::EndOfBlock); view.setTextCursor(caret);
+    QString expected = line;
+    for (int i = 0; i < 3; ++i) {
+        QTest::keyClick(&view, Qt::Key_Space); expected += ' ';
+        QCOMPARE(view.markdownSource(), expected + "\n\nAfter");
+        QTest::qWait(550);
+        QCOMPARE(view.inlineCursorSourcePosition(), expected.size());
+        QVERIFY(view.textCursor().block().text().endsWith(QString(i + 1, ' ')));
+    }
+    QTest::keyClicks(&view, "next"); expected += "next";
+    QTest::qWait(550); QCOMPARE(view.markdownSource(), expected + "\n\nAfter");
+    view.setMarkdownSource("spaces.md", view.markdownSource(), true);
+    QCOMPARE(view.markdownSource(), expected + "\n\nAfter");
+    if (line == "plain") {
+        view.setMarkdownSource("blank.md", "");
+        QTest::keyClicks(&view, "   "); QTest::qWait(550);
+        QCOMPARE(view.markdownSource(), QString("   ")); QCOMPARE(view.toPlainText(), QString("   "));
+    }
+}
+void TreeMdTests::linePrefixSpaceEntersPreviewAndBackspaceRestores_data() {
+    QTest::addColumn<QString>("prefix");
+    for (const QString prefix : {QString("-"), QString("+"), QString("*"), QString("1."), QString("2)"),
+                                QString(">"), QString("#"), QString("##"), QString("###"), QString("######")})
+        QTest::newRow(qPrintable(prefix)) << prefix;
+}
+void TreeMdTests::linePrefixSpaceEntersPreviewAndBackspaceRestores() {
+    QFETCH(QString, prefix);
+    MarkdownDocumentView view; view.resize(740, 400); view.show(); view.setFocus(); view.setMarkdownSource("preview.md", "");
+    QTest::keyClicks(&view, prefix); QTest::keyClick(&view, Qt::Key_Space);
+    QCOMPARE(view.markdownSource(), prefix + ' '); QVERIFY(view.visibleBlockMarkers().isEmpty());
+    QCOMPARE(view.toPlainText(), QString());
+    if (prefix.startsWith('#')) QCOMPARE(view.textCursor().blockFormat().headingLevel(), prefix.size());
+    else if (prefix == ">") QVERIFY(view.textCursor().blockFormat().intProperty(QTextFormat::BlockQuoteLevel) > 0);
+    else QVERIFY(view.textCursor().block().textList());
+    for (int i = 1; i <= 3; ++i) {
+        QTest::keyClick(&view, Qt::Key_Space); QTest::qWait(550);
+        QCOMPARE(view.markdownSource(), prefix + QString(i + 1, ' '));
+        QCOMPARE(view.toPlainText(), QString(i, ' ')); QCOMPARE(view.inlineCursorSourcePosition(), prefix.size() + i + 1);
+    }
+    QTest::keyClicks(&view, "text"); QTest::qWait(550);
+    QCOMPARE(view.markdownSource(), prefix + "    text"); QCOMPARE(view.toPlainText(), QString("   text"));
+    QVERIFY(view.visibleBlockMarkers().isEmpty());
+    view.setMarkdownSource("preview.md", view.markdownSource(), true); QCOMPARE(view.toPlainText(), QString("   text"));
+    for (int i = 0; i < 7; ++i) QTest::keyClick(&view, Qt::Key_Backspace);
+    QCOMPARE(view.markdownSource(), prefix + ' '); QCOMPARE(view.toPlainText(), QString());
+    QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), prefix); QCOMPARE(view.toPlainText(), prefix);
+    QTest::keyClick(&view, Qt::Key_Space); QCOMPARE(view.markdownSource(), prefix + ' '); QCOMPARE(view.toPlainText(), QString());
+    QTest::keyClicks(&view, "again"); QTest::qWait(550); QCOMPARE(view.markdownSource(), prefix + " again");
+    if (prefix == "###" || prefix == "-") {
+        QInputMethodEvent input; input.setCommitString(QString::fromUtf8(" 中 ")); QApplication::sendEvent(&view, &input);
+        QTest::qWait(550); QCOMPARE(view.markdownSource(), prefix + QString::fromUtf8(" again 中 "));
+        QApplication::clipboard()->setText(" paste "); QTest::keyClick(&view, Qt::Key_V, Qt::ControlModifier);
+        QTest::qWait(550); QCOMPARE(view.markdownSource(), prefix + QString::fromUtf8(" again 中  paste "));
+    }
+}
+void TreeMdTests::listBackspaceRestoresMarkerInSameRow_data() {
+    QTest::addColumn<QString>("source"); QTest::addColumn<bool>("tab");
+    QTest::newRow("second-item") << QString("- first\n- ") << false;
+    QTest::newRow("second-empty-item") << QString("- \n- ") << false;
+    QTest::newRow("tab-item") << QString("- first\n- ") << true;
+    QTest::newRow("deep-tab-item") << QString("- first\n    - child\n    - ") << true;
+    QTest::newRow("middle-item") << QString("- first\n- \n- after") << false;
+    QTest::newRow("tab-middle-item") << QString("- first\n- \n- after") << true;
+}
+void TreeMdTests::listBackspaceRestoresMarkerInSameRow() {
+    QFETCH(QString, source); QFETCH(bool, tab);
+    MarkdownDocumentView view; view.resize(740, 420); view.show(); view.setFocus(); view.setMarkdownSource("restore-row.md", source);
+    QTextBlock empty;
+    for (auto block = view.document()->begin(); block.isValid(); block = block.next())
+        if (block.text().isEmpty() && block.textList()) empty = block;
+    QVERIFY(empty.isValid()); view.setTextCursor(QTextCursor(empty));
+    if (tab) QTest::keyClick(&view, Qt::Key_Tab);
+    if (tab) {
+        const QString indented = view.markdownSource(); const int caret = view.inlineCursorSourcePosition();
+        const int row = indented.lastIndexOf('\n', caret - 1) + 1;
+        QString outdented = indented; outdented.remove(row, 4);
+        QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), outdented);
+        QCOMPARE(view.inlineCursorSourcePosition(), caret - 4); QVERIFY(view.textCursor().block().textList());
+    }
+    while (view.markdownSource().mid(view.markdownSource().lastIndexOf('\n', view.inlineCursorSourcePosition() - 1) + 1).startsWith("    "))
+        QTest::keyClick(&view, Qt::Key_Backspace);
+    const QString before = view.markdownSource(); const int beforeCaret = view.inlineCursorSourcePosition();
+    const int lineStart = before.lastIndexOf('\n', beforeCaret - 1) + 1;
+    QString expected = before; expected.remove(beforeCaret - 1, 1); expected.insert(lineStart, '\n');
+    const int nextRow = expected.indexOf('\n', beforeCaret);
+    if (nextRow >= 0 && nextRow + 1 < expected.size() && expected[nextRow + 1] != '\n') expected.insert(nextRow + 1, '\n');
+    QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), expected);
+    QVERIFY(view.textCursor().block().text().endsWith('-'));
+    QCOMPARE(view.textCursor().positionInBlock(), view.textCursor().block().text().size());
+    QCOMPARE(view.inlineCursorSourcePosition(), beforeCaret);
+    QVERIFY(!view.textCursor().block().text().contains("first")); QVERIFY(!view.textCursor().block().text().contains("child"));
+    const auto check = [&] {
+        QVERIFY(view.textCursor().block().text().endsWith('-'));
+        QCOMPARE(view.textCursor().positionInBlock(), view.textCursor().block().text().size());
+        QCOMPARE(view.inlineCursorSourcePosition(), beforeCaret);
+    };
+    QTest::qWait(550); check(); view.setMarkdownSource("restore-row.md", view.markdownSource(), true); check();
+    QTest::keyClicks(&view, "x"); expected.insert(beforeCaret, 'x'); QCOMPARE(view.markdownSource(), expected);
+    QTest::keyClick(&view, Qt::Key_Backspace); expected.remove(beforeCaret, 1); QCOMPARE(view.markdownSource(), expected);
+    QTest::keyClick(&view, Qt::Key_Space); expected.insert(beforeCaret, ' '); QCOMPARE(view.markdownSource(), expected);
+    QVERIFY(view.textCursor().block().textList()); QTest::keyClicks(&view, "new"); expected.insert(beforeCaret + 1, "new"); QCOMPARE(view.markdownSource(), expected);
+}
+void TreeMdTests::unsavedDocumentsKeepDotsAndSaveIndividually() {
+    QTemporaryDir directory; MarkdownManager seed(directory.path());
+    for (const QString name : {QString("A"), QString("B"), QString("C")}) QVERIFY(seed.createDocument(name + ".md", "# " + name));
+    MainWindow window(directory.path()); window.show(); window.setSourceMode(true);
+    auto *editor = window.findChild<MarkdownEditor *>(); auto *tree = window.findChild<DocumentFileTree *>("documentTree"); QVERIFY(editor); QVERIFY(tree);
+    const auto marked = [&](const QString &path) {
+        QTreeWidgetItemIterator iterator(tree);
+        while (*iterator) { if ((*iterator)->data(0, Qt::UserRole).toString() == path) return (*iterator)->data(0, DocumentTreeBuilder::ModifiedRole).toBool(); ++iterator; }
+        return false;
+    };
+    QVERIFY(window.openDocument("A.md")); editor->moveCursor(QTextCursor::End); editor->insertPlainText(" edit"); QVERIFY(marked("A.md"));
+    QVERIFY(window.openDocument("B.md")); editor->moveCursor(QTextCursor::End); editor->insertPlainText(" edit");
+    QVERIFY(marked("A.md")); QVERIFY(marked("B.md")); QVERIFY(!marked("C.md"));
+    QTest::qWait(30); editor->setFocus(); QTest::keyClick(editor, Qt::Key_S, Qt::ControlModifier);
+    QVERIFY(marked("A.md")); QTRY_VERIFY(!marked("B.md"));
+    QString disk; QVERIFY(MarkdownFileIO::readFile(directory.filePath("A.md"), disk)); QCOMPARE(disk, QString("# A"));
+    QVERIFY(MarkdownFileIO::readFile(directory.filePath("B.md"), disk)); QCOMPARE(disk, QString("# B edit"));
+    QVERIFY(window.openDocument("A.md")); QCOMPARE(editor->source(), QString("# A edit"));
+    editor->moveCursor(QTextCursor::End); editor->insertPlainText("x"); editor->undo(); QVERIFY(marked("A.md"));
+    QVERIFY(window.openDocument("B.md")); editor->moveCursor(QTextCursor::End); editor->insertPlainText(" second"); QVERIFY(window.openDocument("C.md"));
+    bool save = false, details = true; int prompts = 0; QTimer answer; answer.setInterval(10);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()); if (!box) return;
+        if (box->objectName() != "saveAllDocumentsDialog") { box->reject(); return; }
+        ++prompts; details &= box->detailedText().contains("A.md") && box->detailedText().contains("B.md");
+        box->button(save ? QMessageBox::Save : QMessageBox::Cancel)->click();
+    });
+    answer.start(); QVERIFY(!window.close()); QCOMPARE(prompts, 1); QVERIFY(window.isVisible()); QVERIFY(marked("A.md")); QVERIFY(marked("B.md"));
+    save = true; prompts = 0; QVERIFY(window.close()); answer.stop(); QCOMPARE(prompts, 1); QVERIFY(details);
+    QVERIFY(MarkdownFileIO::readFile(directory.filePath("A.md"), disk)); QCOMPARE(disk, QString("# A edit"));
+    QVERIFY(MarkdownFileIO::readFile(directory.filePath("B.md"), disk)); QCOMPARE(disk, QString("# B edit second"));
+}
+void TreeMdTests::closeSaveAllFailureKeepsUnsavedDocuments() {
+    QTemporaryDir directory; MarkdownManager seed(directory.path()); QVERIFY(seed.createDocument("A.md", "# A")); QVERIFY(seed.createDocument("B.md", "# B"));
+    MainWindow window(directory.path()); window.show(); window.setSourceMode(true);
+    auto *editor = window.findChild<MarkdownEditor *>(); auto *manager = window.findChild<MarkdownManager *>(); QVERIFY(editor); QVERIFY(manager);
+    QVERIFY(window.openDocument("A.md")); editor->moveCursor(QTextCursor::End); editor->insertPlainText(" edit");
+    QVERIFY(window.openDocument("B.md")); editor->moveCursor(QTextCursor::End); editor->insertPlainText(" edit");
+    QVERIFY(MarkdownFileIO::writeFile(directory.filePath("B.md"), "# B external"));
+    bool discard = false; int prompts = 0, errors = 0; QTimer answer; answer.setInterval(10);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()); if (!box) return;
+        if (box->objectName() == "saveAllDocumentsDialog") { ++prompts; box->button(discard ? QMessageBox::Discard : QMessageBox::Save)->click(); }
+        else { ++errors; box->accept(); }
+    });
+    answer.start(); QVERIFY(!window.close()); QCOMPARE(prompts, 1); QCOMPARE(errors, 1); QVERIFY(window.isVisible());
+    QCOMPARE(manager->modifiedDocuments(), QStringList({"B.md"})); QCOMPARE(manager->loadNode("B.md")->content(), QString("# B edit"));
+    discard = true; QVERIFY(window.close()); answer.stop();
+    QString disk; QVERIFY(MarkdownFileIO::readFile(directory.filePath("B.md"), disk)); QCOMPARE(disk, QString("# B external"));
 }
 void TreeMdTests::headingsRequireSpaceWhenRendered() {
     MarkdownDocumentView view; view.resize(700, 500); view.show(); view.setFocus();
@@ -1222,9 +1863,18 @@ void TreeMdTests::markdownStylesAndOutlinePosition() {
         if (block.text() == "Quote") { quote = true; QCOMPARE(block.blockFormat().background().color(), QColor("#27312b")); }
         if (block.blockFormat().marker() == QTextBlockFormat::MarkerType::Checked) task = true;
         for (auto it = block.begin(); !it.atEnd(); ++it) { const auto fragment = it.fragment(); if (!fragment.isValid()) continue;
-            if (fragment.text().contains("inline")) { inlineCode = true; QCOMPARE(fragment.charFormat().background().color(), MarkdownTypography::codeBackground(true)); }
-            if (fragment.text().contains("strike") && fragment.charFormat().fontStrikeOut()) strike = true;
+
         }
+    }
+    const auto inlineText = view.document()->find("inline"), strikeText = view.document()->find("strike");
+    inlineCode = !inlineText.isNull(); strike = !strikeText.isNull();
+    for (int p = inlineText.selectionStart(); inlineCode && p < inlineText.selectionEnd(); ++p) {
+        QTextCursor character(view.document()); character.setPosition(p); character.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+        QVERIFY(character.charFormat().fontFixedPitch()); QCOMPARE(character.charFormat().background().style(), Qt::NoBrush);
+    }
+    for (int p = strikeText.selectionStart(); strike && p < strikeText.selectionEnd(); ++p) {
+        QTextCursor character(view.document()); character.setPosition(p); character.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+        strike &= character.charFormat().fontStrikeOut();
     }
     QVERIFY(inlineCode); QVERIFY(strike); QVERIFY(quote); QVERIFY(task); QCOMPARE(codeLines, 2);
     view.goToSourcePosition(target); QCOMPARE(view.textCursor().block().text(), QString("Target"));
@@ -1261,9 +1911,13 @@ void TreeMdTests::imagesHaveNoExcessSpacing() {
     view.setZoomPercent(200); verify(); QCOMPARE(view.markdownSource(), source); QVERIFY(edits.isEmpty()); QCOMPARE(view.loadedImageCount(), 1);
     view.setMarkdownSource(dir.filePath("doc.md"), "# Title\n\n![image](image.png)\n");
     QCOMPARE(view.loadedImageCount(), 1);
-    const auto last = view.document()->lastBlock(); QVERIFY(last.text().contains(QChar::ObjectReplacementCharacter));
-    const QRectF lastImage = view.document()->documentLayout()->blockBoundingRect(last);
-    QVERIFY(view.document()->size().height() - lastImage.bottom() <= 32);
+    const auto last = view.document()->lastBlock(); QVERIFY(last.text().isEmpty()); // N01: terminal LF keeps its body row.
+    const auto picture = last.previous(); QVERIFY(picture.text().contains(QChar::ObjectReplacementCharacter));
+    const QRectF lastImage = view.document()->documentLayout()->blockBoundingRect(picture);
+    const QRectF tail = view.document()->documentLayout()->blockBoundingRect(last);
+    QVERIFY(tail.top() - lastImage.bottom() <= 20);
+    const qreal normalSpacing = 32 + QFontMetricsF(view.font()).height() * 0.6;
+    QVERIFY(view.document()->size().height() - tail.bottom() <= normalSpacing);
 }
 void TreeMdTests::fontZoomBoundsAndSourceIntegrity() {
     QTemporaryDir dir; MarkdownManager manager(dir.path());
@@ -1336,6 +1990,63 @@ void TreeMdTests::treeRelationReplacementIsAtomic() {
     QCOMPARE(manager.loadNode("B.md")->relatedPaths(NodeRelationType::Child), QStringList{"A.md"});
     QVERIFY(manager.loadNode("B.md")->relatedPaths(NodeRelationType::Next).isEmpty());
     QString disk; QVERIFY(MarkdownFileIO::readFile(dir.filePath("A.md"), disk)); QCOMPARE(disk, QString("# A\n"));
+}
+void TreeMdTests::treeNodeRemovalIsAtomicAndPreservesDocuments() {
+    QTemporaryDir dir; MarkdownManager manager(dir.path());
+    for (const auto &path : {"A.md", "B.md", "C.md", "D.md", "X.md"}) QVERIFY(manager.createDocument(path, "# " + QString(path)));
+    QVERIFY(manager.setRelation("A.md", "B.md", NodeRelationType::Next));
+    QVERIFY(manager.setRelation("B.md", "C.md", NodeRelationType::Child));
+    QVERIFY(manager.setRelation("X.md", "B.md", NodeRelationType::Next));
+    QVERIFY(manager.setRelation("C.md", "D.md", NodeRelationType::Next));
+    manager.updateContent("B.md", "# Unsaved B");
+    const auto before = manager.explicitRelations(); const auto revision = manager.graphRevision();
+    QString disk; QVERIFY(MarkdownFileIO::readFile(dir.filePath(".tree-md-relations.json"), disk));
+    QVERIFY(MarkdownFileIO::writeFile(dir.filePath(".tree-md-relations.json"), "invalid external data"));
+    QString error; QVERIFY(!manager.removeNodeRelations("B.md", &error)); QVERIFY(!error.isEmpty());
+    QCOMPARE(manager.explicitRelations(), before); QCOMPARE(manager.graphRevision(), revision);
+    QVERIFY(MarkdownFileIO::writeFile(dir.filePath(".tree-md-relations.json"), disk));
+    QSignalSpy changed(&manager, &MarkdownManager::relationsChanged);
+    QVERIFY2(manager.removeNodeRelations("B.md", &error), qPrintable(error)); QCOMPARE(changed.size(), 1);
+    for (int role = 0; role < 5; ++role) QVERIFY(manager.loadNode("B.md")->relatedPaths(static_cast<NodeRelationType>(role)).isEmpty());
+    QVERIFY(manager.loadNode("A.md")->relatedPaths(NodeRelationType::Next).isEmpty());
+    QVERIFY(manager.loadNode("X.md")->relatedPaths(NodeRelationType::Next).isEmpty());
+    QCOMPARE(manager.loadNode("C.md")->relatedPaths(NodeRelationType::Next), QStringList{"D.md"});
+    QVERIFY(manager.loadNode("B.md")->isModified()); QCOMPARE(manager.loadNode("B.md")->content(), QString("# Unsaved B"));
+    QString content; QVERIFY(MarkdownFileIO::readFile(dir.filePath("B.md"), content)); QCOMPARE(content, QString("# B.md"));
+    QVERIFY(manager.removeNodeRelations("B.md")); QCOMPARE(changed.size(), 1);
+    QVERIFY(!manager.removeNodeRelations("missing.md"));
+    MarkdownManager reopened(dir.path()); QVERIFY(reopened.scan()); QCOMPARE(reopened.allNodes().size(), 5);
+    for (int role = 0; role < 5; ++role) QVERIFY(reopened.loadNode("B.md")->relatedPaths(static_cast<NodeRelationType>(role)).isEmpty());
+    QCOMPARE(reopened.loadNode("C.md")->relatedPaths(NodeRelationType::Next), QStringList{"D.md"});
+}
+void TreeMdTests::knowledgeTreeSelectedNodeRemoval() {
+    QTemporaryDir dir; MarkdownManager manager(dir.path());
+    for (const auto &path : {"A.md", "B.md", "C.md", "D.md", "E.md"}) QVERIFY(manager.createDocument(path, "# " + QString(path)));
+    QVERIFY(manager.setRelation("A.md", "B.md", NodeRelationType::Next));
+    QVERIFY(manager.setRelation("B.md", "C.md", NodeRelationType::Child));
+    QVERIFY(manager.setRelation("C.md", "D.md", NodeRelationType::Next));
+    QVERIFY(manager.setRelation("A.md", "E.md", NodeRelationType::Child));
+    RelationDialog dialog(&manager, "A.md"); dialog.show(); QTest::qWait(30);
+    auto *canvas = dialog.findChild<KnowledgeTreeCanvas *>(); auto *remove = dialog.findChild<QPushButton *>("removeTreeNodeButton");
+    auto *removeEdge = dialog.findChild<QPushButton *>("removeTreeRelationButton"); QVERIFY(canvas); QVERIFY(remove); QVERIFY(removeEdge);
+    const auto select = [&](const QString &path) {
+        QTest::mouseClick(canvas->viewport(), Qt::LeftButton, Qt::NoModifier, canvas->mapFromScene(canvas->nodeRect(path).center()));
+        QCOMPARE(canvas->selectedNode(), path); QVERIFY(remove->isEnabled()); QVERIFY(!removeEdge->isEnabled());
+    };
+    select("B.md"); QTest::mouseClick(remove, Qt::LeftButton); QTRY_VERIFY(!canvas->index().members.contains("B.md"));
+    QCOMPARE(canvas->index().paths.size(), 2); QVERIFY(manager.loadNode("B.md")); QVERIFY(QFileInfo::exists(dir.filePath("B.md")));
+    QCOMPARE(manager.loadNode("C.md")->relatedPaths(NodeRelationType::Next), QStringList{"D.md"});
+    auto *available = dialog.findChild<QTreeWidget *>("availableDocumentTree"); QVERIFY(available);
+    QStringList paths; QTreeWidgetItemIterator items(available); while (*items) { paths.append((*items)->data(0, Qt::UserRole).toString()); ++items; }
+    QVERIFY(paths.contains("B.md")); QVERIFY(paths.contains("C.md")); QVERIFY(paths.contains("D.md"));
+    select("A.md"); QTest::keyClick(canvas, Qt::Key_Delete); QTRY_COMPARE(canvas->index().root, QString("E.md"));
+    QVERIFY(!canvas->index().members.contains("A.md")); QVERIFY(manager.loadNode("A.md"));
+    QTest::mouseClick(remove, Qt::LeftButton); QTRY_COMPARE(canvas->visibleNodeCount(), 0); QVERIFY(!remove->isEnabled());
+    manager.relationsChanged(); QCOMPARE(canvas->visibleNodeCount(), 0);
+    dialog.setCurrentNode("C.md"); QCOMPARE(canvas->index().paths.size(), 2); QVERIFY(remove->isEnabled());
+    KnowledgeTreeCanvas readOnly; readOnly.setReadOnly(true); readOnly.setGraph(&manager, "C.md");
+    QSignalSpy requested(&readOnly, &KnowledgeTreeCanvas::nodeRemoveRequested); readOnly.removeSelectedNode(); QTest::keyClick(&readOnly, Qt::Key_Delete); QCOMPARE(requested.size(), 0);
+    dialog.close();
 }
 void TreeMdTests::knowledgeTreeDropPreviewAndPersistence() {
     QTemporaryDir dir; MarkdownManager manager(dir.path());
@@ -1995,7 +2706,7 @@ void TreeMdTests::settingsImportExportDialog() {
 void TreeMdTests::imageConfigurationAndPaths() {
     QTemporaryDir dir; const QString root = dir.filePath("md_data"); MarkdownManager manager(root);
     QVERIFY(manager.createDocument("folder/doc.md", "# Keep\n\nBody")); auto settings = MarkdownSettingsStore::current();
-    settings.relativePhotoPath = "../custom images"; settings.absolutePhotoPath = dir.filePath("absolute images");
+    settings.imageMode = 0; settings.relativePhotoPath = "../custom images"; settings.absolutePhotoPath = dir.filePath("absolute images");
     settings.hostedLinks = {{QStringLiteral("示例图片"), "https://example.test/a.png"}, {"Second", "https://example.test/b.png"}}; settings.defaultHostedLink = 1;
     settings.uploadEndpoint = "https://example.test/upload"; settings.uploadFileField = "photo"; settings.uploadUrlPath = "result.links.0.url";
     settings.uploadAuthKind = 2; settings.uploadAuthName = "key"; settings.uploadAuthPrefix.clear(); settings.uploadToken = "fake-test-key"; settings.uploadFields["format"] = "json";
@@ -2010,7 +2721,9 @@ void TreeMdTests::imageConfigurationAndPaths() {
     settings.uploadToken.clear(); QVERIFY(MarkdownSettingsStore::save(settings, &error));
 #endif
     ImageStorage storage(root); QString reference; QVERIFY(storage.store("folder/doc.md", png(), reference, nullptr, &error));
-    QVERIFY(reference.contains("../../custom%20images/folder/")); QVERIFY(QFileInfo::exists(MarkdownImages::localPath(reference, dir.filePath("md_data/folder/doc.md"))));
+    QVERIFY(QDir::isAbsolutePath(QUrl::fromPercentEncoding(reference.toUtf8())));
+    const QString stored = MarkdownImages::localPath(reference, dir.filePath("md_data/folder/doc.md"));
+    QCOMPARE(QFileInfo(stored).absolutePath(), dir.filePath("custom images")); QVERIFY(QFileInfo::exists(stored));
     QVERIFY(!QFileInfo::exists(dir.filePath("md_photo"))); QVERIFY(ImageStorage(root, ImageStorage::absolutePhotoRoot(root)).store("folder/doc.md", png(Qt::red), reference));
     QVERIFY(MarkdownImages::localPath(reference, dir.filePath("md_data/folder/doc.md")).startsWith(QDir::fromNativeSeparators(settings.absolutePhotoPath)));
     auto invalid = settings; invalid.relativePhotoPath = dir.path(); QVERIFY(!MarkdownSettingsStore::validate(invalid)); invalid = settings; invalid.hostedLinks[0].url = "file:///bad"; QVERIFY(!MarkdownSettingsStore::validate(invalid));
@@ -2040,7 +2753,9 @@ void TreeMdTests::imageConfigurationAndPaths() {
     QFile file(dir.filePath("input/pic.png")); QVERIFY(file.open(QIODevice::WriteOnly)); file.write(png(Qt::yellow)); file.close();
     MainWindow window(root); window.show(); window.setSourceMode(true); auto *editor = window.findChild<MarkdownEditor *>();
     auto *mime = new QMimeData; mime->setUrls({QUrl::fromLocalFile(file.fileName())}); QApplication::clipboard()->setMimeData(mime); editor->paste();
-    const auto images = MarkdownImages::parse(editor->source()); QCOMPARE(images.size(), 1); QVERIFY(images[0].source.contains("absolute%20images/folder/")); QVERIFY(QDir::isAbsolutePath(MarkdownImages::localPath(images[0].source, dir.filePath("md_data/folder/doc.md"))));
+    const auto images = MarkdownImages::parse(editor->source()); QCOMPARE(images.size(), 1);
+    QVERIFY(QDir::isAbsolutePath(QUrl::fromPercentEncoding(images[0].source.toUtf8())));
+    QCOMPARE(QFileInfo(MarkdownImages::localPath(images[0].source, dir.filePath("md_data/folder/doc.md"))).absolutePath(), dir.filePath("absolute images"));
     QVERIFY(QFileInfo::exists(file.fileName())); editor->undo(); QApplication::clipboard()->clear(); window.close();
 }
 
@@ -2052,19 +2767,19 @@ void TreeMdTests::fenceLanguageCompletionInSource() {
     QVERIFY(completer->completionCount() > 20);
     QVERIFY(completer->completionModel()->index(1, 0).data().toString().contains("Python"));
     QTest::keyClicks(&editor, "py"); QTRY_COMPARE(completer->completionCount(), 1);
-    QTest::keyClick(&editor, Qt::Key_Tab); QTRY_COMPARE(editor.source(), QString("# Keep\n\n```python\n\n```\n\n"));
+    QTest::keyClick(&editor, Qt::Key_Tab); QTRY_COMPARE(editor.source(), QString("# Keep\n\n```python\n\n```\n"));
     QVERIFY(!completer->popup()->isVisible());
     QVERIFY(editor.textCursor().block().text().isEmpty());
     editor.undo(); QCOMPARE(editor.source(), QString("# Keep\n\n```py"));
-    editor.redo(); QCOMPARE(editor.source(), QString("# Keep\n\n```python\n\n```\n\n"));
+    editor.redo(); QCOMPARE(editor.source(), QString("# Keep\n\n```python\n\n```\n"));
     QTextCursor body(editor.document()); body.setPosition(editor.source().indexOf("python") + 7); editor.setTextCursor(body);
     QTest::keyClicks(&editor, "print(1)"); QCoreApplication::processEvents();
-    QCOMPARE(editor.source(), QString("# Keep\n\n```python\nprint(1)\n```\n\n")); QVERIFY(!completer->popup()->isVisible());
+    QCOMPARE(editor.source(), QString("# Keep\n\n```python\nprint(1)\n```\n")); QVERIFY(!completer->popup()->isVisible());
     QTest::keyClick(&editor, Qt::Key_Down); QCOMPARE(editor.textCursor().position(), editor.source().size());
-    QTest::keyClicks(&editor, "After"); QCOMPARE(editor.source(), QString("# Keep\n\n```python\nprint(1)\n```\n\nAfter"));
+    QTest::keyClicks(&editor, "After"); QCOMPARE(editor.source(), QString("# Keep\n\n```python\nprint(1)\n```\nAfter"));
     editor.setSource("```ja"); editor.moveCursor(QTextCursor::End); QTRY_VERIFY(completer->popup()->isVisible());
     QCOMPARE(completer->completionCount(), 2); QTest::keyClick(&editor, Qt::Key_Down);
-    QTest::keyClick(&editor, Qt::Key_Return); QCOMPARE(editor.source(), QString("```javascript\n\n```\n\n"));
+    QTest::keyClick(&editor, Qt::Key_Return); QCOMPARE(editor.source(), QString("```javascript\n\n```\n"));
 }
 void TreeMdTests::fenceLanguageCompletionInDocument() {
     QTemporaryDir dir; MarkdownManager manager(dir.path()); QVERIFY(manager.createDocument("README.md", "# Keep\n\nBody"));
@@ -2075,18 +2790,18 @@ void TreeMdTests::fenceLanguageCompletionInDocument() {
     QTest::keyClicks(view, "```sq"); QTRY_VERIFY(completer->popup()->isVisible()); QTRY_COMPARE(completer->completionCount(), 1);
     // Rendering must not hide the language header while the user chooses a type.
     QTest::qWait(550); QVERIFY(view->toPlainText().contains("```sq")); QVERIFY(completer->popup()->isVisible());
-    QTest::keyClick(view, Qt::Key_Tab); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n\n```sql\n\n```\n\n"));
+    QTest::keyClick(view, Qt::Key_Tab); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n```sql\n\n```\n"));
     QCOMPARE(view->markdownSource(), editor->source()); QVERIFY(!completer->popup()->isVisible());
     QVERIFY(view->textCursor().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
     QTest::keyClicks(view, "SELECT 1;");
-    QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n\n```sql\nSELECT 1;\n```\n\n"));
+    QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n```sql\nSELECT 1;\n```\n"));
     QTest::qWait(550); QVERIFY(view->toPlainText().contains("SELECT 1;")); QVERIFY(!completer->popup()->isVisible());
     const auto code = view->document()->find("SELECT 1;").block(); QVERIFY(code.blockFormat().hasProperty(QTextFormat::BlockCodeFence));
     QVERIFY(code.blockFormat().background().color().lightness() > view->palette().color(QPalette::Base).lightness());
-    QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QVERIFY(editor->source().startsWith("# Keep\n\nBody\n\n```sql\n"));
-    QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTRY_VERIFY(editor->source().contains("SELECT 1;\n```\n\n"));
+    QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QVERIFY(editor->source().startsWith("# Keep\n\nBody\n```sql\n"));
+    QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTRY_VERIFY(editor->source().contains("SELECT 1;\n```\n"));
     QTest::keyClick(view, Qt::Key_Down); QVERIFY(!view->textCursor().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
-    QTest::keyClicks(view, "After"); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n\n```sql\nSELECT 1;\n```\n\nAfter"));
+    QTest::keyClicks(view, "After"); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n```sql\nSELECT 1;\n```\nAfter"));
     const QString captures = qEnvironmentVariable("TMD_UI_CHECK_DIRECTORY");
     if (!captures.isEmpty()) { QVERIFY(QDir().mkpath(captures)); QVERIFY(view->grab().save(QDir(captures).filePath("fenceCodeDocument.png"))); }
     window.hide();
@@ -2120,10 +2835,10 @@ void TreeMdTests::fencePopupKeyboardSelection() {
     QCOMPARE(source(), QString("```")); QCOMPARE(target->textCursor().position(), caret);
     const QString language = popup->currentIndex().data(Qt::UserRole).toString(); QVERIFY(!language.isEmpty());
     QTest::keyClick(popup, Qt::Key(confirmKey));
-    QCOMPARE(source(), "```" + language + "\n\n```\n\n"); QVERIFY(!popup->isVisible()); QVERIFY(target->hasFocus());
-    QTest::keyClicks(target, "value"); QCOMPARE(source(), "```" + language + "\nvalue\n```\n\n");
+    QCOMPARE(source(), "```" + language + "\n\n```\n"); QVERIFY(!popup->isVisible()); QVERIFY(target->hasFocus());
+    QTest::keyClicks(target, "value"); QCOMPARE(source(), "```" + language + "\nvalue\n```\n");
     QTest::keyClick(target, Qt::Key_Down); QTest::keyClicks(target, "After");
-    QCOMPARE(source(), "```" + language + "\nvalue\n```\n\nAfter");
+    QCOMPARE(source(), "```" + language + "\nvalue\n```\nAfter");
 
     // Esc returns to text entry, and typing a prefix still filters candidates.
     if (rendered) document.setMarkdownSource("keyboard.md", QString()); else editor.setSource(QString());
@@ -2131,7 +2846,7 @@ void TreeMdTests::fencePopupKeyboardSelection() {
     QTest::keyClick(popup, Qt::Key_Escape); QVERIFY(!popup->isVisible()); QCOMPARE(source(), QString("```ja"));
     QTest::keyClick(target, Qt::Key_Space, Qt::ControlModifier); QTRY_VERIFY(popup->isVisible());
     QTest::keyClick(popup, Qt::Key_Down); QTest::keyClick(popup, Qt::Key(confirmKey));
-    QCOMPARE(source(), QString("```javascript\n\n```\n\n"));
+    QCOMPARE(source(), QString("```javascript\n\n```\n"));
 }
 void TreeMdTests::fenceCompletionRespectsCodeBoundaries() {
     MarkdownEditor editor; editor.resize(700, 450); editor.show(); editor.activateWindow(); QVERIFY(QTest::qWaitForWindowActive(&editor)); editor.setFocus();
@@ -2145,7 +2860,7 @@ void TreeMdTests::fenceCompletionRespectsCodeBoundaries() {
     QTest::keyClick(&editor, Qt::Key_Escape); QTRY_VERIFY(!completer->popup()->isVisible());
     QCOMPARE(editor.source(), QString("```python\nx\n```\n\n  ```C"));
     QTest::keyClick(&editor, Qt::Key_Space, Qt::ControlModifier); QTRY_VERIFY(completer->popup()->isVisible());
-    QTest::keyClick(&editor, Qt::Key_Tab); QVERIFY(editor.source().endsWith("  ```cpp\n\n  ```\n\n"));
+    QTest::keyClick(&editor, Qt::Key_Tab); QVERIFY(editor.source().endsWith("  ```cpp\n\n  ```\n"));
     editor.setSource("~~~rust"); editor.moveCursor(QTextCursor::End); QTRY_VERIFY(completer->popup()->isVisible());
     QTest::keyClick(&editor, Qt::Key_Escape); QTest::keyClick(&editor, Qt::Key_Return);
     QTest::keyClicks(&editor, "```sql"); QCoreApplication::processEvents(); QVERIFY(!completer->popup()->isVisible());
@@ -2158,10 +2873,10 @@ void TreeMdTests::fenceCompletionPreservesExistingBlocks() {
     auto *completer = editor.findChild<QCompleter *>("fenceLanguageCompleter"); QVERIFY(completer);
     const QList<QPair<QString, QString>> cases = {
         {"```py\nprint(1)\n```\n\nAfter", "```python\nprint(1)\n```\n\nAfter"},
-        {"```py\n```", "```python\n\n```\n\n"},
-        {"```py\nprint(1)", "```python\nprint(1)\n```\n\n"},
-        {"  ````py\n```\nkeep", "  ````python\n```\nkeep\n  ````\n\n"},
-        {"~~~ru\ntext\n~~~", "~~~rust\ntext\n~~~\n\n"},
+        {"```py\n```", "```python\n\n```\n"},
+        {"```py\nprint(1)", "```python\n\n```\n\nprint(1)"},
+        {"  ````py\n```\nkeep", "  ````python\n\n  ````\n\n```\nkeep"},
+        {"~~~ru\ntext\n~~~", "~~~rust\ntext\n~~~\n"},
         {"````py\nx\n`````\nAfter", "````python\nx\n`````\n\nAfter"},
         {"```py\n\n```\n\n```sql\nSELECT 1;\n```\n\nAfter", "```python\n\n```\n\n```sql\nSELECT 1;\n```\n\nAfter"}
     };
@@ -2171,8 +2886,35 @@ void TreeMdTests::fenceCompletionPreservesExistingBlocks() {
         editor.undo(); QCOMPARE(editor.source(), entry.first); editor.redo(); QCOMPARE(editor.source(), entry.second);
         const auto fences = MarkdownParser::codeFences(editor.source()); QVERIFY(!fences.isEmpty()); QVERIFY(fences.front().closed());
         QVERIFY(fences.front().closeStart > fences.front().bodyStart);
-        QCOMPARE(fences.size(), MarkdownParser::codeFences(entry.first).size());
+        if (MarkdownParser::codeFences(entry.first).front().closed()) QCOMPARE(fences.size(), MarkdownParser::codeFences(entry.first).size());
     }
+}
+void TreeMdTests::fenceCompletionKeepsFollowingParagraphsOutside() {
+    for (bool rendered : {false, true}) for (const QString &suffix : {QString("\n\nFollowing text\n\n## Next heading"), QString("\n\nFollowing text\n\n```sql\nSELECT 1;\n```\n\n## Next heading")}) {
+        MarkdownEditor editor; MarkdownDocumentView view;
+        QTextEdit *target = rendered ? static_cast<QTextEdit *>(&view) : &editor;
+        target->resize(700, 450); target->show(); target->activateWindow(); QVERIFY(QTest::qWaitForWindowActive(target)); target->setFocus();
+        // Enter a new header in an existing blank paragraph. Loading an
+        // unfinished fence would already classify its suffix as Markdown code.
+        if (rendered) view.setMarkdownSource("fence.md", "Before" + suffix);
+        else editor.setSource("Before" + suffix);
+        if (rendered) {
+            auto cursor = view.document()->find("Before"); cursor.setPosition(cursor.selectionEnd()); target->setTextCursor(cursor);
+            QTest::keyClick(target, Qt::Key_Return); QTest::keyClicks(target, "```py");
+        } else { auto cursor = target->textCursor(); cursor.setPosition(6); target->setTextCursor(cursor); QTest::keyClick(target, Qt::Key_Return); QTest::keyClicks(target, "```py"); }
+        const QString before = rendered ? view.markdownSource() : editor.source();
+        const QString tail = before.mid(before.indexOf("```py") + 5);
+        auto *completer = target->findChild<QCompleter *>("fenceLanguageCompleter"); QTRY_VERIFY(completer->popup()->isVisible());
+        QTest::keyClick(target, Qt::Key_Tab);
+        const QString after = rendered ? view.markdownSource() : editor.source();
+        const QString expected = before.left(before.indexOf("```py")) + "```python\n\n```" + (tail.startsWith("\n\n") ? QString() : QString("\n")) + tail;
+        QCOMPARE(after, expected); QVERIFY(target->textCursor().block().text().isEmpty()); QVERIFY(!target->textCursor().hasSelection());
+        if (rendered) { QVERIFY(!view.document()->find("Following text").blockFormat().hasProperty(QTextFormat::BlockCodeFence)); QCOMPARE(view.document()->find("Next heading").blockFormat().headingLevel(), 2); }
+        else { editor.undo(); QCOMPARE(editor.source(), before); editor.redo(); QCOMPARE(editor.source(), expected); }
+    }
+    MarkdownEditor custom; custom.resize(700, 450); custom.show(); custom.setFocus(); custom.setSource("```customtype\nFollowing");
+    QTextCursor cursor(custom.document()); cursor.setPosition(13); custom.setTextCursor(cursor); QTest::keyClick(&custom, Qt::Key_Return);
+    QCOMPARE(custom.source(), QString("```customtype\n\n```\n\nFollowing"));
 }
 void TreeMdTests::emptyFencedBlocksKeepTypingInside() {
     for (const QString &prefix : {QString(), QString("# Before\n\n")}) {
@@ -2191,18 +2933,51 @@ void TreeMdTests::emptyFencedBlocksKeepTypingInside() {
         QCOMPARE(view.markdownSource(), prefix + "```python\nprint(1)\nprint(2)\n```\n\nAfter");
     }
     MarkdownDocumentView unclosed; unclosed.setMarkdownSource("unclosed.md", "~~~bash\n```\n\n");
-    QVERIFY(unclosed.document()->lastBlock().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
+    QVERIFY(!unclosed.document()->lastBlock().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
+    QVERIFY(unclosed.toPlainText().contains("~~~bash")); QVERIFY(unclosed.toPlainText().contains("```"));
     QTemporaryDir dir; MarkdownManager manager(dir.path()); QVERIFY(manager.createDocument("README.md", "Body"));
     MainWindow window(dir.path()); window.show(); window.activateWindow(); QVERIFY(QTest::qWaitForWindowActive(&window));
     auto *view = window.findChild<MarkdownDocumentView *>(); auto *editor = window.findChild<MarkdownEditor *>();
     view->setFocus(); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Return); QTest::keyClicks(view, "```py");
     auto *completer = view->findChild<QCompleter *>("fenceLanguageCompleter"); QTRY_VERIFY(completer->popup()->isVisible());
     const QString before = editor->source(); QTest::keyClick(view, Qt::Key_Tab); const QString completed = editor->source();
-    QVERIFY(completed.endsWith("```python\n\n```\n\n"));
+    QVERIFY(completed.endsWith("```python\n\n```\n"));
     QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(editor->source(), before);
     QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QCOMPARE(editor->source(), completed); window.hide();
 }
 
+void TreeMdTests::fencedFirstLineBackspacePreservesDelimiters() {
+    for (bool rendered : {false, true}) for (const QString &body : {QString("\nnext\n"), QString("\n\nnext\n"), QString("\n"), QString()}) {
+        MarkdownEditor editor; MarkdownDocumentView view; QTextEdit *target = rendered ? static_cast<QTextEdit *>(&view) : &editor;
+        target->resize(700, 450); target->show(); target->setFocus(); const QString source = "Before\n\n```cpp\n" + body + "```\n\nAfter";
+        if (rendered) view.setMarkdownSource("backspace-code.md", source); else editor.setSource(source);
+        const int bodyStart = source.indexOf("```cpp") + 7;
+        if (rendered) {
+            QTextBlock first; for (auto block = view.document()->begin(); block.isValid(); block = block.next())
+                if (block.blockFormat().hasProperty(QTextFormat::BlockCodeFence)) { first = block; break; }
+            QVERIFY(first.isValid()); QVERIFY(first.text().isEmpty()); target->setTextCursor(QTextCursor(first));
+        } else { auto cursor = target->textCursor(); cursor.setPosition(bodyStart); target->setTextCursor(cursor); }
+        QTest::keyClick(target, Qt::Key_Backspace);
+        QString expected = source;
+        if (body.contains("next")) expected.remove(bodyStart, 1);
+        else expected.remove(source.indexOf("```cpp"), 7 + body.size() + 3);
+        QCOMPARE(rendered ? view.markdownSource() : editor.source(), expected);
+        if (body.contains("next")) {
+            QVERIFY(MarkdownParser::codeFences(expected).front().closed());
+            if (body == "\nnext\n") { QTest::keyClick(target, Qt::Key_Backspace); QCOMPARE(rendered ? view.markdownSource() : editor.source(), expected); }
+        }
+        if (!rendered) { editor.undo(); QCOMPARE(editor.source(), source); }
+    }
+}
+void TreeMdTests::unpairedFencesStayLiteralAndEditable() {
+    for (const QString source : {QString("```"), QString("```python\n\nFollowing **bold** text"), QString("~~~bash\n```\n\nAfter"), QString("````py\ncontent\n```")}) {
+        MarkdownDocumentView view; view.resize(700, 450); view.show(); view.setMarkdownSource("literal-fence.md", source);
+        for (auto block = view.document()->begin(); block.isValid(); block = block.next()) QVERIFY(!block.blockFormat().hasProperty(QTextFormat::BlockCodeFence));
+        QVERIFY(view.toPlainText().contains(source.section('\n', 0, 0))); QCOMPARE(view.markdownSource(), source);
+        auto cursor = view.document()->find(source.section('\n', 0, 0)); cursor.setPosition(cursor.selectionStart()); view.setTextCursor(cursor);
+        QTest::keyClick(&view, Qt::Key_Delete); QCOMPARE(view.markdownSource(), source.mid(1));
+    }
+}
 void TreeMdTests::inlineCodeCursorCanLeaveAndReenter() {
     MarkdownDocumentView view; view.resize(700, 450); view.show(); view.setMarkdownSource("inline.md", "Start `code`");
     QTextCursor cursor = view.document()->find("code"); cursor.setPosition(cursor.selectionEnd()); view.setTextCursor(cursor);
@@ -2210,6 +2985,7 @@ void TreeMdTests::inlineCodeCursorCanLeaveAndReenter() {
     QTest::keyClick(&view, Qt::Key_Right); QVERIFY(!view.currentCharFormat().fontFixedPitch());
     QTest::keyClick(&view, Qt::Key_Left); QVERIFY(view.currentCharFormat().fontFixedPitch());
     QTest::keyClicks(&view, "Y"); QCOMPARE(view.markdownSource(), QString("Start `codeXY`"));
+    view.moveCursor(QTextCursor::End);
     QTest::keyClick(&view, Qt::Key_Right); QVERIFY(!view.currentCharFormat().fontFixedPitch());
     // A delayed render must keep the caret outside the closing backtick.
     QTest::qWait(550); QVERIFY(!view.currentCharFormat().fontFixedPitch());
@@ -2224,12 +3000,12 @@ void TreeMdTests::inlineCodeMouseCanTypeAfter() {
     for (const QString &source : {QString("`code`"), QString("Start `code`"), QString("Start `code` tail"), QString("# Heading `code`")}) {
         MarkdownDocumentView view; view.resize(700, 450); view.show(); view.setMarkdownSource("inline.md", source);
         QTextCursor cursor = view.document()->find("code"); cursor.setPosition(cursor.selectionEnd()); view.setTextCursor(cursor);
-        const QRect end = view.cursorRect(); QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(end.left() + 1, end.center().y()));
+        const QRect end = view.QTextBrowser::cursorRect(); QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(end.left() + 1, end.center().y()));
         QVERIFY(!view.currentCharFormat().fontFixedPitch()); QTest::keyClicks(&view, "after");
         QString expected = source; expected.replace("`code`", "`code`after"); QCOMPARE(view.markdownSource(), expected);
         view.setMarkdownSource("inline.md", source);
         cursor = view.document()->find("code"); cursor.setPosition(cursor.selectionStart()); view.setTextCursor(cursor);
-        const QRect begin = view.cursorRect(); QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(begin.left() + 1, begin.center().y()));
+        const QRect begin = view.QTextBrowser::cursorRect(); QTest::mouseClick(view.viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(begin.left() + 1, begin.center().y()));
         QVERIFY(view.currentCharFormat().fontFixedPitch()); QTest::keyClicks(&view, "X");
         expected = source; expected.replace("`code`", "`Xcode`"); QCOMPARE(view.markdownSource(), expected);
     }
@@ -2292,6 +3068,451 @@ void TreeMdTests::treeLayoutRemainsStableWhenCenterChanges() {
     for (const auto &path : graph.index().paths) QCOMPARE(reopened.nodeRect(path), graph.nodeRect(path));
     for (auto it = stored.cbegin(); it != stored.cend(); ++it)
         for (auto target = it->cbegin(); target != it->cend(); ++target) QCOMPARE(manager.explicitRelations().value(it.key()).value(target.key()), target.value());
+}
+
+void TreeMdTests::movePathsPreserveImagesAndRelations() {
+    QTemporaryDir directory; const QString root = directory.filePath("md_data"); QVERIFY(QDir().mkpath(root));
+    MarkdownManager manager(root); QVERIFY(manager.createDirectory("destination"));
+    QVERIFY(manager.createDirectory("source")); QVERIFY(manager.createDirectory("source/sub")); QVERIFY(manager.createDirectory("source/empty"));
+    const QString local = root + "/source/sub/local image.png"; QVERIFY(bytesFile(local, png()));
+    ImageStorage storage(root); QString photo; QVERIFY(storage.store("source/sub/A.md", png(Qt::red), photo));
+    const QString content = "# A\n![photo](" + photo + ")\n![local](local%20image.png)\n![absolute](" + MarkdownImages::encodedPath(local)
+        + ")\n![file](" + QUrl::fromLocalFile(local).toString(QUrl::FullyEncoded) + ")\n`![example](missing.png)`";
+    QVERIFY(manager.createDocument("source/sub/A.md", content)); QVERIFY(manager.createDocument("source/B.md", "# B"));
+    QVERIFY(manager.createDocument("outside.md", "# outside")); QVERIFY(bytesFile(root + "/source/extra.txt", "extra"));
+    QVERIFY(manager.addRelation("source/sub/A.md", "outside.md", NodeRelationType::Next));
+    QVERIFY(manager.addRelation("source/B.md", "source/sub/A.md", NodeRelationType::Child)); manager.enableWatching();
+    QString error; QVERIFY2(manager.movePath("source", "destination", &error), qPrintable(error));
+    QVERIFY(!QFileInfo::exists(root + "/source")); QVERIFY(QFileInfo(root + "/destination/source/empty").isDir());
+    QVERIFY(QFileInfo::exists(root + "/destination/source/extra.txt"));
+    auto *node = manager.loadNode("destination/source/sub/A.md"); QVERIFY(node); QVERIFY(!node->isModified());
+    QCOMPARE(node->relatedPaths(NodeRelationType::Next), QStringList{"outside.md"});
+    QCOMPARE(manager.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{"destination/source/sub/A.md"});
+    const auto images = MarkdownImages::parse(node->content()); QCOMPARE(images.size(), 4);
+    for (const auto &image : images) QVERIFY2(QFileInfo::exists(MarkdownImages::localPath(image.source, node->filePath())), qPrintable(image.source));
+    QVERIFY(node->content().contains("`![example](missing.png)`"));
+    QVERIFY2(manager.movePath("destination/source/sub/A.md", {}, &error), qPrintable(error));
+    QVERIFY(manager.loadNode("A.md")); QCOMPARE(manager.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{"A.md"});
+    MarkdownManager reopened(root); QVERIFY(reopened.scan()); QCOMPARE(reopened.loadNode("destination/source/B.md")->relatedPaths(NodeRelationType::Child), QStringList{"A.md"});
+    node = reopened.loadNode("A.md"); for (const auto &image : MarkdownImages::parse(node->content())) QVERIFY(QFileInfo::exists(MarkdownImages::localPath(image.source, node->filePath())));
+}
+void TreeMdTests::watchedDirectoriesMoveAcrossInstances() {
+    QTemporaryDir directory; MarkdownManager first(directory.path());
+    const QString source = QStringLiteral("网络安全"), target = QStringLiteral("计算机科学");
+    const QString before = source + QStringLiteral("/攻击类型/A.md"), after = target + '/' + before;
+    QVERIFY(first.createDocument(before, "# Security")); QVERIFY(first.createDocument("outside.md", "# Outside"));
+    QVERIFY(first.createDirectory(source + "/empty")); QVERIFY(first.createDirectory(target));
+    QVERIFY(first.addRelation(before, "outside.md", NodeRelationType::Next)); first.enableWatching();
+    MarkdownManager second(directory.path()); QVERIFY(second.scan()); second.enableWatching();
+    QString error; QVERIFY2(first.movePath(source, target, &error), qPrintable(error));
+    QTRY_VERIFY_WITH_TIMEOUT(second.loadNode(after) != nullptr, 5000); QVERIFY(!second.loadNode(before));
+    QCOMPARE(second.loadNode(after)->relatedPaths(NodeRelationType::Next), QStringList{"outside.md"});
+    QVERIFY(QFileInfo(directory.filePath(target + '/' + source + "/empty")).isDir());
+    const QString renamed = target + QStringLiteral("/网络安全新");
+    QVERIFY2(second.renameDirectory(target + '/' + source, renamed, &error), qPrintable(error));
+    QTRY_VERIFY_WITH_TIMEOUT(first.loadNode(renamed + QStringLiteral("/攻击类型/A.md")) != nullptr, 5000);
+    // External moves must work even while both instances actively monitor the tree.
+    const QString external = target + QStringLiteral("/网络安全外部");
+    QVERIFY(QDir().rename(directory.filePath(renamed), directory.filePath(external)));
+    QTRY_VERIFY_WITH_TIMEOUT(first.loadNode(external + QStringLiteral("/攻击类型/A.md")) != nullptr, 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(second.loadNode(external + QStringLiteral("/攻击类型/A.md")) != nullptr, 5000);
+    QVERIFY(MarkdownFileIO::writeFile(directory.filePath(external + QStringLiteral("/攻击类型/A.md")), "# Updated after move"));
+    QTRY_COMPARE_WITH_TIMEOUT(first.loadNode(external + QStringLiteral("/攻击类型/A.md"))->title(), QString("Updated after move"), 5000);
+    QTRY_COMPARE_WITH_TIMEOUT(second.loadNode(external + QStringLiteral("/攻击类型/A.md"))->title(), QString("Updated after move"), 5000);
+}
+void TreeMdTests::directoryMoveWithSharedDescendantHandles() {
+#ifdef Q_OS_WIN
+    QTemporaryDir directory; MarkdownManager manager(directory.path());
+    const QString source = QStringLiteral("网络安全"), target = QStringLiteral("计算机科学");
+    const QString before = source + "/a/b/A.md", after = target + '/' + before;
+    QVERIFY(manager.createDocument(before, "# A\n![local](local.png)"));
+    QVERIFY(bytesFile(directory.filePath(source + "/a/b/local.png"), png()));
+    QVERIFY(bytesFile(directory.filePath(source + "/extra.txt"), "extra"));
+    QVERIFY(manager.createDirectory(source + "/empty")); QVERIFY(manager.createDirectory(target));
+    QVERIFY(manager.createDocument("outside.md", "# Outside"));
+    QVERIFY(manager.addRelation(before, "outside.md", NodeRelationType::Next)); manager.enableWatching();
+    const auto open = [&](const QString &relative, DWORD access) {
+        const QString path = directory.filePath(relative);
+        return CreateFileW(reinterpret_cast<LPCWSTR>(path.utf16()), access,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    };
+    const HANDLE root = open(source, FILE_READ_ATTRIBUTES), descendant = open(source + "/a/b", FILE_LIST_DIRECTORY);
+    const auto close = qScopeGuard([&] {
+        for (const HANDLE handle : {root, descendant}) if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+    });
+    QVERIFY(root != INVALID_HANDLE_VALUE); QVERIFY(descendant != INVALID_HANDLE_VALUE);
+    BY_HANDLE_FILE_INFORMATION identity{}; QVERIFY(GetFileInformationByHandle(root, &identity));
+    const QString from = directory.filePath(source), to = directory.filePath(target + '/' + source);
+    QVERIFY(!MoveFileExW(reinterpret_cast<LPCWSTR>(from.utf16()), reinterpret_cast<LPCWSTR>(to.utf16()), 0));
+    QCOMPARE(GetLastError(), DWORD(ERROR_ACCESS_DENIED));
+    const HANDLE deletion = open(source + "/a/b", DELETE); QVERIFY(deletion != INVALID_HANDLE_VALUE); CloseHandle(deletion);
+    QString error; QVERIFY2(manager.movePath(source, target, &error), qPrintable(error));
+    QVERIFY(!QFileInfo::exists(from)); QVERIFY(QFileInfo(to + "/empty").isDir());
+    QString extra; QVERIFY(MarkdownFileIO::readFile(to + "/extra.txt", extra)); QCOMPARE(extra, QString("extra"));
+    auto *node = manager.loadNode(after); QVERIFY(node); QVERIFY(!node->isModified());
+    QCOMPARE(node->relatedPaths(NodeRelationType::Next), QStringList{"outside.md"});
+    QCOMPARE(manager.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{after});
+    for (const auto &image : MarkdownImages::parse(node->content()))
+        QVERIFY(QFileInfo::exists(MarkdownImages::localPath(image.source, node->filePath())));
+    const HANDLE destination = open(target + '/' + source, FILE_READ_ATTRIBUTES); QVERIFY(destination != INVALID_HANDLE_VALUE);
+    BY_HANDLE_FILE_INFORMATION newIdentity{}; const bool found = GetFileInformationByHandle(destination, &newIdentity); CloseHandle(destination); QVERIFY(found);
+    QCOMPARE(newIdentity.dwVolumeSerialNumber, identity.dwVolumeSerialNumber);
+    QCOMPARE(newIdentity.nFileIndexHigh, identity.nFileIndexHigh); QCOMPARE(newIdentity.nFileIndexLow, identity.nFileIndexLow);
+    QVERIFY(QDir(directory.path()).entryList({".tmd-move-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
+    MarkdownManager reopened(directory.path()); QVERIFY(reopened.scan());
+    QCOMPARE(reopened.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{after});
+#else
+    QSKIP("Windows ancestor directory rename behavior");
+#endif
+}
+void TreeMdTests::directoryMoveStagingRollsBackOnDeniedDestination() {
+#ifdef Q_OS_WIN
+    QTemporaryDir directory; MarkdownManager manager(directory.path());
+    const QString original = "# A\nunchanged"; QVERIFY(manager.createDocument("source/deep/A.md", original));
+    QVERIFY(manager.createDocument("outside.md", "# Outside")); QVERIFY(manager.createDirectory("target"));
+    QVERIFY(manager.addRelation("source/deep/A.md", "outside.md", NodeRelationType::Next));
+    QString metadata; QVERIFY(MarkdownFileIO::readFile(directory.filePath(".tree-md-relations.json"), metadata));
+    const QString target = directory.filePath("target"), deep = directory.filePath("source/deep");
+    DWORD needed = 0; GetFileSecurityW(reinterpret_cast<LPCWSTR>(target.utf16()), DACL_SECURITY_INFORMATION, nullptr, 0, &needed); QVERIFY(needed > 0);
+    QByteArray security(int(needed), '\0');
+    QVERIFY(GetFileSecurityW(reinterpret_cast<LPCWSTR>(target.utf16()), DACL_SECURITY_INFORMATION, security.data(), needed, &needed));
+    PSECURITY_DESCRIPTOR denied = nullptr;
+    QVERIFY(ConvertStringSecurityDescriptorToSecurityDescriptorW(L"D:(D;;0x4;;;WD)(A;;FA;;;WD)", SDDL_REVISION_1, &denied, nullptr));
+    const bool changed = SetFileSecurityW(reinterpret_cast<LPCWSTR>(target.utf16()), DACL_SECURITY_INFORMATION, denied); LocalFree(denied); QVERIFY(changed);
+    const auto restoreSecurity = qScopeGuard([&] { SetFileSecurityW(reinterpret_cast<LPCWSTR>(target.utf16()), DACL_SECURITY_INFORMATION, security.data()); });
+    const HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(deep.utf16()), FILE_LIST_DIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+    const auto close = qScopeGuard([&] { if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle); }); QVERIFY(handle != INVALID_HANDLE_VALUE);
+    QString error; QVERIFY(!manager.movePath("source", "target", &error)); QVERIFY(error.contains("Windows"));
+    QVERIFY(!QFileInfo::exists(directory.filePath("target/source"))); QVERIFY(manager.loadNode("source/deep/A.md"));
+    QString content; QVERIFY(MarkdownFileIO::readFile(directory.filePath("source/deep/A.md"), content)); QCOMPARE(content, original);
+    QString unchanged; QVERIFY(MarkdownFileIO::readFile(directory.filePath(".tree-md-relations.json"), unchanged)); QCOMPARE(unchanged, metadata);
+    QCOMPARE(manager.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{"source/deep/A.md"});
+    QVERIFY(QDir(directory.path()).entryList({".tmd-move-*"}, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
+#else
+    QSKIP("Windows directory permissions");
+#endif
+}
+void TreeMdTests::directoryMoveImageRewriteFailureRestoresOriginal() {
+#ifdef Q_OS_WIN
+    QTemporaryDir directory; const QString root = directory.filePath("md_data"); QVERIFY(QDir().mkpath(root));
+    MarkdownManager manager(root); const QString original = "# A\n![local](local.png)";
+    QVERIFY(manager.createDocument("source/A.md", original)); QVERIFY(bytesFile(root + "/source/local.png", png()));
+    QVERIFY(manager.createDirectory("target")); QVERIFY(manager.createDocument("outside.md", "# Outside"));
+    QVERIFY(manager.addRelation("source/A.md", "outside.md", NodeRelationType::Next));
+    QString metadata; QVERIFY(MarkdownFileIO::readFile(root + "/.tree-md-relations.json", metadata));
+    const QString path = QDir::toNativeSeparators(root + "/source/A.md"), target = QDir::toNativeSeparators(root + "/target/source/A.md");
+    const DWORD attributes = GetFileAttributesW(reinterpret_cast<LPCWSTR>(path.utf16())); QVERIFY(attributes != INVALID_FILE_ATTRIBUTES);
+    QVERIFY(SetFileAttributesW(reinterpret_cast<LPCWSTR>(path.utf16()), attributes | FILE_ATTRIBUTE_READONLY));
+    const auto restore = qScopeGuard([&] {
+        SetFileAttributesW(reinterpret_cast<LPCWSTR>(path.utf16()), attributes);
+        SetFileAttributesW(reinterpret_cast<LPCWSTR>(target.utf16()), attributes);
+    });
+    QString error; QVERIFY(!manager.movePath("source", "target", &error));
+    QVERIFY2(!error.contains(QStringLiteral("还原未完成")), qPrintable(error));
+    QVERIFY(!QFileInfo::exists(root + "/target/source")); QVERIFY(manager.loadNode("source/A.md"));
+    QString content; QVERIFY(MarkdownFileIO::readFile(root + "/source/A.md", content)); QCOMPARE(content, original);
+    QVERIFY(QFileInfo::exists(root + "/source/local.png"));
+    QString unchanged; QVERIFY(MarkdownFileIO::readFile(root + "/.tree-md-relations.json", unchanged)); QCOMPARE(unchanged, metadata);
+    QCOMPARE(manager.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{"source/A.md"});
+#else
+    QSKIP("Windows read-only file replacement");
+#endif
+}
+void TreeMdTests::directoryMoveReportsLocksAndRetries() {
+#ifdef Q_OS_WIN
+    QTemporaryDir directory; MarkdownManager manager(directory.path());
+    const QString relative = QStringLiteral("source/deep/占用.md"), locked = directory.filePath(relative);
+    QVERIFY(manager.createDocument(relative, "# Locked")); QVERIFY(manager.createDocument("outside.md", "# Outside"));
+    QVERIFY(manager.createDirectory("target")); QVERIFY(manager.addRelation(relative, "outside.md", NodeRelationType::Next)); manager.enableWatching();
+    QString metadata; QVERIFY(MarkdownFileIO::readFile(directory.filePath(".tree-md-relations.json"), metadata));
+    const HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(locked.utf16()), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr); QVERIFY(handle != INVALID_HANDLE_VALUE);
+    QString error; const bool moved = manager.movePath("source", "target", &error); CloseHandle(handle);
+    QVERIFY(!moved); QVERIFY2(error.contains(locked), qPrintable(error)); QVERIFY(error.contains("Windows"));
+    QVERIFY(manager.loadNode(relative)); QVERIFY(!QFileInfo::exists(directory.filePath("target/source")));
+    QString unchanged; QVERIFY(MarkdownFileIO::readFile(directory.filePath(".tree-md-relations.json"), unchanged)); QCOMPARE(unchanged, metadata);
+    QVERIFY(MarkdownFileIO::writeFile(locked, "# Watch still active"));
+    QTRY_COMPARE_WITH_TIMEOUT(manager.loadNode(relative)->title(), QString("Watch still active"), 5000);
+    const QString folder = directory.filePath("source");
+    const HANDLE transient = CreateFileW(reinterpret_cast<LPCWSTR>(folder.utf16()), FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr); QVERIFY(transient != INVALID_HANDLE_VALUE);
+    std::thread release([transient] { Sleep(75); CloseHandle(transient); });
+    const bool retried = manager.movePath("source", "target", &error); release.join(); QVERIFY2(retried, qPrintable(error));
+    QVERIFY(manager.loadNode(QStringLiteral("target/source/deep/占用.md"))); QVERIFY(!QFileInfo::exists(folder));
+    QCOMPARE(manager.loadNode(QStringLiteral("target/source/deep/占用.md"))->relatedPaths(NodeRelationType::Next), QStringList{"outside.md"});
+    QVERIFY(!MarkdownFileIO::renameDirectory(directory.filePath("target/source"), directory.filePath("target"), &error));
+    QVERIFY(QFileInfo::exists(directory.filePath(QStringLiteral("target/source/deep/占用.md"))));
+#else
+    QSKIP("Windows sharing locks are required.");
+#endif
+}
+void TreeMdTests::movePathsRejectConflictsAndDirtyDocuments() {
+    QTemporaryDir directory; MarkdownManager manager(directory.path());
+    QVERIFY(manager.createDocument("source/A.md", "# source")); QVERIFY(manager.createDocument("target/A.md", "# target"));
+    QVERIFY(manager.createDirectory("source/child")); QString error;
+    QVERIFY(!manager.movePath("source/A.md", "target", &error)); QVERIFY(!error.isEmpty());
+    QVERIFY(!manager.movePath("source", "source/child", &error)); QVERIFY(QFileInfo(directory.filePath("source/A.md")).isFile());
+    QVERIFY(!manager.movePath("", "target", &error)); QVERIFY(!manager.movePath("source", "../outside", &error));
+    manager.updateContent("source/A.md", "# unsaved"); QVERIFY(!manager.movePath("source", "target", &error));
+    QCOMPARE(manager.loadNode("source/A.md")->content(), QString("# unsaved")); QVERIFY(manager.loadNode("source/A.md")->isModified());
+    QString source, target; QVERIFY(MarkdownFileIO::readFile(directory.filePath("source/A.md"), source)); QCOMPARE(source, QString("# source"));
+    QVERIFY(MarkdownFileIO::readFile(directory.filePath("target/A.md"), target)); QCOMPARE(target, QString("# target"));
+    QVERIFY(!FileManager::openPath(directory.filePath("missing.md"), &error));
+    QVERIFY(manager.reloadDocument("source/A.md"));
+    QVERIFY(MarkdownFileIO::writeFile(directory.filePath(".tree-md-relations.json"), "invalid"));
+    QVERIFY(!manager.movePath("source", "target", &error)); QVERIFY(QFileInfo(directory.filePath("source/A.md")).isFile());
+}
+void TreeMdTests::sidebarColorsDragAndExplorerTargets() {
+    QTemporaryDir directory; MarkdownManager manager(directory.path());
+    QVERIFY(manager.createDocument("A.md", "# A")); QVERIFY(manager.createDocument("folder/B.md", "# B"));
+    QVERIFY(manager.createDirectory("folder/child"));
+    DocumentSidebar sidebar; sidebar.resize(300, 650); sidebar.setDocuments(manager.allNodes(), manager.directories()); sidebar.show();
+    auto *tree = sidebar.findChild<DocumentFileTree *>("documentTree"); QVERIFY(tree);
+    const auto find = [&](int role, const QString &path) -> QTreeWidgetItem * {
+        QTreeWidgetItemIterator iterator(tree); while (*iterator) { if ((*iterator)->data(0, role).toString() == path) return *iterator; ++iterator; } return nullptr;
+    };
+    auto *file = find(Qt::UserRole, "A.md"), *folder = find(Qt::UserRole + 2, "folder"), *child = find(Qt::UserRole + 2, "folder/child");
+    QVERIFY(file); QVERIFY(folder); QVERIFY(child); QVERIFY(file->foreground(0).color() != folder->foreground(0).color());
+    QVERIFY(folder->flags().testFlag(Qt::ItemIsDragEnabled)); QSignalSpy moved(&sidebar, &DocumentSidebar::movePathRequested);
+    auto drop = [&](QTreeWidgetItem *source, QTreeWidgetItem *destination) {
+        std::unique_ptr<QMimeData> mime(tree->mimeData({source}));
+        const QPoint point = destination ? tree->visualItemRect(destination).center() : QPoint(20, tree->viewport()->height() - 10);
+        QDragEnterEvent enter(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &enter);
+        QDragMoveEvent move(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &move);
+        QDropEvent event(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &event);
+        return event.isAccepted();
+    };
+    QVERIFY(drop(file, folder)); QCOMPARE(moved.size(), 1); QCOMPARE(moved.back()[0].toString(), QString("A.md")); QCOMPARE(moved.back()[2].toString(), QString("folder"));
+    QVERIFY(!file->parent()); QVERIFY(!drop(folder, child)); QCOMPARE(moved.size(), 1);
+    QVERIFY(drop(find(Qt::UserRole, "folder/B.md"), nullptr)); QCOMPARE(moved.back()[2].toString(), QString());
+    QSignalSpy opened(&sidebar, &DocumentSidebar::openFileManagerRequested);
+    for (auto *item : {folder, static_cast<QTreeWidgetItem *>(nullptr)}) {
+        const QPoint point = item ? tree->visualItemRect(item).center() : QPoint(20, tree->viewport()->height() - 10);
+        QMetaObject::invokeMethod(tree, "customContextMenuRequested", Qt::DirectConnection, Q_ARG(QPoint, point));
+        auto *menu = sidebar.findChild<QMenu *>("documentContextMenu"); QVERIFY(menu);
+        auto *action = menu->findChild<QAction *>("contextOpenFileManager"); QVERIFY(action); QCOMPARE(action->text(), QString::fromUtf8("在文件管理器打开"));
+        action->trigger(); menu->hide(); QTest::qWait(1);
+    }
+    QCOMPARE(opened.size(), 2); QCOMPARE(opened[0][0].toString(), QString("folder")); QCOMPARE(opened[1][0].toString(), QString());
+}
+void TreeMdTests::sidebarScrollBlankCreatesAtRoot() {
+    QTemporaryDir dir; MarkdownManager manager(dir.path());
+    for (int i = 0; i < 60; ++i) QVERIFY(MarkdownFileIO::writeFile(dir.filePath(QString("doc%1.md").arg(i, 2, 10, QLatin1Char('0'))), "# Test"));
+    QVERIFY(manager.scan());
+    DocumentSidebar sidebar; sidebar.resize(300, 400); sidebar.setDocuments(manager.allNodes()); sidebar.show();
+    auto *tree = sidebar.findChild<DocumentFileTree *>("documentTree"); QVERIFY(tree);
+    auto *scroll = tree->verticalScrollBar(); QTRY_VERIFY(scroll->maximum() > 0);
+    scroll->setValue(scroll->maximum()); QCoreApplication::processEvents();
+    const QRect last = tree->visualItemRect(tree->topLevelItem(tree->topLevelItemCount() - 1));
+    QVERIFY2(tree->viewport()->height() - last.bottom() >= 110, qPrintable(QString::number(tree->viewport()->height() - last.bottom())));
+    const QPoint blank(20, tree->viewport()->height() - 40); QVERIFY(!tree->itemAt(blank));
+    QSignalSpy documents(&sidebar, &DocumentSidebar::createDocumentRequested), folders(&sidebar, &DocumentSidebar::createDirectoryRequested);
+    QMetaObject::invokeMethod(tree, "customContextMenuRequested", Qt::DirectConnection, Q_ARG(QPoint, blank));
+    auto *menu = sidebar.findChild<QMenu *>("documentContextMenu"); QVERIFY(menu);
+    menu->findChild<QAction *>("contextCreateDocument")->trigger();
+    menu->findChild<QAction *>("contextCreateDirectory")->trigger();
+    QCOMPARE(documents.front().front().toString(), QString()); QCOMPARE(folders.front().front().toString(), QString());
+    QVERIFY(!tree->currentItem()); menu->hide();
+    sidebar.resize(300, 500); QCoreApplication::processEvents(); scroll->setValue(scroll->maximum());
+    QVERIFY(!tree->itemAt(QPoint(20, tree->viewport()->height() - 40)));
+    sidebar.findChild<QLineEdit *>("documentSearch")->setText("doc59"); QCoreApplication::processEvents();
+    QCOMPARE(scroll->maximum(), 0); QVERIFY(!tree->itemAt(QPoint(20, tree->viewport()->height() - 40)));
+}
+void TreeMdTests::sidebarRemembersExpansionAndDragRestores() {
+    QTemporaryDir dir; MarkdownManager manager(dir.path());
+    QVERIFY(manager.createDocument("source/A.md", "# A")); QVERIFY(manager.createDocument("target/deep/B.md", "# B"));
+    DocumentSidebar sidebar; sidebar.resize(300, 650); sidebar.setLibraryRoot(dir.path()); sidebar.setDocuments(manager.allNodes(), manager.directories()); sidebar.show();
+    auto *tree = sidebar.findChild<DocumentFileTree *>("documentTree"); QVERIFY(tree);
+    const auto find = [&](const QString &path) -> QTreeWidgetItem * {
+        QTreeWidgetItemIterator it(tree); while (*it) { if ((*it)->data(0, Qt::UserRole + 2).toString() == path) return *it; ++it; } return nullptr;
+    };
+    find("target/deep")->setExpanded(false); find("target")->setExpanded(false);
+    sidebar.setDocuments(manager.allNodes(), manager.directories()); QVERIFY(!find("target")->isExpanded());
+    sidebar.selectPath("source/A.md"); std::unique_ptr<QMimeData> mime(tree->mimeData({tree->currentItem()}));
+    const QPoint point = tree->textRect(find("target")).center();
+    QDragEnterEvent enter(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &enter); QVERIFY(enter.isAccepted());
+    QDragMoveEvent hover(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &hover); QVERIFY(find("target")->isExpanded());
+    QSignalSpy moved(&sidebar, &DocumentSidebar::movePathRequested);
+    QDropEvent drop(point, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree->viewport(), &drop);
+    QVERIFY(drop.isAccepted()); QCOMPARE(moved.size(), 1); QVERIFY(!find("target")->isExpanded());
+    sidebar.setDocuments(manager.allNodes(), manager.directories()); QVERIFY(!find("target/deep")->isExpanded());
+    sidebar.selectDirectory("target/deep"); QVERIFY(!find("target")->isExpanded());
+    sidebar.selectPath("target/deep/B.md"); QVERIFY(!find("target")->isExpanded());
+    DocumentSidebar reopened; reopened.setLibraryRoot(dir.path()); reopened.setDocuments(manager.allNodes(), manager.directories());
+    auto *other = reopened.findChild<DocumentFileTree *>("documentTree"); QVERIFY(other);
+    QTreeWidgetItemIterator it(other); while (*it) { if ((*it)->data(0, Qt::UserRole + 2).toString() == "target") QVERIFY(!(*it)->isExpanded()); ++it; }
+    sidebar.remapDirectoryState("target", "renamed"); QVERIFY(manager.renameDirectory("target", "renamed"));
+    sidebar.setDocuments(manager.allNodes(), manager.directories()); QVERIFY(!find("renamed")->isExpanded()); QVERIFY(!find("renamed/deep")->isExpanded());
+    find("renamed")->setExpanded(true); sidebar.setDocuments(manager.allNodes(), manager.directories()); QVERIFY(find("renamed")->isExpanded());
+}
+void TreeMdTests::sidebarBoxSelectionAndTextDragging() {
+    class ProbeTree : public DocumentFileTree {
+    public:
+        mutable int mimeCalls = 0;
+        QMimeData *mimeData(const QList<QTreeWidgetItem *> &items) const override { ++mimeCalls; return DocumentFileTree::mimeData(items); }
+    };
+    ProbeTree tree; tree.resize(340, 400); tree.setHeaderHidden(true);
+    auto *a = new QTreeWidgetItem(&tree); a->setText(0, "A.md"); a->setData(0, Qt::UserRole, "A.md");
+    auto *b = new QTreeWidgetItem(&tree); b->setText(0, "B.md"); b->setData(0, Qt::UserRole, "B.md");
+    auto *folder = new QTreeWidgetItem(&tree); folder->setText(0, "folder"); folder->setData(0, Qt::UserRole + 2, "folder");
+    tree.show(); QCoreApplication::processEvents();
+    const QPoint begin(tree.viewport()->width() - 20, tree.textRect(a).top()), end(tree.textRect(b).left(), tree.textRect(b).bottom());
+    QTest::mousePress(tree.viewport(), Qt::LeftButton, Qt::NoModifier, begin);
+    QMouseEvent select(QEvent::MouseMove, end, tree.viewport()->mapToGlobal(end), Qt::NoButton, Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree.viewport(), &select);
+    QTest::mouseRelease(tree.viewport(), Qt::LeftButton, Qt::NoModifier, end);
+    QCOMPARE(tree.selectedItems().size(), 2); QVERIFY(a->isSelected()); QVERIFY(b->isSelected()); QVERIFY(!folder->isSelected()); QCOMPARE(tree.mimeCalls, 0);
+    std::unique_ptr<QMimeData> mime(tree.mimeData(tree.selectedItems())); QVERIFY(mime->hasFormat("application/x-tmd-library-item"));
+    QSignalSpy moved(&tree, &DocumentFileTree::moveDocumentsRequested);
+    const QPoint target = tree.textRect(folder).center();
+    QDragEnterEvent enter(target, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree.viewport(), &enter);
+    QDropEvent drop(target, Qt::MoveAction, mime.get(), Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree.viewport(), &drop);
+    QVERIFY(drop.isAccepted()); QCOMPARE(moved.size(), 1); QCOMPARE(moved.front()[0].toStringList().size(), 2); QCOMPARE(moved.front()[1].toString(), QString("folder"));
+    tree.mimeCalls = 0;
+    const QPoint press = tree.textRect(a).center(), drag = press + QPoint(80, 20);
+    QTest::mousePress(tree.viewport(), Qt::LeftButton, Qt::NoModifier, press);
+    QMouseEvent move(QEvent::MouseMove, drag, tree.viewport()->mapToGlobal(drag), Qt::NoButton, Qt::LeftButton, Qt::NoModifier); QApplication::sendEvent(tree.viewport(), &move);
+    QTest::mouseRelease(tree.viewport(), Qt::LeftButton, Qt::NoModifier, drag); QVERIFY(tree.mimeCalls > 0);
+}
+void TreeMdTests::batchMoveDocumentsPreservesImagesAndRollsBack() {
+    QTemporaryDir dir; const QString root = dir.filePath("md_data"); MarkdownManager manager(root); ImageStorage storage(root); QString image;
+    QVERIFY(storage.store("one/A.md", png(), image));
+    QVERIFY(manager.createDocument("one/A.md", "# A\n" + MarkdownImages::markup(image))); QVERIFY(manager.createDocument("two/B.md", "# B"));
+    QVERIFY(manager.createDocument("outside.md", "# Outside")); QVERIFY(manager.createDirectory("target"));
+    QVERIFY(manager.addRelation("one/A.md", "two/B.md", NodeRelationType::Next)); manager.enableWatching();
+    QString error; QVERIFY2(manager.moveDocuments({"one/A.md", "two/B.md"}, "target", &error), qPrintable(error));
+    QVERIFY(!QFileInfo::exists(QDir(root).filePath("one/A.md"))); QVERIFY(manager.loadNode("target/A.md"));
+    QCOMPARE(manager.loadNode("target/A.md")->relatedPaths(NodeRelationType::Next), QStringList{"target/B.md"});
+    const auto images = MarkdownImages::parse(manager.loadNode("target/A.md")->content()); QCOMPARE(images.size(), 1);
+    QVERIFY(QFileInfo::exists(MarkdownImages::localPath(images.front().source, QDir(root).filePath("target/A.md"))));
+    QVERIFY(manager.createDocument("third/A.md", "# Conflict")); QVERIFY(manager.createDocument("third/C.md", "# C"));
+    QVERIFY(!manager.moveDocuments({"third/C.md", "third/A.md"}, "target", &error)); QVERIFY(manager.loadNode("third/C.md")); QVERIFY(!manager.loadNode("target/C.md"));
+    manager.updateContent("third/C.md", "# Unsaved"); QVERIFY(!manager.moveDocuments({"target/B.md", "third/C.md"}, {}, &error)); QVERIFY(manager.loadNode("target/B.md"));
+    QVERIFY(manager.reloadDocument("third/C.md"));
+#ifdef Q_OS_WIN
+    const QString locked = QDir::toNativeSeparators(QDir(root).filePath("target/B.md"));
+    HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(locked.utf16()), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    QVERIFY(handle != INVALID_HANDLE_VALUE);
+    const bool success = manager.moveDocuments({"target/A.md", "target/B.md"}, {}, &error); CloseHandle(handle);
+    QVERIFY(!success); QVERIFY(QFileInfo::exists(QDir(root).filePath("target/A.md"))); QVERIFY(QFileInfo::exists(QDir(root).filePath("target/B.md")));
+    QVERIFY(!QFileInfo::exists(QDir(root).filePath("A.md"))); QCOMPARE(manager.loadNode("target/A.md")->relatedPaths(NodeRelationType::Next), QStringList{"target/B.md"});
+#endif
+    QVERIFY(manager.moveDocuments({"target/A.md", "target/B.md"}, {}, &error));
+    MarkdownManager reopened(root); QVERIFY(reopened.scan()); QCOMPARE(reopened.loadNode("A.md")->relatedPaths(NodeRelationType::Next), QStringList{"B.md"});
+}
+void TreeMdTests::directoryRenamePreservesContentAndCurrentDocument() {
+    QTemporaryDir dir; MarkdownManager initial(dir.path());
+    QVERIFY(initial.createDocument("folder/sub/A.md", "# Active\n![local](image.png)"));
+    QVERIFY(initial.createDocument("outside.md", "# Outside")); QVERIFY(initial.createDirectory("folder/empty"));
+    QVERIFY(bytesFile(dir.filePath("folder/sub/image.png"), png())); QVERIFY(bytesFile(dir.filePath("folder/extra.txt"), "extra"));
+    QVERIFY(initial.addRelation("folder/sub/A.md", "outside.md", NodeRelationType::Next));
+    MainWindow window(dir.path()); window.show(); QVERIFY(window.openDocument("folder/sub/A.md"));
+    auto *sidebar = window.findChild<DocumentSidebar *>(); auto *editor = window.findChild<MarkdownEditor *>(); auto *manager = window.findChild<MarkdownManager *>();
+    QVERIFY(sidebar); QVERIFY(editor); QVERIFY(manager);
+    editor->moveCursor(QTextCursor::End); editor->insertPlainText("\nunsaved");
+    bool save = false; int prompts = 0;
+    QTimer answer; answer.setInterval(10);
+    connect(&answer, &QTimer::timeout, &window, [&] {
+        if (auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget())) { input->setTextValue("renamed"); input->accept(); }
+        else if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            ++prompts;
+            auto *button = box->button(save ? QMessageBox::Save : QMessageBox::Cancel);
+            if (!button) { qWarning() << "Unexpected directory rename dialog:" << box->text(); button = box->button(QMessageBox::Ok); }
+            QVERIFY(button); button->click(); answer.stop();
+        }
+    });
+    answer.start(); sidebar->renameDirectoryRequested("folder"); QTRY_COMPARE(prompts, 1);
+    QVERIFY(manager->loadNode("folder/sub/A.md")); QVERIFY(editor->source().endsWith("unsaved"));
+    save = true; answer.start(); sidebar->renameDirectoryRequested("folder"); QTRY_VERIFY(manager->loadNode("renamed/sub/A.md"));
+    QVERIFY(window.windowTitle().startsWith("renamed/sub/A.md")); QVERIFY(editor->source().endsWith("unsaved"));
+    QVERIFY(!QFileInfo::exists(dir.filePath("folder"))); QVERIFY(QFileInfo(dir.filePath("renamed/empty")).isDir());
+    QString extra; QVERIFY(MarkdownFileIO::readFile(dir.filePath("renamed/extra.txt"), extra)); QCOMPARE(extra, QString("extra"));
+    auto *node = manager->loadNode("renamed/sub/A.md"); QVERIFY(!node->isModified());
+    for (const auto &image : MarkdownImages::parse(node->content())) QVERIFY(QFileInfo::exists(MarkdownImages::localPath(image.source, node->filePath())));
+    QCOMPARE(manager->loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{"renamed/sub/A.md"});
+    QString error; QVERIFY(manager->createDirectory("occupied")); QVERIFY(!manager->renameDirectory("renamed", "occupied", &error));
+    QVERIFY(!manager->renameDirectory("renamed", "renamed/sub/child", &error));
+    QVERIFY(!manager->renameDirectory("renamed", "../outside", &error));
+    node = manager->loadNode("renamed/sub/A.md"); QVERIFY(node);
+    manager->updateContent("renamed/sub/A.md", node->content() + " edit"); QVERIFY(!manager->renameDirectory("renamed", "blocked", &error));
+    QVERIFY(manager->reloadDocument("renamed/sub/A.md"));
+    QVERIFY(manager->renameDirectory("renamed/empty", "renamed/empty-renamed", &error));
+    MarkdownManager reopened(dir.path()); QVERIFY(reopened.scan());
+    QCOMPARE(reopened.loadNode("outside.md")->relatedPaths(NodeRelationType::Previous), QStringList{"renamed/sub/A.md"});
+    QVERIFY(QFileInfo(dir.filePath("renamed/empty-renamed")).isDir());
+}
+void TreeMdTests::editingViewsHaveHalfPageBlank() {
+    QString source;
+    for (int i = 0; i < 90; ++i) source += QString("Paragraph %1\n\n").arg(i);
+    MarkdownEditor editor; MarkdownDocumentView rendered;
+    QSignalSpy edited(&rendered, &MarkdownDocumentView::sourceEdited);
+    for (QTextEdit *view : {static_cast<QTextEdit *>(&editor), static_cast<QTextEdit *>(&rendered)}) {
+        view->resize(600, 440); view->show();
+        if (view == &editor) editor.setSource(source); else rendered.setMarkdownSource("blank.md", source);
+        QCoreApplication::processEvents(); view->document()->setModified(false);
+        auto *scroll = view->verticalScrollBar(); scroll->setValue(scroll->maximum()); QCoreApplication::processEvents();
+        QTextCursor end(view->document()); end.movePosition(QTextCursor::End);
+        const int space = view->viewport()->height() - view->cursorRect(end).bottom();
+        QVERIFY2(space >= view->viewport()->height() / 2 - 45, qPrintable(QString::number(space)));
+        view->resize(650, 620); QCoreApplication::processEvents(); scroll->setValue(scroll->maximum());
+        QVERIFY(view->viewport()->height() - view->cursorRect(end).bottom() >= view->viewport()->height() / 2 - 45);
+        QVERIFY(!view->document()->isModified());
+    }
+    QCOMPARE(editor.source(), source); QCOMPARE(rendered.markdownSource(), source); QCOMPARE(edited.size(), 0);
+    editor.setFocus(); editor.moveCursor(QTextCursor::End); QTest::keyClicks(&editor, "typed"); editor.undo(); QCOMPARE(editor.source(), source);
+}
+void TreeMdTests::modeSwitchAlignsCurrentThirdLine() {
+    QTemporaryDir dir; MarkdownManager manager(dir.path()); QString source;
+    for (int i = 0; i < 60; ++i)
+        source += QString("# Heading %1\n\nParagraph %1 **bold** text with `code`.\n\n- Item %1 first\n- Item %1 second\n\n```cpp\nint value%1 = %1;\n```\n\n").arg(i);
+    QVERIFY(manager.createDocument("long.md", source)); MainWindow window(dir.path()); window.resize(1100, 700); window.show(); QVERIFY(window.openDocument("long.md"));
+    auto *editor = window.findChild<MarkdownEditor *>(); auto *rendered = window.findChild<MarkdownDocumentView *>(); QVERIFY(editor); QVERIFY(rendered);
+    const auto line = [&](int position) { return source.left(position).count('\n'); };
+    const int first = source.indexOf("Paragraph 25"), second = source.indexOf("int value42"), third = source.indexOf("Item 18 second");
+    rendered->alignSourcePosition(first); const int renderedLine = line(rendered->viewportSourcePosition());
+    const auto oldCursor = editor->textCursor();
+    window.setSourceMode(true); QCoreApplication::processEvents();
+    QCOMPARE(line(editor->viewportSourcePosition()), renderedLine);
+    QCOMPARE(editor->textCursor().position(), oldCursor.position());
+    editor->alignSourcePosition(second); const int sourceLine = line(editor->viewportSourcePosition());
+    window.setSourceMode(false); QCoreApplication::processEvents(); QCOMPARE(line(rendered->viewportSourcePosition()), sourceLine);
+    rendered->alignSourcePosition(third); const int changedLine = line(rendered->viewportSourcePosition());
+    window.setSourceMode(true); QCoreApplication::processEvents(); QCOMPARE(line(editor->viewportSourcePosition()), changedLine);
+    QCOMPARE(editor->source(), source); QCOMPARE(rendered->markdownSource(), source); QVERIFY(!editor->document()->isModified());
+}
+void TreeMdTests::applicationMoveKeepsCurrentAndUnsaved() {
+    QTemporaryDir directory; MarkdownManager manager(directory.path());
+    QVERIFY(manager.createDocument("A.md", "# A")); QVERIFY(manager.createDocument("other/B.md", "# B"));
+    QVERIFY(manager.createDirectory("target")); MainWindow window(directory.path()); window.show(); QVERIFY(window.openDocument("A.md"));
+    auto *sidebar = window.findChild<DocumentSidebar *>(); auto *editor = window.findChild<MarkdownEditor *>(); QVERIFY(sidebar); QVERIFY(editor);
+    editor->moveCursor(QTextCursor::End); editor->insertPlainText(" unsaved");
+    emit sidebar->movePathRequested("other/B.md", false, "target");
+    QTRY_VERIFY(QFileInfo::exists(directory.filePath("target/B.md"))); QCOMPARE(editor->source(), QString("# A unsaved")); QVERIFY(editor->document()->isModified());
+    editor->setSource("# A"); emit sidebar->movePathRequested("A.md", false, "target");
+    QTRY_VERIFY(QFileInfo::exists(directory.filePath("target/A.md"))); QVERIFY(window.windowTitle().startsWith("target/A.md")); QCOMPARE(editor->source(), QString("# A"));
+}
+void TreeMdTests::listEnterIndentAndBackspace() {
+    for (bool rendered : {false, true}) {
+        MarkdownDocumentView document; MarkdownEditor source; QTextEdit *view = rendered ? static_cast<QTextEdit *>(&document) : &source;
+        view->resize(750, 450); view->show(); view->setFocus();
+        const auto load = [&](const QString &text) { if (rendered) document.setMarkdownSource("list.md", text); else source.setSource(text); };
+        const auto text = [&] { return rendered ? document.markdownSource() : source.source(); };
+        load("- parent\n- child"); view->moveCursor(QTextCursor::End);
+        QTest::keyClick(view, Qt::Key_Return); QCOMPARE(text(), QString("- parent\n- child\n- "));
+        QTest::keyClick(view, Qt::Key_Tab); QCOMPARE(text(), QString("- parent\n- child\n    - "));
+        if (rendered) { QVERIFY(view->textCursor().block().textList()); QVERIFY(document.visibleBlockMarkers().isEmpty()); }
+        QTest::keyClicks(view, "detail"); QTest::keyClick(view, Qt::Key_Return); QTest::keyClick(view, Qt::Key_Tab);
+        QCOMPARE(text(), QString("- parent\n- child\n    - detail\n        - "));
+        QTest::keyClick(view, Qt::Key_Backspace);
+        QCOMPARE(text(), QString("- parent\n- child\n    - detail\n    - "));
+        QTest::keyClicks(view, "body"); QCOMPARE(text(), QString("- parent\n- child\n    - detail\n    - body"));
+        load("- parent\n    - child"); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Backtab, Qt::ShiftModifier);
+        QCOMPARE(text(), QString("- parent\n- child"));
+        if (!rendered) { QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(text(), QString("- parent\n    - child")); }
+        load("- only"); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Tab); QCOMPARE(text(), QString("- only"));
+        load("- previous\n- "); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Backspace); QTest::keyClicks(view, "normal");
+        QCOMPARE(text(), QString("- previous\n\n-normal")); // P02: first Backspace restores the literal marker in either view.
+    }
 }
 
 int main(int argc, char **argv) {

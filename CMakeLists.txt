@@ -1,22 +1,35 @@
 cmake_minimum_required(VERSION 3.21)
-project(tree_md VERSION 1.0.3 LANGUAGES CXX)
+project(tree_md VERSION 1.1.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Network)
 add_library(tree_md_core STATIC
+    third_party/md4c/md4c.c
+    core/markdown/MarkdownBlockSyntax.cpp
+    core/markdown/MarkdownSyntax.cpp
+    core/markdown/MarkdownCodeEditing.cpp
+    core/markdown/MarkdownListEditing.cpp
+    core/markdown/MarkdownTableEditing.cpp
+    core/markdown/MarkdownParagraphEditing.cpp
+    core/markdown/MarkdownImport.cpp
+    core/markdown/MarkdownSpelling.cpp
     core/markdown/MarkdownAnalysis.cpp
     core/markdown/LanguageCatalog.cpp
+    core/markdown/CodeSyntax.cpp
+    core/markdown/MarkdownCodeBlocks.cpp
     core/markdown/MarkdownParser.cpp
     core/markdown/MarkdownImages.cpp
     core/library/MarkdownManager.cpp
     core/library/MarkdownDocumentOperations.cpp
+    core/library/MarkdownPathMoves.cpp
     core/library/LibraryPathPolicy.cpp
     core/library/LibraryImport.cpp
     core/knowledge/MarkdownManagerRelations.cpp
     core/library/MarkdownNode.cpp
     core/library/MarkdownFileIO.cpp
+    core/library/MarkdownDirectoryMove.cpp
     core/library/FileWatcher.cpp
     core/library/DefaultLibrary.cpp
     core/knowledge/MarkdownRelation.cpp
@@ -32,21 +45,26 @@ add_library(tree_md_core STATIC
     core/settings/MarkdownSettingsCodec.cpp
     core/settings/MarkdownSettingsStore.cpp
     core/platform/LocalCredentials.cpp
+    core/platform/FileManager.cpp
     core/markdown/MarkdownSourceMap.cpp
 )
 target_link_libraries(tree_md_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
 if(WIN32)
-    target_link_libraries(tree_md_core PRIVATE crypt32)
+    target_link_libraries(tree_md_core PRIVATE crypt32 shell32 ole32)
 endif()
 target_include_directories(tree_md_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(tree_md_ui STATIC
+    ui/document/InlineMarkupDecoration.cpp
     ui/document/MarkdownDocumentView.cpp
     ui/document/MarkdownEditor.cpp
+    ui/document/MarkdownViewport.cpp
     ui/document/MarkdownTypography.cpp
     ui/document/CodeSyntaxHighlighter.cpp
+    ui/document/CodeBlockDecoration.cpp
     ui/document/MarkdownFenceCompleter.cpp
     ui/document/ImageInput.cpp
     ui/library/DocumentSidebar.cpp
+    ui/library/DocumentFileTree.cpp
     ui/library/DocumentTreeBuilder.cpp
     ui/library/OutlineSidebar.cpp
     ui/knowledge/KnowledgeTreeCanvas.cpp
@@ -82,16 +100,31 @@ if(BUILD_TESTING)
     find_package(Qt6 REQUIRED COMPONENTS Test)
     add_executable(tmd_markdown_tests tests/MarkdownCoreTests.cpp)
     target_link_libraries(tmd_markdown_tests PRIVATE tree_md_core Qt6::Test)
-    add_test(NAME tmd_markdown_core COMMAND tmd_markdown_tests)
+    add_test(NAME tmd_markdown_core COMMAND tmd_markdown_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_markdown_core.txt,txt")
     add_executable(tmd_refactor_tests tests/RefactorIntegrationTests.cpp)
     target_link_libraries(tmd_refactor_tests PRIVATE tree_md_ui Qt6::Test)
-    add_test(NAME tmd_incremental_refresh COMMAND tmd_refactor_tests)
+    add_test(NAME tmd_incremental_refresh COMMAND tmd_refactor_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_incremental_refresh.txt,txt")
     set_tests_properties(tmd_incremental_refresh PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
     add_executable(tree_md_tests tests/TreeMdTests.cpp)
     target_link_libraries(tree_md_tests PRIVATE tree_md_ui Qt6::Test)
+    if(WIN32)
+        target_link_libraries(tree_md_tests PRIVATE advapi32)
+    endif()
     include(tests/RegressionGroups.cmake)
+    add_executable(tmd_editing_headings_tests tests/EditingHeadingsAuditTests.cpp)
+    target_link_libraries(tmd_editing_headings_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_editing_code_tests tests/EditingCodeAuditTests.cpp)
+    target_link_libraries(tmd_editing_code_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_editing_list_tests tests/EditingListAuditTests.cpp)
+    target_link_libraries(tmd_editing_list_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_editing_integration_tests tests/EditingIntegrationAuditTests.cpp)
+    target_link_libraries(tmd_editing_integration_tests PRIVATE tree_md_ui Qt6::Test)
     add_executable(tmd_library_tests tests/DefaultLibraryTests.cpp)
+    add_executable(tmd_editing_policy_tests tests/EditingPolicyTests.cpp)
+    target_link_libraries(tmd_editing_policy_tests PRIVATE tree_md_ui Qt6::Test)
+    add_test(NAME tmd_editing_policy COMMAND tmd_editing_policy_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_editing_policy.txt,txt")
+    set_tests_properties(tmd_editing_policy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
     target_link_libraries(tmd_library_tests PRIVATE tree_md_core Qt6::Test)
-    add_test(NAME tmd_library_initialization COMMAND tmd_library_tests)
+    add_test(NAME tmd_library_initialization COMMAND tmd_library_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_library_initialization.txt,txt")
 endif()
 

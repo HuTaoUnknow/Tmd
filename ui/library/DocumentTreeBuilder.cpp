@@ -1,6 +1,7 @@
 #include "ui/library/DocumentTreeBuilder.h"
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
+#include <QBrush>
 #include <functional>
 QTreeWidgetItem *DocumentTreeBuilder::directory(const QString &path) {
     QString prefix; QTreeWidgetItem *parent = nullptr;
@@ -10,6 +11,7 @@ QTreeWidgetItem *DocumentTreeBuilder::directory(const QString &path) {
             auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(m_tree);
             item->setText(0, part); item->setToolTip(0, prefix);
             item->setData(0, Qt::UserRole + 2, prefix); item->setExpanded(true);
+            item->setForeground(0, QBrush(QColor("#d9b77e")));
             item->setFlags(item->flags() & ~Qt::ItemIsDragEnabled); m_directories.insert(prefix, item);
         }
         parent = m_directories[prefix];
@@ -22,6 +24,7 @@ QTreeWidgetItem *DocumentTreeBuilder::document(const QString &path, const QStrin
     auto *item = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(m_tree);
     item->setText(0, path.mid(separator + 1)); item->setToolTip(0, title + '\n' + path);
     item->setData(0, Qt::UserRole, path); item->setData(0, Qt::UserRole + 1, title);
+    item->setForeground(0, QBrush(QColor("#bed5e6")));
     return item;
 }
 void DocumentTreeBuilder::updateTitle(QTreeWidget *tree, const QString &path, const QString &title) {
@@ -29,7 +32,18 @@ void DocumentTreeBuilder::updateTitle(QTreeWidget *tree, const QString &path, co
     while (*iterator) {
         auto *item = *iterator;
         if (item->data(0, Qt::UserRole).toString() == path) {
-            item->setData(0, Qt::UserRole + 1, title); item->setToolTip(0, title + '\n' + path); return;
+            item->setData(0, Qt::UserRole + 1, title); item->setToolTip(0, title + '\n' + path + (item->data(0, ModifiedRole).toBool() ? QStringLiteral("\n未保存") : QString())); return;
+        }
+        ++iterator;
+    }
+}
+void DocumentTreeBuilder::updateModified(QTreeWidget *tree, const QString &path, bool modified) {
+    QTreeWidgetItemIterator iterator(tree);
+    while (*iterator) {
+        auto *item = *iterator;
+        if (item->data(0, Qt::UserRole).toString() == path) {
+            item->setData(0, ModifiedRole, modified);
+            item->setToolTip(0, item->data(0, Qt::UserRole + 1).toString() + '\n' + path + (modified ? QStringLiteral("\n未保存") : QString())); return;
         }
         ++iterator;
     }
