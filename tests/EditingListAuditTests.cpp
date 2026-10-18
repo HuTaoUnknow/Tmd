@@ -46,6 +46,60 @@ private slots:
         QTest::qWait(500); QCOMPARE(text(), expected);
         if (rendered) { QCOMPARE(document.inlineCursorSourcePosition(), insertion + 1); QCOMPARE(view->textCursor().block().text(), "X" + body); }
     }
+    void ordinaryListBackspaceExitsDirectly_data() {
+        QTest::addColumn<QString>("marker"); QTest::addColumn<QString>("body");
+        QTest::addColumn<QString>("lead"); QTest::addColumn<bool>("rendered");
+        for (const QString marker : {QString("- "), QString("+ "), QString("* "), QString("1. "), QString("2) ")})
+            for (const QString body : {QString(), QString("content")})
+                for (const QString lead : {QString(), QString("- before\n")})
+                    for (bool rendered : {false, true})
+                        QTest::newRow(qPrintable(marker + body + lead + (rendered ? "doc" : "source")))
+                            << marker << body << lead << rendered;
+    }
+    void ordinaryListBackspaceExitsDirectly() {
+        QFETCH(QString, marker); QFETCH(QString, body); QFETCH(QString, lead); QFETCH(bool, rendered);
+        MarkdownDocumentView document; MarkdownEditor source;
+        QTextEdit *view = rendered ? static_cast<QTextEdit *>(&document) : &source;
+        view->resize(740, 420); view->show(); view->setFocus();
+        const QString before = lead + marker + body + "\n- after";
+        if (rendered) document.setMarkdownSource("exit-list.md", before); else source.setSource(before);
+        const auto text = [&] { return rendered ? document.markdownSource() : source.source(); };
+        const int caret = lead.size() + marker.size();
+        if (rendered) document.restoreSourceCursor(caret, caret);
+        else { auto cursor = view->textCursor(); cursor.setPosition(caret); view->setTextCursor(cursor); }
+        QTest::keyClick(view, Qt::Key_Backspace);
+        const QString prefix = lead + (lead.isEmpty() ? QString() : QString("\n"));
+        const QString expected = prefix + body + "\n- after";
+        QCOMPARE(text(), expected);
+        QCOMPARE(rendered ? document.inlineCursorSourcePosition() : view->textCursor().position(), prefix.size());
+        if (rendered) { QVERIFY(!view->textCursor().block().textList()); QCOMPARE(view->textCursor().block().text(), body); }
+        // Typing and delayed preview must keep this as a body row, with the
+        // next list item independent and the original content still intact.
+        QTest::keyClicks(view, "X");
+        // A newly populated body row gets the document view's normal source
+        // separator; it stays hidden in the preview.
+        const QString typed = prefix + "X" + body + (rendered && body.isEmpty() ? "\n\n" : "\n") + "- after";
+        QCOMPARE(text(), typed);
+        QTest::qWait(500); QCOMPARE(text(), typed);
+        if (rendered) QVERIFY(!view->textCursor().block().textList());
+        // Rendered undo is supplied by MainWindow and covered by the
+        // integration suite; this standalone view has no source history.
+        if (!rendered) {
+            QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(text(), expected);
+            QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(text(), before);
+        }
+    }
+    void emptyQuotedListKeepsOuterQuote() {
+        for (const QString marker : {QString("- "), QString("+ "), QString("* "), QString("1. ")}) {
+            MarkdownDocumentView view; view.resize(740, 420); view.show(); view.setFocus();
+            const QString before = "> " + marker; view.setMarkdownSource("quoted-list.md", before);
+            view.restoreSourceCursor(before.size(), before.size()); QTest::keyClick(&view, Qt::Key_Backspace);
+            QCOMPARE(view.markdownSource(), QString("> "));
+            QVERIFY(!view.textCursor().block().textList());
+            QVERIFY(view.textCursor().blockFormat().intProperty(QTextFormat::BlockQuoteLevel) > 0);
+            QTest::keyClicks(&view, "body"); QCOMPARE(view.markdownSource(), QString("> body"));
+        }
+    }
     void emptyTaskRestoresAllSymbols_data() {
         QTest::addColumn<QString>("marker"); QTest::addColumn<QString>("tail");
         for (auto marker : {QString("- [ ] "), QString("- [x] "), QString("1. [ ] ")})

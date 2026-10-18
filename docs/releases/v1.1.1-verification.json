@@ -1,0 +1,124 @@
+{
+  "version": "1.1.1",
+  "date": "2026-10-18",
+  "debugBuild": "passed",
+  "debugSha256": "444D391AF05C648AE979E770F21E66B9293D58161E1AA8D30BB9DDC550279360",
+  "releaseBuild": "passed",
+  "releaseSha256": "D0194AC288411BAE87E13DEE95E4C4CF234A7A802517F2AA8D02DA81DBD94772",
+  "ctestPassed": 15,
+  "ctestFailed": 0,
+  "ctestSeconds": 493.53,
+  "groups": [
+    {
+      "name": "tmd_markdown_core",
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_incremental_refresh",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_editing_headings_audit",
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_editing_code_audit",
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_editing_list_audit",
+      "passed": 108,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_editing_integration_audit",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_library_regressions",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_images_regressions",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_document_regressions",
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_knowledge_regressions",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_workspace_regressions",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_settings_regressions",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_modular_editing",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_editing_policy",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_library_initialization",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "installationChecks": [
+    "fresh-1.1.1 application version and installed payload passed",
+    "fresh-1.1.1 bundled-runtime smoke passed",
+    "fresh-uninstall removed isolated application",
+    "previous-1.1.0 application version and installed payload passed",
+    "previous-1.1.0 bundled-runtime smoke passed",
+    "upgrade-1.1.1 application version and installed payload passed",
+    "upgrade-1.1.1 bundled-runtime smoke passed",
+    "upgrade preserved isolated Markdown and images",
+    "upgrade-uninstall removed isolated application",
+    "uninstall preserved isolated Markdown and images",
+    "existing installed binary and registration unchanged"
+  ],
+  "installationRegistrationScope": "Optional registration was disabled to preserve existing registration",
+  "portableChecks": [
+    "portable ZIP contains launcher and introduction",
+    "all starter documents and images match public examples byte-for-byte",
+    "bundled runtime starts without Qt/MinGW on PATH",
+    "launcher handles paths and arguments containing spaces"
+  ],
+  "packagedData": "Public examples only; documents and images verified byte-for-byte against examples/"
+}

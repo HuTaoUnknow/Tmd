@@ -7,11 +7,8 @@
 #include "ui/document/CodeSyntaxHighlighter.h"
 #include "core/settings/MarkdownSettings.h"
 #include "core/markdown/MarkdownParser.h"
-#include "core/markdown/MarkdownCodeEditing.h"
-#include "core/markdown/MarkdownListEditing.h"
-#include "core/markdown/MarkdownTableEditing.h"
-#include "core/markdown/MarkdownParagraphEditing.h"
-#include "core/markdown/MarkdownBlockSyntax.h"
+#include "application/editing/EditCommandRouter.h"
+#include "ui/document/QtTextEditAdapter.h"
 #include <QFontDatabase>
 #include <QMimeData>
 #include <QDropEvent>
@@ -69,15 +66,8 @@ void MarkdownEditor::goToPosition(int position) {
 }
 void MarkdownEditor::keyPressEvent(QKeyEvent *event) {
     const auto apply = [this](const MarkdownEdit &edit) {
-        const QString beforeText = source();
-        if (edit.changed) {
-            int first = 0, before = beforeText.size(), after = edit.source.size();
-            while (first < before && first < after && beforeText[first] == edit.source[first]) ++first;
-            while (before > first && after > first && beforeText[before - 1] == edit.source[after - 1]) { --before; --after; }
-            auto cursor = textCursor(); cursor.beginEditBlock(); cursor.setPosition(first);
-            cursor.setPosition(before, QTextCursor::KeepAnchor); cursor.insertText(edit.source.mid(first, after - first)); cursor.endEditBlock();
-        }
-        auto cursor = textCursor(); cursor.setPosition(edit.anchor); cursor.setPosition(edit.caret, QTextCursor::KeepAnchor);
+        auto cursor = textCursor(); QString error;
+        if (!tmd::QtTextEditAdapter::apply(cursor, source(), edit, &error)) { emit editRejected(error); return; }
         setTextCursor(cursor); ensureCursorVisible();
     };
     if (event->modifiers() == Qt::NoModifier || event->modifiers() == Qt::ShiftModifier) {
@@ -85,11 +75,13 @@ void MarkdownEditor::keyPressEvent(QKeyEvent *event) {
         const bool tab = event->key() == Qt::Key_Tab || event->key() == Qt::Key_Backtab;
         const bool row = shift && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter);
         if (tab || row) {
-            const auto tables = MarkdownTableEditing::tables(source()); const int caret = textCursor().position();
-            for (int t = 0; t < tables.size(); ++t) for (int r = 0; r < tables[t].rows.size(); ++r) for (int c = 0; c < tables[t].rows[r].size(); ++c) {
-                const auto &cell = tables[t].rows[r][c]; if (caret < cell.start || caret > cell.end) continue;
-                using Action = MarkdownTableEditing::Action;
-                apply(MarkdownTableEditing::operate(source(), t, r, c, row ? Action::AddRow : shift || event->key() == Qt::Key_Backtab ? Action::AddColumn : Action::NextCell));
+            const QString text = source(); const int caret = textCursor().position();
+            if (const auto cell = tmd::EditCommandRouter::tableCellAt(text, caret)) {
+                using Command = tmd::EditCommand;
+                tmd::EditRequest request{text, {textCursor().anchor(), caret}, row ? Command::AddRow
+                    : shift || event->key() == Qt::Key_Backtab ? Command::AddColumn : Command::NextCell, tmd::ViewMode::Source};
+                request.tableCell = cell;
+                apply(tmd::EditCommandRouter::dispatch(request).edit);
                 event->accept(); return;
             }
         }
@@ -104,18 +96,11 @@ void MarkdownEditor::keyPressEvent(QKeyEvent *event) {
     const bool backspace = event->key() == Qt::Key_Backspace && event->modifiers() == Qt::NoModifier && !textCursor().hasSelection();
     if (indent || newline || backspace) {
         const QString text = source();
-        auto edit = newline ? MarkdownTableEditing::newline(text, textCursor().anchor(), textCursor().position())
-                            : MarkdownEdit{text, textCursor().anchor(), textCursor().position()};
-        if (!edit.handled && backspace) edit = MarkdownListEditing::backspaceIndent(text, textCursor().position());
-        if (!edit.handled) edit = backspace ? MarkdownCodeEditing::backspace(text, textCursor().position())
-                             : indent ? MarkdownCodeEditing::indent(text, textCursor().anchor(), textCursor().position(), event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier)
-                                      : MarkdownCodeEditing::newline(text, textCursor().anchor(), textCursor().position());
-        if (!edit.handled && backspace) edit = MarkdownBlockSyntax::backspaceEmptyPrefix(text, textCursor().position());
-        if (!edit.handled && backspace) edit = MarkdownParagraphEditing::backspace(text, textCursor().position());
-        if (!edit.handled) edit = backspace ? MarkdownListEditing::backspace(text, textCursor().position())
-                                           : indent ? MarkdownListEditing::indent(text, textCursor().anchor(), textCursor().position(), event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier)
-                                                    : MarkdownListEditing::newline(text, textCursor().anchor(), textCursor().position());
-        if (!edit.handled && newline) edit = MarkdownParagraphEditing::newline(text, textCursor().anchor(), textCursor().position());
+        using Command = tmd::EditCommand;
+        const bool outdent = event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier;
+        const auto edit = tmd::EditCommandRouter::dispatch({text, {textCursor().anchor(), textCursor().position()},
+            backspace ? Command::Backspace : indent ? (outdent ? Command::Outdent : Command::Indent) : Command::Newline,
+            tmd::ViewMode::Source}).edit;
         if (edit.handled) {
             apply(edit);
             event->accept(); return;

@@ -61,21 +61,24 @@ private slots:
             MarkdownSourceMap map; map.rebuild(source, ""); const auto edits = map.editableWhitespaceEdits();
             QCOMPARE(edits.size(), 1); QCOMPARE(edits[0].text, QString("  "));
             const auto edit = MarkdownBlockSyntax::backspaceEmptyPrefix(prefix + ' ', prefix.size() + 1);
-            QVERIFY(edit.handled); QCOMPARE(edit.source, prefix); QCOMPARE(edit.caret, prefix.size());
+            const bool list = QStringList{"-", "+", "*", "12."}.contains(prefix);
+            QVERIFY(edit.handled); QCOMPARE(edit.source, list ? QString() : prefix); QCOMPARE(edit.caret, list ? 0 : prefix.size());
             QVERIFY(!MarkdownBlockSyntax::backspaceEmptyPrefix(source, source.size()).handled);
             map.rebuild(prefix + " x", "x");
             QCOMPARE(map.edited(0, 1, "", nullptr), prefix + ' ');
         }
     }
-    void restoredPrefixKeepsParagraphAndCaret() {
+    void listPrefixExitKeepsParagraphAndCaret() {
         for (const QString source : {QString("- first\n- "), QString("- \n- "), QString("- first\n    - "),
                                      QString("- first\n    - child\n        - ")}) {
             const auto edit = MarkdownBlockSyntax::backspaceEmptyPrefix(source, source.size());
             QVERIFY(edit.handled); QVERIFY(edit.changed);
             const int row = source.lastIndexOf('\n') + 1;
-            QString expected = source; expected.chop(1); expected.insert(row, '\n');
-            QCOMPARE(edit.source, expected); QCOMPARE(edit.caret, source.size()); QCOMPARE(edit.anchor, edit.caret);
-            QVERIFY(edit.source.endsWith('-')); QVERIFY(edit.source.mid(row - 1).startsWith("\n\n"));
+            const int indent = source.size() - row - 2;
+            QString expected = source; int caret;
+            if (indent) { expected.remove(row, qMin(indent, 4)); caret = source.size() - qMin(indent, 4); }
+            else { expected.remove(row, 2); expected.insert(row, '\n'); caret = row + 1; }
+            QCOMPARE(edit.source, expected); QCOMPARE(edit.caret, caret); QCOMPARE(edit.anchor, edit.caret);
         }
     }
     void codeBlockLanguagesAndExactCopyText() {

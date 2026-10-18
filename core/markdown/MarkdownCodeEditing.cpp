@@ -129,3 +129,23 @@ MarkdownCodeEditing::Edit MarkdownCodeEditing::newline(const QString &source, in
     if (code.virtualLine) result.source.insert(begin + inserted.size(), '\n');
     result.anchor = result.caret = begin + inserted.size(); result.changed = true; return result;
 }
+MarkdownCodeEditing::Edit MarkdownCodeEditing::leave(const QString &source, int caret) {
+    Edit edit{source, caret, caret};
+    for (const auto &fence : MarkdownAnalysis::forRendering(source).fences) {
+        if (!fence.closed() || caret < fence.bodyStart || caret > fence.closeStart
+            || (caret == fence.closeStart && fence.bodyStart != fence.closeStart)) continue;
+        edit.handled = true;
+        int after = fence.end;
+        if (after == source.size()) {
+            edit.source += "\n\n"; after += 2;
+        } else {
+            ++after; // The closing fence's own newline.
+            const int end = source.indexOf('\n', after);
+            const auto blank = end < 0 ? QString() : source.mid(after, end - after);
+            if (end >= 0 && (blank.isEmpty() || blank == "\r")) after = end + 1;
+            else { edit.source.insert(after, '\n'); ++after; }
+        }
+        edit.anchor = edit.caret = after; edit.changed = edit.source != source; return edit;
+    }
+    return edit;
+}

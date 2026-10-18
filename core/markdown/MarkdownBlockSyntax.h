@@ -1,6 +1,7 @@
 #pragma once
 #include <QString>
 #include <QVector>
+#include <QSet>
 #include "core/markdown/MarkdownEdit.h"
 struct MarkdownAnalysis;
 
@@ -14,6 +15,9 @@ public:
         bool prefix = true, heading = false;
     };
     static Prepared prepare(const QString &source, const MarkdownAnalysis *analysis = nullptr);
+    // The first empty physical row after each element is its source separator.
+    // Literal interiors, whitespace content and additional rows stay visible.
+    static QSet<int> separatorLines(const QString &source, const MarkdownAnalysis *analysis = nullptr);
     static QVector<Marker> markers(const QString &source, const MarkdownAnalysis *analysis = nullptr);
     static MarkdownEdit backspaceEmptyPrefix(const QString &source, int caret);
 };

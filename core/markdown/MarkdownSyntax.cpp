@@ -19,6 +19,7 @@ struct Reader {
     struct Span { MD_SPANTYPE type; int first = -1, last = -1; };
     QVector<Span> spans;
     int headingLevel = 0, headingFirst = -1, headingLast = -1, imageDepth = 0;
+    int listDepth = 0, quoteDepth = 0, codeDepth = 0;
     QString headingText;
     QList<MarkdownParser::HeadingMarker> markers;
     int offset(const MD_CHAR *p) const {
@@ -32,11 +33,17 @@ struct Reader {
     }
     static int enterBlock(MD_BLOCKTYPE type, void *detail, void *data) {
         auto &r = *static_cast<Reader *>(data);
+        if (type == MD_BLOCK_UL || type == MD_BLOCK_OL) ++r.listDepth;
+        if (type == MD_BLOCK_QUOTE) ++r.quoteDepth;
+        if (type == MD_BLOCK_CODE) ++r.codeDepth;
         if (type == MD_BLOCK_H) { r.headingLevel = int(static_cast<MD_BLOCK_H_DETAIL *>(detail)->level); r.headingFirst = r.headingLast = -1; r.headingText.clear(); }
         return 0;
     }
     static int leaveBlock(MD_BLOCKTYPE type, void *, void *data) {
         auto &r = *static_cast<Reader *>(data);
+        if (type == MD_BLOCK_UL || type == MD_BLOCK_OL) --r.listDepth;
+        if (type == MD_BLOCK_QUOTE) --r.quoteDepth;
+        if (type == MD_BLOCK_CODE) --r.codeDepth;
         if (type != MD_BLOCK_H) return 0;
         int start = -1;
         if (r.headingFirst >= 0) start = lineStart(r.source, r.headingFirst);
@@ -110,6 +117,14 @@ struct Reader {
         auto &r = *static_cast<Reader *>(data);
         const int start = r.offset(text), end = r.offset(text + size);
         if (start >= 0 && end >= start) {
+            if ((r.listDepth || r.quoteDepth) && !r.headingLevel && !r.codeDepth && end > start) {
+                for (int row = lineStart(r.source, start); row < end;) {
+                    r.result.containerParagraphLines.insert(row);
+                    const int next = r.source.indexOf('\n', row);
+                    if (next < 0) break;
+                    row = next + 1;
+                }
+            }
             r.lastOffset = qMax(r.lastOffset, end);
             if (r.headingLevel) { if (r.headingFirst < 0) r.headingFirst = start; r.headingLast = end; }
             for (auto &span : r.spans) { if (span.first < 0) span.first = start; span.last = end; }

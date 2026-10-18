@@ -1,6 +1,7 @@
 #pragma once
 #include "core/markdown/MarkdownEdit.h"
 #include <QVector>
+#include <QSet>
 
 namespace MarkdownTableEditing {
 // UTF-16 source offsets. Cell ranges exclude structural pipes and retain
@@ -10,7 +11,7 @@ struct Table { int start = 0, end = 0; QVector<QVector<Cell>> rows; };
 QVector<Table> tables(const QString &source);
 // Source anchor for Qt's empty paragraph after a table. Typing there must
 // preserve enough blank separators to keep the body outside the table.
-int paragraphAfter(const QString &source, const Table &table);
+int paragraphAfter(const QString &source, const Table &table, const QSet<int> *separatorLines = nullptr);
 MarkdownEdit insertParagraph(const QString &source, int caret, const QString &text);
 MarkdownEdit newline(const QString &source, int anchor, int caret);
 MarkdownEdit newline(const QString &source, int anchor, int caret, int tableIndex, int row, int column);

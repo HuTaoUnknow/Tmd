@@ -21,9 +21,34 @@ private slots:
     void sourceModeUndoReturnsToDocumentTransaction();
     void unavailableRedoPreservesMovedCaret();
     void codeDownUndoRestoresOriginalBodyCaret();
+    void headingMarkerBackspaceUndoRedo();
 private:
     QTemporaryDir m_settings;
 };
+
+void EditingIntegrationAuditTests::headingMarkerBackspaceUndoRedo() {
+    for (const QString &before : {QString("Body\n\n"), QString("Body\n\n\n"), QString("- item\n\n")}) {
+        const QString initial = before + "### Title\n\nAfter";
+        const QString expected = before == "Body\n\n" ? "Body### Title\n\nAfter"
+            : before == "Body\n\n\n" ? "Body\n\n### Title\n\nAfter" : initial;
+        const int expectedCaret = expected.indexOf("###");
+        QTemporaryDir directory; QVERIFY(directory.isValid());
+        MarkdownManager seed(directory.path()); QVERIFY(seed.createDocument("doc.md", initial));
+        MainWindow window(directory.path()); window.resize(1100, 800); window.show();
+        QVERIFY(window.openDocument("doc.md")); window.setSourceMode(false);
+        auto *view = window.findChild<MarkdownDocumentView *>(); auto *editor = window.findChild<MarkdownEditor *>();
+        QVERIFY(view); QVERIFY(editor); view->setFocus(); view->restoreSourceCursor(before.size(), before.size());
+        QSignalSpy edits(view, &MarkdownDocumentView::sourceEdited);
+        QTest::keyClick(view, Qt::Key_Backspace); QCOMPARE(editor->source(), expected);
+        QCOMPARE(view->inlineCursorSourcePosition(), expectedCaret);
+        if (initial == expected) { QCOMPARE(edits.size(), 0); QVERIFY(!editor->document()->isUndoAvailable()); continue; }
+        QTest::qWait(550); QCOMPARE(editor->source(), expected); QCOMPARE(view->inlineCursorSourcePosition(), expectedCaret);
+        QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(editor->source(), initial);
+        QCOMPARE(view->inlineCursorSourcePosition(), before.size());
+        QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QCOMPARE(editor->source(), expected);
+        QCOMPARE(view->inlineCursorSourcePosition(), expectedCaret);
+    }
+}
 
 void EditingIntegrationAuditTests::initTestCase() {
     QVERIFY(m_settings.isValid());
@@ -100,26 +125,37 @@ void EditingIntegrationAuditTests::listBackspaceUndoRedoCaret() {
     QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTest::qWait(550);
     QCOMPARE(editor->source(), source); QCOMPARE(view->inlineCursorSourcePosition(), caret);
     QTest::keyClick(view, Qt::Key_Backspace); QTest::qWait(550);
-    QString raw=source; raw.remove(caret-1, 1);
-    raw.insert(source.lastIndexOf('\n', caret-1)+1, '\n');
-    const int following = raw.indexOf('\n', caret);
-    if (following >= 0 && following + 1 < raw.size() && raw[following + 1] != '\n') raw.insert(following + 1, '\n');
-    QCOMPARE(editor->source(), raw); QCOMPARE(view->inlineCursorSourcePosition(), caret);
+    const int row = source.lastIndexOf('\n', caret-1)+1;
+    const bool task = source.contains("[ ]");
+    QString raw=source;
+    if (task) {
+        raw.remove(caret-1, 1); raw.insert(row, '\n');
+        const int following = raw.indexOf('\n', caret);
+        if (following >= 0 && following + 1 < raw.size() && raw[following + 1] != '\n') raw.insert(following + 1, '\n');
+    } else {
+        raw.remove(row, caret-row); raw.insert(row, '\n');
+    }
+    const int afterCaret = task ? caret : row+1;
+    QCOMPARE(editor->source(), raw); QCOMPARE(view->inlineCursorSourcePosition(), afterCaret);
     QCOMPARE(view->textCursor().positionInBlock(), view->textCursor().block().text().size());
     QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QTest::qWait(550);
     QCOMPARE(editor->source(), source); QCOMPARE(view->inlineCursorSourcePosition(), caret);
     QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTest::qWait(550);
-    QCOMPARE(editor->source(), raw); QCOMPARE(view->inlineCursorSourcePosition(), caret);
+    QCOMPARE(editor->source(), raw); QCOMPARE(view->inlineCursorSourcePosition(), afterCaret);
     QTest::keyClicks(view, "X"); QTest::qWait(550);
-    QString typed=raw; typed.insert(caret, 'X');
-    QCOMPARE(editor->source(), typed); QCOMPARE(view->inlineCursorSourcePosition(), caret+1);
+    QString typed=raw; typed.insert(afterCaret, 'X');
+    // Populating an empty body row generates its own separator while keeping
+    // pre-existing visible blank rows, including before a heading or body.
+    if (!task && afterCaret < raw.size() && raw[afterCaret] == '\n')
+        typed.insert(afterCaret+1, '\n');
+    QCOMPARE(editor->source(), typed); QCOMPARE(view->inlineCursorSourcePosition(), afterCaret+1);
     QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QTest::qWait(550);
     QCOMPARE(editor->source(), raw); QCOMPARE(view->markdownSource(), raw);
-    QCOMPARE(view->inlineCursorSourcePosition(), caret);
+    QCOMPARE(view->inlineCursorSourcePosition(), afterCaret);
     QCOMPARE(view->textCursor().positionInBlock(), view->textCursor().block().text().size());
     QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTest::qWait(550);
     QCOMPARE(editor->source(), typed); QCOMPARE(view->markdownSource(), typed);
-    QCOMPARE(view->inlineCursorSourcePosition(), caret+1);
+    QCOMPARE(view->inlineCursorSourcePosition(), afterCaret+1);
 }
 
 void EditingIntegrationAuditTests::selectionReplacementUndoRedo() {
@@ -204,7 +240,7 @@ void EditingIntegrationAuditTests::codeDownUndoRestoresOriginalBodyCaret() {
     QCOMPARE(view->inlineCursorSourcePosition(), 8);
     QCOMPARE(view->textCursor().block().text(), QString("x"));
     QTest::keyClick(view, Qt::Key_Down); QTest::qWait(550);
-    QCOMPARE(editor->source(), source+"\n"); // N02: one editable body row after the closing fence.
+    QCOMPARE(editor->source(), source+"\n\n"); // Hidden separator followed by the editable body row.
     QCOMPARE(view->inlineCursorSourcePosition(), editor->source().size());
     QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QTest::qWait(550);
     QCOMPARE(editor->source(), source); QCOMPARE(view->markdownSource(), source);

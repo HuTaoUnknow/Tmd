@@ -1,0 +1,3408 @@
+{
+  "reviewDate": "2026-10-18",
+  "head": "fc96f1d9fab5656c904b308b0d1994b1ccbddb4e",
+  "scope": "Current working tree, including existing uncommitted source edits; exclude private/generated data.",
+  "files": [
+    {
+      "path": "application/editing/EditCommandRouter.cpp",
+      "lines": 80,
+      "bytes": 4686,
+      "sha256": "1EFD8C3718113B61FA2CA4BC449A181E75E40CE32314F4F647D0CC5B2AC8C639",
+      "symbols": [
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "application/editing/EditCommandRouter.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownCodeEditing.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownListEditing.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownParagraphEditing.h",
+          "line": 5
+        },
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 6
+        }
+      ],
+      "role": "应用层共用的源码编辑命令、上下文和规则优先级（实现）",
+      "proposedPath": "src/application/editing/EditCommandRouter.cpp"
+    },
+    {
+      "path": "application/editing/EditCommandRouter.h",
+      "lines": 32,
+      "bytes": 1197,
+      "sha256": "DCBE277080AA1B162026A010C54D1BBA909941DBBF06FBA7F073F0073FBBA622",
+      "symbols": [
+        "DispatchResult",
+        "EditCommandRouter",
+        "EditRequest",
+        "SourceSelection",
+        "TableCellAddress",
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 2
+        }
+      ],
+      "role": "应用层共用的源码编辑命令、上下文和规则优先级（声明）",
+      "proposedPath": "src/application/editing/EditCommandRouter.h"
+    },
+    {
+      "path": "core/images/ImageInsertJob.cpp",
+      "lines": 54,
+      "bytes": 3367,
+      "sha256": "DD1840E7A70FA79214446E20AD6ABB9B45356C7C46D63DE3967F13C3E968BFA1",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/images/ImageInsertJob.h",
+          "line": 1
+        },
+        {
+          "target": "core/images/ImageUploadJob.h",
+          "line": 2
+        },
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 3
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 5
+        }
+      ],
+      "role": "捕获文档/设置后编排本地、剪贴板、远程和上传插图流程（实现）",
+      "proposedPath": "src/application/images/ImageInsertJob.cpp"
+    },
+    {
+      "path": "core/images/ImageInsertJob.h",
+      "lines": 25,
+      "bytes": 875,
+      "sha256": "E98132DA30FAF83C41E0770A3A71CD62641D64C8E9B58BE9CCD7B8396538EFEE",
+      "symbols": [
+        "ImageInsertJob"
+      ],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 2
+        }
+      ],
+      "role": "捕获文档/设置后编排本地、剪贴板、远程和上传插图流程（声明）",
+      "proposedPath": "src/application/images/ImageInsertJob.h"
+    },
+    {
+      "path": "core/images/ImageLoader.cpp",
+      "lines": 89,
+      "bytes": 5022,
+      "sha256": "9CFCAE7AEA8D00A97218F3D9130489688DEE724FFB62BE0858D25DDD75A9EF5D",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 2
+        }
+      ],
+      "role": "本地/内嵌/HTTP 图片读取与解码、超时/大小限制和取消（实现）",
+      "proposedPath": "src/infrastructure/images/ImageLoader.cpp"
+    },
+    {
+      "path": "core/images/ImageLoader.h",
+      "lines": 26,
+      "bytes": 973,
+      "sha256": "14A2C82F03AB839D0CF77C873C46622EB943B9EBBA8FFAE880F9F6E839F02B7C",
+      "symbols": [
+        "ImageLoader"
+      ],
+      "includes": [],
+      "role": "本地/内嵌/HTTP 图片读取与解码、超时/大小限制和取消（声明）",
+      "proposedPath": "src/infrastructure/images/ImageLoader.h"
+    },
+    {
+      "path": "core/images/ImageStorage.cpp",
+      "lines": 115,
+      "bytes": 7178,
+      "sha256": "6CDFE59E7586DA38FEFDB5C4C2FD5DD5461C8B0FB824CF6375250A316806398C",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 1
+        },
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 4
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 5
+        }
+      ],
+      "role": "平铺哈希去重、绝对引用、导入/迁移资源准备及已建资源回滚（实现）",
+      "proposedPath": "src/infrastructure/images/ImageStorage.cpp"
+    },
+    {
+      "path": "core/images/ImageStorage.h",
+      "lines": 28,
+      "bytes": 1660,
+      "sha256": "ADA89B87146488E0C7B34D86EFCBE78D5C10A65625E9344127078B4EAC6798CD",
+      "symbols": [
+        "ImageStorage"
+      ],
+      "includes": [],
+      "role": "平铺哈希去重、绝对引用、导入/迁移资源准备及已建资源回滚（声明）",
+      "proposedPath": "src/infrastructure/images/ImageStorage.h"
+    },
+    {
+      "path": "core/images/ImageUploadJob.cpp",
+      "lines": 78,
+      "bytes": 5690,
+      "sha256": "C5CB519F6101926856382C05F5FEDCE64BDE99C419B79479C36081D4322047CA",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/images/ImageUploadJob.h",
+          "line": 1
+        },
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 2
+        }
+      ],
+      "role": "图床 HTTP 上传、凭据参数、响应 URL 提取、超时和取消（实现）",
+      "proposedPath": "src/infrastructure/images/ImageUploadJob.cpp"
+    },
+    {
+      "path": "core/images/ImageUploadJob.h",
+      "lines": 25,
+      "bytes": 746,
+      "sha256": "B645709F410F381A8005B93851A3163528B32A0677F1C92504EA0AB35F600EB9",
+      "symbols": [
+        "ImageUploadJob"
+      ],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 2
+        }
+      ],
+      "role": "图床 HTTP 上传、凭据参数、响应 URL 提取、超时和取消（声明）",
+      "proposedPath": "src/infrastructure/images/ImageUploadJob.h"
+    },
+    {
+      "path": "core/images/MarkdownExportJob.cpp",
+      "lines": 58,
+      "bytes": 3509,
+      "sha256": "B25B320E8CF7BDFC7DBC2B7FC71EED4773E96A80B2423496A11D91F58B65DD07",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/images/MarkdownExportJob.h",
+          "line": 1
+        },
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 2
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 4
+        }
+      ],
+      "role": "携图导出、资源收集、相对路径改写、提交与取消（实现）",
+      "proposedPath": "src/application/images/MarkdownExportJob.cpp"
+    },
+    {
+      "path": "core/images/MarkdownExportJob.h",
+      "lines": 27,
+      "bytes": 866,
+      "sha256": "9904208410458B328562E236C04A0B5AE9DD7FF2CE506B391C57664BDBA87728",
+      "symbols": [
+        "MarkdownExportJob"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 2
+        }
+      ],
+      "role": "携图导出、资源收集、相对路径改写、提交与取消（声明）",
+      "proposedPath": "src/application/images/MarkdownExportJob.h"
+    },
+    {
+      "path": "core/knowledge/KnowledgeIndex.cpp",
+      "lines": 56,
+      "bytes": 2835,
+      "sha256": "24D1265C218FFA015CF603B0DE633B8D0528C26EF8F67011C4C1D9B71AF7333C",
+      "symbols": [
+        "Neighbour"
+      ],
+      "includes": [
+        {
+          "target": "core/knowledge/KnowledgeIndex.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 2
+        }
+      ],
+      "role": "从 MarkdownManager 获取节点/关系，按深度构建知识树范围索引（实现）",
+      "proposedPath": "src/core/knowledge/KnowledgeIndex.cpp"
+    },
+    {
+      "path": "core/knowledge/KnowledgeIndex.h",
+      "lines": 27,
+      "bytes": 889,
+      "sha256": "AEBC90F2A0D4CF479D4C8741DC59FA845BF5D9002078C8D97AB9D957019B2069",
+      "symbols": [
+        "KnowledgeEdge",
+        "KnowledgeIndex",
+        "KnowledgeIndexResult"
+      ],
+      "includes": [
+        {
+          "target": "core/library/MarkdownNode.h",
+          "line": 2
+        }
+      ],
+      "role": "从 MarkdownManager 获取节点/关系，按深度构建知识树范围索引（声明）",
+      "proposedPath": "src/core/knowledge/KnowledgeIndex.h"
+    },
+    {
+      "path": "core/knowledge/KnowledgeTopology.cpp",
+      "lines": 78,
+      "bytes": 4671,
+      "sha256": "ABE9C06A5CECF12F54CC130C8742A60DAB37DDB2B819270241DAC510F842D4E6",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/knowledge/KnowledgeTopology.h",
+          "line": 1
+        },
+        {
+          "target": "core/knowledge/MarkdownRelation.h",
+          "line": 2
+        }
+      ],
+      "role": "稳定规范化知识树索引；为命名空间（实现）",
+      "proposedPath": "src/core/knowledge/KnowledgeTopology.cpp"
+    },
+    {
+      "path": "core/knowledge/KnowledgeTopology.h",
+      "lines": 5,
+      "bytes": 153,
+      "sha256": "2C7A298AF84DD16121DCBA020574A4E786EAF7E8C0F20ACC388AD3D4D18CEA2C",
+      "symbols": [
+        "KnowledgeTopology"
+      ],
+      "includes": [
+        {
+          "target": "core/knowledge/KnowledgeIndex.h",
+          "line": 2
+        }
+      ],
+      "role": "稳定规范化知识树索引；为命名空间（声明）",
+      "proposedPath": "src/core/knowledge/KnowledgeTopology.h"
+    },
+    {
+      "path": "core/knowledge/MarkdownManagerRelations.cpp",
+      "lines": 161,
+      "bytes": 9917,
+      "sha256": "D6B920B1F37E75568345F3BB61E05986399F2BE649C793C28F8F23E4CD012A34",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        },
+        {
+          "target": "core/library/FileWatcher.h",
+          "line": 3
+        }
+      ],
+      "role": "MarkdownManager 的关系交易、持久化和节点关联更新实现；不是独立类（实现）",
+      "proposedPath": "src/application/library/MarkdownManagerRelations.cpp"
+    },
+    {
+      "path": "core/knowledge/MarkdownRelation.cpp",
+      "lines": 137,
+      "bytes": 8419,
+      "sha256": "C0C1D98093CB041DAA801A129657B1BD9133A09AD8F2FA7D9F7B1A215B102D77",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/knowledge/MarkdownRelation.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        }
+      ],
+      "role": "关系角色、互逆/替代路径规则，同时包含关系 JSON 读写（实现）",
+      "proposedPath": "src/core/knowledge/MarkdownRelation.cpp"
+    },
+    {
+      "path": "core/knowledge/MarkdownRelation.h",
+      "lines": 17,
+      "bytes": 868,
+      "sha256": "0DEF408386B8DB05D5F22841A043BB17F468438F60CADCB9189CC4648778BF7A",
+      "symbols": [
+        "MarkdownRelation"
+      ],
+      "includes": [
+        {
+          "target": "core/knowledge/NodeRelationType.h",
+          "line": 2
+        }
+      ],
+      "role": "关系角色、互逆/替代路径规则，同时包含关系 JSON 读写（声明）",
+      "proposedPath": "src/core/knowledge/MarkdownRelation.h"
+    },
+    {
+      "path": "core/knowledge/NodeRelationType.h",
+      "lines": 5,
+      "bytes": 325,
+      "sha256": "6CAE7B4D5773CE1E1F936490646F7A84892E8A674B3494D533E5AABB629D0FF6",
+      "symbols": [],
+      "includes": [],
+      "role": "五种关系角色枚举（声明）",
+      "proposedPath": "src/core/knowledge/NodeRelationType.h"
+    },
+    {
+      "path": "core/library/DefaultLibrary.cpp",
+      "lines": 74,
+      "bytes": 4230,
+      "sha256": "A7E7DEFD759425A91E3CE525A71A60F996DA8BEA56C10D05754BD0E1E328BE69",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/DefaultLibrary.h",
+          "line": 1
+        }
+      ],
+      "role": "安装版用户库位置与公开示例初始化（实现）",
+      "proposedPath": "src/infrastructure/filesystem/DefaultLibrary.cpp"
+    },
+    {
+      "path": "core/library/DefaultLibrary.h",
+      "lines": 9,
+      "bytes": 295,
+      "sha256": "9DA1495266A0517F4E47734C7A9DD793A08AA0D6921008B5D1A5B40B2FDF6BA3",
+      "symbols": [
+        "DefaultLibrary"
+      ],
+      "includes": [],
+      "role": "安装版用户库位置与公开示例初始化（声明）",
+      "proposedPath": "src/infrastructure/filesystem/DefaultLibrary.h"
+    },
+    {
+      "path": "core/library/FileWatcher.cpp",
+      "lines": 129,
+      "bytes": 6204,
+      "sha256": "909BA8A7A8AB09D6C51E2B7D84C9B3C4E8C00B90CD6741E48FAFDF5FF731F8E6",
+      "symbols": [
+        "WindowsDirectoryWatch"
+      ],
+      "includes": [
+        {
+          "target": "core/library/FileWatcher.h",
+          "line": 1
+        }
+      ],
+      "role": "文件变化监听；Windows 递归异步句柄与其他平台监听适配（实现）",
+      "proposedPath": "src/infrastructure/filesystem/FileWatcher.cpp"
+    },
+    {
+      "path": "core/library/FileWatcher.h",
+      "lines": 27,
+      "bytes": 577,
+      "sha256": "39C5DD2E4760204B8FACAC1BF3C6169F7E662158F21234BBFBE17064E0445632",
+      "symbols": [
+        "FileWatcher"
+      ],
+      "includes": [],
+      "role": "文件变化监听；Windows 递归异步句柄与其他平台监听适配（声明）",
+      "proposedPath": "src/infrastructure/filesystem/FileWatcher.h"
+    },
+    {
+      "path": "core/library/LibraryImport.cpp",
+      "lines": 33,
+      "bytes": 1682,
+      "sha256": "6906C5172255B48F15F1E2C78EC743A79BE385FFFF20867421A85A81B30841A7",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 2
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 3
+        }
+      ],
+      "role": "MarkdownManager 的目录批量导入实现，整批后统一扫描；不是独立类（实现）",
+      "proposedPath": "src/application/library/LibraryImport.cpp"
+    },
+    {
+      "path": "core/library/LibraryPathPolicy.cpp",
+      "lines": 48,
+      "bytes": 3012,
+      "sha256": "4E13D0C132EDBA91EB5A27BF1D29D861628CE8AEB5A3552D306C016843C3A2AC",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/LibraryPathPolicy.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        }
+      ],
+      "role": "库内路径、名称及链接越界约束（实现）",
+      "proposedPath": "src/infrastructure/filesystem/LibraryPathPolicy.cpp"
+    },
+    {
+      "path": "core/library/LibraryPathPolicy.h",
+      "lines": 11,
+      "bytes": 354,
+      "sha256": "23B6C3EE86B60B899EA4223A270E84312AE0C6BAAB95ED6EC1FE8C8F73764EE8",
+      "symbols": [
+        "LibraryPathPolicy"
+      ],
+      "includes": [],
+      "role": "库内路径、名称及链接越界约束（声明）",
+      "proposedPath": "src/infrastructure/filesystem/LibraryPathPolicy.h"
+    },
+    {
+      "path": "core/library/MarkdownDirectoryMove.cpp",
+      "lines": 154,
+      "bytes": 7536,
+      "sha256": "04F674EE5BEAE82DA891514D321E882CD44868E76913524321A1ECD6011751EC",
+      "symbols": [
+        "Entry",
+        "RenameResult"
+      ],
+      "includes": [
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 1
+        }
+      ],
+      "role": "MarkdownFileIO::renameDirectory 的 Windows 重试/暂存/回退实现；不是独立类（实现）",
+      "proposedPath": "src/infrastructure/filesystem/MarkdownDirectoryMove.cpp"
+    },
+    {
+      "path": "core/library/MarkdownDocumentOperations.cpp",
+      "lines": 197,
+      "bytes": 10626,
+      "sha256": "2C7042BBA2A30A623790067AC66466FBC48DCB5721E7FFD9972EA4714A5C0A09",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownImport.h",
+          "line": 2
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/FileWatcher.h",
+          "line": 4
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 5
+        }
+      ],
+      "role": "MarkdownManager 的保存/重载/增删/重命名/另存为交易实现；不是独立类（实现）",
+      "proposedPath": "src/application/library/MarkdownDocumentOperations.cpp"
+    },
+    {
+      "path": "core/library/MarkdownFileIO.cpp",
+      "lines": 101,
+      "bytes": 4354,
+      "sha256": "25ACAF09D08A61CFBEF595E3F467E252C444E6B1B99F45DA6D7096C7DAA06D1F",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 1
+        }
+      ],
+      "role": "原子写入、读取、文件改名、回收站与文件身份（实现）",
+      "proposedPath": "src/infrastructure/filesystem/MarkdownFileIO.cpp"
+    },
+    {
+      "path": "core/library/MarkdownFileIO.h",
+      "lines": 15,
+      "bytes": 818,
+      "sha256": "B792A1F250B8E3DA7C4C6B0D76DE657312A7C74E7104A5BD96E1F954B9000549",
+      "symbols": [
+        "MarkdownFileIO"
+      ],
+      "includes": [],
+      "role": "原子写入、读取、文件改名、回收站与文件身份（声明）",
+      "proposedPath": "src/infrastructure/filesystem/MarkdownFileIO.h"
+    },
+    {
+      "path": "core/library/MarkdownManager.cpp",
+      "lines": 153,
+      "bytes": 7786,
+      "sha256": "B655C4BA4745CD3DECB6A71BB867FE7E90BF3BF9EBC4D4C2886D6A1C6C6B956D",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        },
+        {
+          "target": "core/library/LibraryPathPolicy.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/FileWatcher.h",
+          "line": 4
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 5
+        }
+      ],
+      "role": "唯一持有文档节点/关系状态，扫描、缓存更新和变更信号（实现）",
+      "proposedPath": "src/application/library/MarkdownManager.cpp"
+    },
+    {
+      "path": "core/library/MarkdownManager.h",
+      "lines": 79,
+      "bytes": 4045,
+      "sha256": "3E9F13B12326A54BB98E1182D4614186B2FE4A3147B8CF9AC2ED00E504AAA370",
+      "symbols": [
+        "DocumentSaveResult",
+        "LibraryImportResult",
+        "MarkdownManager"
+      ],
+      "includes": [
+        {
+          "target": "core/library/MarkdownNode.h",
+          "line": 2
+        },
+        {
+          "target": "core/knowledge/MarkdownRelation.h",
+          "line": 3
+        }
+      ],
+      "role": "唯一持有文档节点/关系状态，扫描、缓存更新和变更信号（声明）",
+      "proposedPath": "src/application/library/MarkdownManager.h"
+    },
+    {
+      "path": "core/library/MarkdownNode.cpp",
+      "lines": 20,
+      "bytes": 806,
+      "sha256": "F677E7FC3C2488DA0D1D96EB1A4CCDBB391A0FFE755EE936483E016259AE1CB1",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/library/MarkdownNode.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 2
+        }
+      ],
+      "role": "文档路径、已保存/编辑原文、冲突状态、目录缓存和关联角色（实现）",
+      "proposedPath": "src/core/documents/MarkdownNode.cpp"
+    },
+    {
+      "path": "core/library/MarkdownNode.h",
+      "lines": 30,
+      "bytes": 987,
+      "sha256": "836BE7FBB6825C97C0F356EE2A197BAD1E315DE812BD8DEC2E62A54509F083A5",
+      "symbols": [
+        "MarkdownNode"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownOutline.h",
+          "line": 2
+        },
+        {
+          "target": "core/knowledge/NodeRelationType.h",
+          "line": 3
+        }
+      ],
+      "role": "文档路径、已保存/编辑原文、冲突状态、目录缓存和关联角色（声明）",
+      "proposedPath": "src/core/documents/MarkdownNode.h"
+    },
+    {
+      "path": "core/library/MarkdownPathMoves.cpp",
+      "lines": 215,
+      "bytes": 12172,
+      "sha256": "F3BEA22969875498628E3DF063B78FBF3B83C712F7A16AC4314CDE96E7EBEF84",
+      "symbols": [
+        "Document",
+        "Move"
+      ],
+      "includes": [
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        },
+        {
+          "target": "core/library/FileWatcher.h",
+          "line": 3
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 4
+        }
+      ],
+      "role": "MarkdownManager 的目录/批量文档迁移与失败回滚实现；不是独立类（实现）",
+      "proposedPath": "src/application/library/MarkdownPathMoves.cpp"
+    },
+    {
+      "path": "core/markdown/CodeSyntax.cpp",
+      "lines": 279,
+      "bytes": 26756,
+      "sha256": "56961F932B203CD741A194379CE29E2033EB40CBFE79539AAAF49BF37677543A",
+      "symbols": [
+        "Profile"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/CodeSyntax.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 2
+        }
+      ],
+      "role": "按语言的有状态代码分词及配色，不绘制 Qt 控件（实现）",
+      "proposedPath": "src/core/markdown/syntax/CodeSyntax.cpp"
+    },
+    {
+      "path": "core/markdown/CodeSyntax.h",
+      "lines": 28,
+      "bytes": 1351,
+      "sha256": "0E7002BA97F251F0E742CF7C18EE25F5AAF64A0ABBB025D5A822ACB92AB09A13",
+      "symbols": [
+        "CodeSyntax",
+        "Line",
+        "State",
+        "Token"
+      ],
+      "includes": [],
+      "role": "按语言的有状态代码分词及配色，不绘制 Qt 控件（声明）",
+      "proposedPath": "src/core/markdown/syntax/CodeSyntax.h"
+    },
+    {
+      "path": "core/markdown/LanguageCatalog.cpp",
+      "lines": 36,
+      "bytes": 2388,
+      "sha256": "E289E00CE6C1A6F3A741A714DFC451C978C9A729BED8E3BBFBC4C6113AA7891C",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 1
+        }
+      ],
+      "role": "语言名、别名、显示标签和补全目录（实现）",
+      "proposedPath": "src/core/markdown/syntax/LanguageCatalog.cpp"
+    },
+    {
+      "path": "core/markdown/LanguageCatalog.h",
+      "lines": 9,
+      "bytes": 231,
+      "sha256": "FA277AE367F581C4B2E8A7DB7EF1412DC1781B954FDC6005797FCDF33D17FE9B",
+      "symbols": [
+        "LanguageCatalog"
+      ],
+      "includes": [],
+      "role": "语言名、别名、显示标签和补全目录（声明）",
+      "proposedPath": "src/core/markdown/syntax/LanguageCatalog.h"
+    },
+    {
+      "path": "core/markdown/MarkdownAnalysis.cpp",
+      "lines": 190,
+      "bytes": 9819,
+      "sha256": "AF97C7C0058B42E8914230A2BF0E6AD65FA5BED27FFB77092525DEBEF9CA8777",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 2
+        }
+      ],
+      "role": "源码行、成对围栏、行内代码和字面区域扫描；维护原始 UTF-16 偏移（实现）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownAnalysis.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownAnalysis.h",
+      "lines": 29,
+      "bytes": 1115,
+      "sha256": "8567DD732C8D22C71F3B4676708E0DDA6E42B18A476563492D403C9929543AF9",
+      "symbols": [
+        "Fence",
+        "InlineCode",
+        "Line",
+        "MarkdownAnalysis",
+        "Range"
+      ],
+      "includes": [],
+      "role": "源码行、成对围栏、行内代码和字面区域扫描；维护原始 UTF-16 偏移（声明）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownAnalysis.h"
+    },
+    {
+      "path": "core/markdown/MarkdownBlockSyntax.cpp",
+      "lines": 262,
+      "bytes": 17316,
+      "sha256": "64644090041301F3F018E74143DC5FE4104650D3C9E780D3E371AAEC169A0A95",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 3
+        }
+      ],
+      "role": "行前缀识别、渲染准备与位置映射、N55 首个空行判定（实现）",
+      "proposedPath": "src/core/markdown/syntax/MarkdownBlockSyntax.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownBlockSyntax.h",
+      "lines": 23,
+      "bytes": 1020,
+      "sha256": "8A07C06DFEBB0EBFAF951476760AD254264C8BE26F402E4C62885A0209AA1F26",
+      "symbols": [
+        "MarkdownBlockSyntax",
+        "Marker",
+        "Prepared"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 5
+        }
+      ],
+      "role": "行前缀识别、渲染准备与位置映射、N55 首个空行判定（声明）",
+      "proposedPath": "src/core/markdown/syntax/MarkdownBlockSyntax.h"
+    },
+    {
+      "path": "core/markdown/MarkdownCodeBlocks.cpp",
+      "lines": 25,
+      "bytes": 1478,
+      "sha256": "0F39C7B2658603114B9646DFAEDAAFD342425392DC2062491CDE70F6E9B23E40",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownCodeBlocks.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 2
+        }
+      ],
+      "role": "成对代码区的语言、原始正文及行位置查询；为命名空间（实现）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownCodeBlocks.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownCodeBlocks.h",
+      "lines": 11,
+      "bytes": 316,
+      "sha256": "789C2AA49531FB67D01AE8B1E8D452D00CB3BC3D0706897250ABBB772DE84DC7",
+      "symbols": [
+        "Block",
+        "MarkdownCodeBlocks"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        }
+      ],
+      "role": "成对代码区的语言、原始正文及行位置查询；为命名空间（声明）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownCodeBlocks.h"
+    },
+    {
+      "path": "core/markdown/MarkdownCodeEditing.cpp",
+      "lines": 151,
+      "bytes": 8997,
+      "sha256": "06082BAE7C4F9946B6201EFB4683C7BD424E0FFFBC0A832D0DFCDB5E2177DF6C",
+      "symbols": [
+        "Change",
+        "Context"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownCodeEditing.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 3
+        }
+      ],
+      "role": "代码区缩进、换行、退格、退出及空元数据删除（实现）",
+      "proposedPath": "src/core/markdown/editing/MarkdownCodeEditing.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownCodeEditing.h",
+      "lines": 14,
+      "bytes": 654,
+      "sha256": "9EEF4FC213457C16DD04A72FB8478D4DFD23332C910A8BF3EF71677A4E679024",
+      "symbols": [
+        "MarkdownCodeEditing"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 2
+        }
+      ],
+      "role": "代码区缩进、换行、退格、退出及空元数据删除（声明）",
+      "proposedPath": "src/core/markdown/editing/MarkdownCodeEditing.h"
+    },
+    {
+      "path": "core/markdown/MarkdownEdit.h",
+      "lines": 8,
+      "bytes": 152,
+      "sha256": "1FD43D4E6BA89D3076DCFDD637E8E3CB6B7AF59D29E176A126D2701AE0D389BE",
+      "symbols": [
+        "MarkdownEdit"
+      ],
+      "includes": [],
+      "role": "原文、选区和 handled/changed 编辑交易值对象（声明）",
+      "proposedPath": "src/core/markdown/editing/MarkdownEdit.h"
+    },
+    {
+      "path": "core/markdown/MarkdownImages.cpp",
+      "lines": 131,
+      "bytes": 6494,
+      "sha256": "FD75B9088E671FCA938C9D2239897DF71A9FA7086FAB9017298CF33F002FE353",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        }
+      ],
+      "role": "Markdown 图片语法识别、地址处理和源码引用替换（实现）",
+      "proposedPath": "src/core/markdown/syntax/MarkdownImages.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownImages.h",
+      "lines": 25,
+      "bytes": 990,
+      "sha256": "E8D57D4F411EC8D16B228E752DC50659F2AA3428E5E2C34C98A02E36D7442E9A",
+      "symbols": [
+        "MarkdownImage",
+        "MarkdownImages"
+      ],
+      "includes": [],
+      "role": "Markdown 图片语法识别、地址处理和源码引用替换（声明）",
+      "proposedPath": "src/core/markdown/syntax/MarkdownImages.h"
+    },
+    {
+      "path": "core/markdown/MarkdownImport.cpp",
+      "lines": 62,
+      "bytes": 3770,
+      "sha256": "7BA941F7E29A2C5D6D77360EDE79A133DDF6389164EE81D6D9897EDF58E4F119",
+      "symbols": [
+        "Conversion",
+        "Reader"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownImport.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownCodeEditing.h",
+          "line": 3
+        },
+        {
+          "target": "third_party/md4c/md4c.h",
+          "line": 4
+        }
+      ],
+      "role": "导入/粘贴中实际缩进代码转围栏的纯文本适配（实现）",
+      "proposedPath": "src/core/markdown/editing/MarkdownImport.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownImport.h",
+      "lines": 7,
+      "bytes": 212,
+      "sha256": "4F830D4927E9C1E4FF6E60D9BCA4B1DE608FFCC23121E40049AF8BE240A088F9",
+      "symbols": [
+        "MarkdownImport"
+      ],
+      "includes": [],
+      "role": "导入/粘贴中实际缩进代码转围栏的纯文本适配（声明）",
+      "proposedPath": "src/core/markdown/editing/MarkdownImport.h"
+    },
+    {
+      "path": "core/markdown/MarkdownListEditing.cpp",
+      "lines": 146,
+      "bytes": 8394,
+      "sha256": "04A33A6280E3C27FBD58E32F07185CA0A95C21C10F04F28A17EFA04B67C5E616",
+      "symbols": [
+        "Item"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownListEditing.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 3
+        }
+      ],
+      "role": "列表续写、任务状态、父子项缩进和退格（实现）",
+      "proposedPath": "src/core/markdown/editing/MarkdownListEditing.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownListEditing.h",
+      "lines": 10,
+      "bytes": 408,
+      "sha256": "AB226391C90D424517310A09F3697E7821E910EF67BB8B5E96B2DF703EB0D76F",
+      "symbols": [
+        "MarkdownListEditing"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 2
+        }
+      ],
+      "role": "列表续写、任务状态、父子项缩进和退格（声明）",
+      "proposedPath": "src/core/markdown/editing/MarkdownListEditing.h"
+    },
+    {
+      "path": "core/markdown/MarkdownOutline.h",
+      "lines": 11,
+      "bytes": 207,
+      "sha256": "69F481639026891B27695D10C0F1AE9DA16AF91A40788A20AA1BD46B19AA43F5",
+      "symbols": [
+        "MarkdownHeading"
+      ],
+      "includes": [],
+      "role": "MarkdownHeading 记录及 MarkdownOutline 容器别名（声明）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownOutline.h"
+    },
+    {
+      "path": "core/markdown/MarkdownParagraphEditing.cpp",
+      "lines": 161,
+      "bytes": 11058,
+      "sha256": "9372EB12F4F1144598EB543E6869023A3C7D92E46CEB6BF7B36095BB5E1881D4",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownParagraphEditing.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 5
+        }
+      ],
+      "role": "标题/引用/普通段落的 Enter、Backspace、Delete 和分隔复用（实现）",
+      "proposedPath": "src/core/markdown/editing/MarkdownParagraphEditing.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownParagraphEditing.h",
+      "lines": 10,
+      "bytes": 553,
+      "sha256": "63383363477CA0D1C75A5D29B80A8AAF0FCEF36850EB47CAD320E28DE81F4754",
+      "symbols": [
+        "MarkdownParagraphEditing"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 2
+        }
+      ],
+      "role": "标题/引用/普通段落的 Enter、Backspace、Delete 和分隔复用（声明）",
+      "proposedPath": "src/core/markdown/editing/MarkdownParagraphEditing.h"
+    },
+    {
+      "path": "core/markdown/MarkdownParser.cpp",
+      "lines": 34,
+      "bytes": 1729,
+      "sha256": "46E00C0A8D6EAF74A4F8A20996474887ABF1B0DF2C6B510CC57CD60BA70ABC15",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 3
+        }
+      ],
+      "role": "标题标记、目录与代码围栏的共用查询入口（实现）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownParser.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownParser.h",
+      "lines": 19,
+      "bytes": 783,
+      "sha256": "1EFA975AA1C3BDEF9DBA2E4CE22F80A648A2A1A9CDE076CDEAC7A37301550223",
+      "symbols": [
+        "HeadingMarker",
+        "MarkdownParser"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownOutline.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 3
+        }
+      ],
+      "role": "标题标记、目录与代码围栏的共用查询入口（声明）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownParser.h"
+    },
+    {
+      "path": "core/markdown/MarkdownSourceMap.cpp",
+      "lines": 446,
+      "bytes": 29416,
+      "sha256": "3F26E6A287DA9599CA38332D623D9576EEE70D9BD0E2C6011B9071415355D143",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 5
+        },
+        {
+          "target": "core/markdown/analysis/MarkdownSnapshot.h",
+          "line": 6
+        }
+      ],
+      "role": "原文与显示 UTF-16 位置映射、隐藏标记边界、空白恢复及选区编辑计划（实现）",
+      "proposedPath": "src/core/markdown/mapping/MarkdownSourceMap.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownSourceMap.h",
+      "lines": 67,
+      "bytes": 3351,
+      "sha256": "97D39E1CAA93DE9BDE73283AE62D5729626CE5238913572C9BAC624073584FED",
+      "symbols": [
+        "BlockMarker",
+        "Container",
+        "EditPlan",
+        "InlineFormat",
+        "MarkdownSourceMap",
+        "MarkerBoundary",
+        "WhitespaceEdit",
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownSpelling.h",
+          "line": 6
+        }
+      ],
+      "role": "原文与显示 UTF-16 位置映射、隐藏标记边界、空白恢复及选区编辑计划（声明）",
+      "proposedPath": "src/core/markdown/mapping/MarkdownSourceMap.h"
+    },
+    {
+      "path": "core/markdown/MarkdownSpelling.cpp",
+      "lines": 151,
+      "bytes": 9272,
+      "sha256": "8C7C10994A4EF24553CAD80476642CF3F5E570CCD169CA99C43170C86F288C95",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownSpelling.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 3
+        }
+      ],
+      "role": "链接、图片、实体、定义等原文展开区域及部分删除保护（实现）",
+      "proposedPath": "src/core/markdown/mapping/MarkdownSpelling.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownSpelling.h",
+      "lines": 16,
+      "bytes": 632,
+      "sha256": "6C98648D10A0B565BF078E94A9823AE026FF9804FDD0C5A61516270FE4A73577",
+      "symbols": [
+        "MarkdownSpelling",
+        "Range",
+        "Region"
+      ],
+      "includes": [],
+      "role": "链接、图片、实体、定义等原文展开区域及部分删除保护（声明）",
+      "proposedPath": "src/core/markdown/mapping/MarkdownSpelling.h"
+    },
+    {
+      "path": "core/markdown/MarkdownSyntax.cpp",
+      "lines": 195,
+      "bytes": 11535,
+      "sha256": "D61B659745A1D394E764CF864242ECE8501CD78F0DA8A12BB18388C05EFBA18F",
+      "symbols": [
+        "Reader",
+        "Span"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 3
+        },
+        {
+          "target": "third_party/md4c/md4c.h",
+          "line": 4
+        }
+      ],
+      "role": "MD4C 语义事件、标题/行内格式、元数据及渲染功能适配（实现）",
+      "proposedPath": "src/core/markdown/syntax/MarkdownSyntax.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownSyntax.h",
+      "lines": 29,
+      "bytes": 1027,
+      "sha256": "6EE674C989FCB434D756C0B2851698DFC1ABC410F599A20905C7A3B8FE067DE0",
+      "symbols": [
+        "Edit",
+        "Format",
+        "MarkdownSyntax",
+        "Result"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownOutline.h",
+          "line": 2
+        }
+      ],
+      "role": "MD4C 语义事件、标题/行内格式、元数据及渲染功能适配（声明）",
+      "proposedPath": "src/core/markdown/syntax/MarkdownSyntax.h"
+    },
+    {
+      "path": "core/markdown/MarkdownTableEditing.cpp",
+      "lines": 367,
+      "bytes": 19955,
+      "sha256": "809DCFA15C4686935F053B9DEACEA203AFBC726F069AF6CCAC6F2DCA862E4650",
+      "symbols": [
+        "Candidate",
+        "Grid",
+        "ParseContext",
+        "ParsedTable"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 3
+        },
+        {
+          "target": "third_party/md4c/md4c.h",
+          "line": 4
+        }
+      ],
+      "role": "MD4C 确认表格、格子偏移、规范化、整表增删行列和网格粘贴；为命名空间（实现）",
+      "proposedPath": "src/core/markdown/editing/MarkdownTableEditing.cpp"
+    },
+    {
+      "path": "core/markdown/MarkdownTableEditing.h",
+      "lines": 23,
+      "bytes": 1426,
+      "sha256": "08C9491923AEE9743834D29F99EF7B08508601008F19C575B4D6CE5837B63B3F",
+      "symbols": [
+        "Cell",
+        "MarkdownTableEditing",
+        "Table"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 2
+        }
+      ],
+      "role": "MD4C 确认表格、格子偏移、规范化、整表增删行列和网格粘贴；为命名空间（声明）",
+      "proposedPath": "src/core/markdown/editing/MarkdownTableEditing.h"
+    },
+    {
+      "path": "core/markdown/analysis/MarkdownSnapshot.cpp",
+      "lines": 37,
+      "bytes": 1178,
+      "sha256": "78B396D4B10D761555D317686E9B5D3E48A369557000E0250577C59ED22972D9",
+      "symbols": [
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/analysis/MarkdownSnapshot.h",
+          "line": 1
+        }
+      ],
+      "role": "指定 Raw/Rendering 模式的不可变原文与惰性分析结果（实现）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownSnapshot.cpp"
+    },
+    {
+      "path": "core/markdown/analysis/MarkdownSnapshot.h",
+      "lines": 34,
+      "bytes": 1447,
+      "sha256": "0E68C427BBCD41FC74C378C06DDB3E2C226E1A2B95B34C94409309597C7E4BCF",
+      "symbols": [
+        "BuildCounts",
+        "MarkdownSnapshot",
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownCodeBlocks.h",
+          "line": 5
+        }
+      ],
+      "role": "指定 Raw/Rendering 模式的不可变原文与惰性分析结果（声明）",
+      "proposedPath": "src/core/markdown/analysis/MarkdownSnapshot.h"
+    },
+    {
+      "path": "core/markdown/editing/TextPatch.cpp",
+      "lines": 28,
+      "bytes": 1109,
+      "sha256": "56E7A5B9B1BC2DB198C8013C7C367ACEA46959CB8E223898635217950E8B4AD6",
+      "symbols": [
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/editing/TextPatch.h",
+          "line": 1
+        }
+      ],
+      "role": "UTF-16 公共前后缀单段替换，保留完整代理对边界（实现）",
+      "proposedPath": "src/core/markdown/editing/TextPatch.cpp"
+    },
+    {
+      "path": "core/markdown/editing/TextPatch.h",
+      "lines": 13,
+      "bytes": 359,
+      "sha256": "F8D4FC035C9BDF4A001915C28C6F1C5274BA26982BFB98F08AB96B928DD0464E",
+      "symbols": [
+        "TextPatch",
+        "tmd"
+      ],
+      "includes": [],
+      "role": "UTF-16 公共前后缀单段替换，保留完整代理对边界（声明）",
+      "proposedPath": "src/core/markdown/editing/TextPatch.h"
+    },
+    {
+      "path": "core/platform/FileManager.cpp",
+      "lines": 29,
+      "bytes": 1212,
+      "sha256": "6440A5007B7904B9C40BDCA9E57192287E0156951E172387077B9C7E13F6D72A",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/platform/FileManager.h",
+          "line": 1
+        }
+      ],
+      "role": "系统文件管理器打开或定位（实现）",
+      "proposedPath": "src/infrastructure/platform/FileManager.cpp"
+    },
+    {
+      "path": "core/platform/FileManager.h",
+      "lines": 7,
+      "bytes": 188,
+      "sha256": "C24E428FB8E804F21834DCA9EA0F560A29C9B97DB6392D870EC265E018BF125D",
+      "symbols": [
+        "FileManager"
+      ],
+      "includes": [],
+      "role": "系统文件管理器打开或定位（声明）",
+      "proposedPath": "src/infrastructure/platform/FileManager.h"
+    },
+    {
+      "path": "core/platform/LocalCredentials.cpp",
+      "lines": 23,
+      "bytes": 1455,
+      "sha256": "7EB03EFD9522E893DA87204045AF6E7386FA8A5ABDB73B0D5E14531FA6700F29",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/platform/LocalCredentials.h",
+          "line": 1
+        }
+      ],
+      "role": "Windows 本机凭据加密/解密适配（实现）",
+      "proposedPath": "src/infrastructure/platform/LocalCredentials.cpp"
+    },
+    {
+      "path": "core/platform/LocalCredentials.h",
+      "lines": 7,
+      "bytes": 237,
+      "sha256": "88163B9DB58F3BF14E7CA0897375FEC99B6BC02C5D538A2FA00EC9ECA66D6807",
+      "symbols": [
+        "LocalCredentials"
+      ],
+      "includes": [],
+      "role": "Windows 本机凭据加密/解密适配（声明）",
+      "proposedPath": "src/infrastructure/platform/LocalCredentials.h"
+    },
+    {
+      "path": "core/settings/KnowledgeViewSettings.cpp",
+      "lines": 13,
+      "bytes": 677,
+      "sha256": "194082E7E237E2C06D1E2D81ADDD3583A135F1AD38EDAF22BF8C2033A3E72D6C",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/settings/KnowledgeViewSettings.h",
+          "line": 1
+        }
+      ],
+      "role": "知识树缩放等共享视图设置（实现）",
+      "proposedPath": "src/infrastructure/settings/KnowledgeViewSettings.cpp"
+    },
+    {
+      "path": "core/settings/KnowledgeViewSettings.h",
+      "lines": 13,
+      "bytes": 306,
+      "sha256": "8C84E521A9066B78925FE79A51ECAA9EDB7C77F6C196B975B683DB7A8D6DBA54",
+      "symbols": [
+        "KnowledgeViewSettings"
+      ],
+      "includes": [],
+      "role": "知识树缩放等共享视图设置（声明）",
+      "proposedPath": "src/infrastructure/settings/KnowledgeViewSettings.h"
+    },
+    {
+      "path": "core/settings/MarkdownSettings.cpp",
+      "lines": 26,
+      "bytes": 1906,
+      "sha256": "A78EFFB0B0693E06597FFCC91A3926E1A65765F9EB5AABE70713E523EAEC4024",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 1
+        }
+      ],
+      "role": "样式/图片设置数据和范围描述；当前头文件还声明 MarkdownSettingsStore（实现）",
+      "proposedPath": "src/core/settings/MarkdownSettings.cpp"
+    },
+    {
+      "path": "core/settings/MarkdownSettings.h",
+      "lines": 57,
+      "bytes": 3267,
+      "sha256": "DDD22EDED8AFB9D90395CB63807D1BA68C4351ADDBD0F9F6B8AC01C0D798C2D9",
+      "symbols": [
+        "HostedImageLink",
+        "MarkdownColorSpec",
+        "MarkdownNumberSpec",
+        "MarkdownSettings",
+        "MarkdownSettingsStore"
+      ],
+      "includes": [],
+      "role": "样式/图片设置数据和范围描述；当前头文件还声明 MarkdownSettingsStore（声明）",
+      "proposedPath": "src/core/settings/MarkdownSettings.h"
+    },
+    {
+      "path": "core/settings/MarkdownSettingsCodec.cpp",
+      "lines": 144,
+      "bytes": 11442,
+      "sha256": "326E72555A9C258E733321EE82362233AA7094E3FE52960A27C2C01F77B65177",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettingsCodec.h",
+          "line": 1
+        },
+        {
+          "target": "core/platform/LocalCredentials.h",
+          "line": 2
+        }
+      ],
+      "role": "版本化设置校验、二进制与十六进制编解码（实现）",
+      "proposedPath": "src/infrastructure/settings/MarkdownSettingsCodec.cpp"
+    },
+    {
+      "path": "core/settings/MarkdownSettingsCodec.h",
+      "lines": 9,
+      "bytes": 413,
+      "sha256": "CD949EE0AB5909499767AAE81EB4820AD74686E2B8945E54BD038F48F6501768",
+      "symbols": [
+        "MarkdownSettingsCodec"
+      ],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 2
+        }
+      ],
+      "role": "版本化设置校验、二进制与十六进制编解码（声明）",
+      "proposedPath": "src/infrastructure/settings/MarkdownSettingsCodec.h"
+    },
+    {
+      "path": "core/settings/MarkdownSettingsStore.cpp",
+      "lines": 50,
+      "bytes": 3018,
+      "sha256": "6D1CF86E5E24565503BA561ABD8CF5883B6B376B02D446EDD94B6A624E7CC0B3",
+      "symbols": [
+        "Cache"
+      ],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettingsCodec.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        }
+      ],
+      "role": "MarkdownSettingsStore 的本地持久化、凭据保护调用和缓存实现；声明在 MarkdownSettings.h（实现）",
+      "proposedPath": "src/infrastructure/settings/MarkdownSettingsStore.cpp"
+    },
+    {
+      "path": "main.cpp",
+      "lines": 116,
+      "bytes": 7204,
+      "sha256": "1EA7054385E124B5E7DC58844E1360A095B283C1E084B560DD71514C75DB98FE",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/MainWindow.h",
+          "line": 1
+        },
+        {
+          "target": "ui/common/Theme.h",
+          "line": 2
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 4
+        },
+        {
+          "target": "core/images/MarkdownExportJob.h",
+          "line": 5
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 6
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 7
+        },
+        {
+          "target": "core/library/DefaultLibrary.h",
+          "line": 8
+        }
+      ],
+      "role": "进程入口、参数解析、库初始化、导入导出命令行与 GUI 启动（实现）",
+      "proposedPath": "src/bootstrap/main.cpp"
+    },
+    {
+      "path": "tests/DefaultLibraryTests.cpp",
+      "lines": 62,
+      "bytes": 4030,
+      "sha256": "3A62445755847884B9598B7AB3905AE244D61991D92883EE366B4C7821D76D5F",
+      "symbols": [
+        "DefaultLibraryTests"
+      ],
+      "includes": [
+        {
+          "target": "core/library/DefaultLibrary.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        }
+      ],
+      "role": "示例初始化与安装库保护回归（实现）",
+      "proposedPath": "tests/infrastructure/DefaultLibraryTests.cpp"
+    },
+    {
+      "path": "tests/EditingCodeAuditTests.cpp",
+      "lines": 435,
+      "bytes": 28932,
+      "sha256": "EE74207ED18A4E2585DF68145FA4F332860FB0F4C85AED9ED64768B77FDEACE6",
+      "symbols": [
+        "EditingCodeAuditTests"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 2
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 5
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 6
+        },
+        {
+          "target": "ui/MainWindow.h",
+          "line": 7
+        }
+      ],
+      "role": "代码区、选择和跨围栏编辑审查（实现）",
+      "proposedPath": "tests/ui/editing/EditingCodeAuditTests.cpp"
+    },
+    {
+      "path": "tests/EditingHeadingsAuditTests.cpp",
+      "lines": 291,
+      "bytes": 15253,
+      "sha256": "0A1E2A564765CCB9A2B7F753A70DB13595272CEFB7AFF25CB5918631BEAEF467",
+      "symbols": [
+        "EditingHeadingsAuditTests"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 2
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 3
+        }
+      ],
+      "role": "标题、引用、空白及相关输入审查（实现）",
+      "proposedPath": "tests/ui/editing/EditingHeadingsAuditTests.cpp"
+    },
+    {
+      "path": "tests/EditingIntegrationAuditTests.cpp",
+      "lines": 221,
+      "bytes": 12693,
+      "sha256": "5277E7E34B981AF1AAF3839307396E22B2560AD67B84614F76D30E6E4F583C04",
+      "symbols": [
+        "EditingIntegrationAuditTests"
+      ],
+      "includes": [
+        {
+          "target": "ui/MainWindow.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 2
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 4
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 5
+        }
+      ],
+      "role": "跨元素编辑及撤销等集成审查（实现）",
+      "proposedPath": "tests/ui/editing/EditingIntegrationAuditTests.cpp"
+    },
+    {
+      "path": "tests/EditingListAuditTests.cpp",
+      "lines": 74,
+      "bytes": 4617,
+      "sha256": "403FC1021448F6FE782BDCA7F6583266D3F3BBEBEA94911F1327DEBC9BEB0C7C",
+      "symbols": [
+        "EditingListAuditTests"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 2
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 3
+        }
+      ],
+      "role": "列表、缩进、退格及任务规则审查（实现）",
+      "proposedPath": "tests/ui/editing/EditingListAuditTests.cpp"
+    },
+    {
+      "path": "tests/EditingPolicyTests.cpp",
+      "lines": 554,
+      "bytes": 41283,
+      "sha256": "EE665FECF42A6462CE4D9F7F821FF9F9B7841049B23EA7E8783DDD1DB8F94E20",
+      "symbols": [
+        "EditingPolicyTests"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 2
+        },
+        {
+          "target": "ui/MainWindow.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 5
+        },
+        {
+          "target": "core/markdown/MarkdownListEditing.h",
+          "line": 6
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 7
+        },
+        {
+          "target": "core/markdown/MarkdownParagraphEditing.h",
+          "line": 8
+        },
+        {
+          "target": "core/markdown/MarkdownImport.h",
+          "line": 9
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 10
+        },
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 11
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 12
+        }
+      ],
+      "role": "已确认输入规则和 N55 空行策略专项回归（实现）",
+      "proposedPath": "tests/ui/editing/EditingPolicyTests.cpp"
+    },
+    {
+      "path": "tests/MarkdownCoreTests.cpp",
+      "lines": 420,
+      "bytes": 31974,
+      "sha256": "9A56C02F5618CF5CEC22DEDD27C6B090625E15D9F30DDDEE54F75862F11377B0",
+      "symbols": [
+        "MarkdownCoreTests"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownAnalysis.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/CodeSyntax.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownCodeBlocks.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 5
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 6
+        },
+        {
+          "target": "core/markdown/MarkdownCodeEditing.h",
+          "line": 7
+        },
+        {
+          "target": "core/markdown/MarkdownListEditing.h",
+          "line": 8
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 9
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 10
+        },
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 11
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 12
+        },
+        {
+          "target": "core/images/ImageInsertJob.h",
+          "line": 13
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 14
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 15
+        }
+      ],
+      "role": "核心解析、源码映射、图片导入、批量导入及另存为回归（实现）",
+      "proposedPath": "tests/core/MarkdownCoreTests.cpp"
+    },
+    {
+      "path": "tests/ModularEditingTests.cpp",
+      "lines": 232,
+      "bytes": 13892,
+      "sha256": "32A99E13126FE78CF20A5FE1068F02D0616DD8BB68B7675908B0674FFF8FC0FF",
+      "symbols": [
+        "ModularEditingTests"
+      ],
+      "includes": [
+        {
+          "target": "application/editing/EditCommandRouter.h",
+          "line": 6
+        },
+        {
+          "target": "core/markdown/analysis/MarkdownSnapshot.h",
+          "line": 7
+        },
+        {
+          "target": "core/markdown/editing/TextPatch.h",
+          "line": 8
+        },
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 9
+        },
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 10
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 11
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 12
+        },
+        {
+          "target": "ui/document/QtTextEditAdapter.h",
+          "line": 13
+        }
+      ],
+      "role": "模块化编辑、Unicode、undo、快照共享/失效与固定输入结果回归（实现）",
+      "proposedPath": "tests/integration/ModularEditingTests.cpp"
+    },
+    {
+      "path": "tests/RefactorIntegrationTests.cpp",
+      "lines": 40,
+      "bytes": 2310,
+      "sha256": "15F26007239C18FA9D41B0163C23769BB2FA2D8C79535A7A0D8D526D517BA810",
+      "symbols": [
+        "RefactorIntegrationTests"
+      ],
+      "includes": [
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 2
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 3
+        },
+        {
+          "target": "ui/knowledge/RelationDialog.h",
+          "line": 4
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeCanvas.h",
+          "line": 5
+        },
+        {
+          "target": "ui/knowledge/KnowledgeNodeWidget.h",
+          "line": 6
+        }
+      ],
+      "role": "标题/正文修改时知识树增量刷新及对象保留回归（实现）",
+      "proposedPath": "tests/integration/RefactorIntegrationTests.cpp"
+    },
+    {
+      "path": "tests/TreeMdTests.cpp",
+      "lines": 3524,
+      "bytes": 303886,
+      "sha256": "B98F75D31CED14E0A37B6425040E35F9154D2E6E0C5669ACE78ABA37365BDF66",
+      "symbols": [
+        "ProbeTree",
+        "TreeMdTests"
+      ],
+      "includes": [
+        {
+          "target": "core/library/MarkdownFileIO.h",
+          "line": 1
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 4
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 5
+        },
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 6
+        },
+        {
+          "target": "core/images/MarkdownExportJob.h",
+          "line": 7
+        },
+        {
+          "target": "ui/MainWindow.h",
+          "line": 8
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 9
+        },
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 10
+        },
+        {
+          "target": "ui/knowledge/KnowledgeGraphWidget.h",
+          "line": 11
+        },
+        {
+          "target": "ui/knowledge/KnowledgeNodeWidget.h",
+          "line": 12
+        },
+        {
+          "target": "ui/library/OutlineSidebar.h",
+          "line": 13
+        },
+        {
+          "target": "ui/library/DocumentSidebar.h",
+          "line": 14
+        },
+        {
+          "target": "ui/library/DocumentFileTree.h",
+          "line": 15
+        },
+        {
+          "target": "ui/library/DocumentTreeBuilder.h",
+          "line": 16
+        },
+        {
+          "target": "core/platform/FileManager.h",
+          "line": 17
+        },
+        {
+          "target": "ui/common/Theme.h",
+          "line": 18
+        },
+        {
+          "target": "ui/common/AppIcon.h",
+          "line": 19
+        },
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 20
+        },
+        {
+          "target": "core/markdown/CodeSyntax.h",
+          "line": 21
+        },
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 22
+        },
+        {
+          "target": "core/knowledge/KnowledgeIndex.h",
+          "line": 23
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeCanvas.h",
+          "line": 24
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeLayout.h",
+          "line": 25
+        },
+        {
+          "target": "ui/knowledge/RelationDialog.h",
+          "line": 26
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 95
+        },
+        {
+          "target": "ui/settings/MarkdownSettingsDialog.h",
+          "line": 96
+        },
+        {
+          "target": "ui/settings/ImageSettingsDialog.h",
+          "line": 97
+        }
+      ],
+      "role": "综合交互、文件/关系/图片/设置回归；由 RegressionGroups.cmake 分组（实现）",
+      "proposedPath": "tests/ui/TreeMdTests.cpp"
+    },
+    {
+      "path": "ui/MainWindow.cpp",
+      "lines": 679,
+      "bytes": 50423,
+      "sha256": "99FBB453EE3E8AE7A4CC537BE9279CB905231E988770FB63F2EE7E06918774EE",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/MainWindow.h",
+          "line": 1
+        },
+        {
+          "target": "ui/library/DocumentSidebar.h",
+          "line": 2
+        },
+        {
+          "target": "ui/library/OutlineSidebar.h",
+          "line": 3
+        },
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 4
+        },
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 5
+        },
+        {
+          "target": "ui/document/QtTextEditAdapter.h",
+          "line": 6
+        },
+        {
+          "target": "ui/settings/MarkdownSettingsDialog.h",
+          "line": 8
+        },
+        {
+          "target": "ui/settings/ImageSettingsDialog.h",
+          "line": 9
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 10
+        },
+        {
+          "target": "core/images/ImageInsertJob.h",
+          "line": 11
+        },
+        {
+          "target": "ui/knowledge/KnowledgeGraphWidget.h",
+          "line": 12
+        },
+        {
+          "target": "ui/knowledge/RelationDialog.h",
+          "line": 13
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 14
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 15
+        },
+        {
+          "target": "core/images/MarkdownExportJob.h",
+          "line": 16
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 17
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 18
+        },
+        {
+          "target": "core/platform/FileManager.h",
+          "line": 38
+        },
+        {
+          "target": "core/library/LibraryPathPolicy.h",
+          "line": 39
+        }
+      ],
+      "role": "装配界面，同时编排当前文档、保存/移动、双视图同步、撤销光标和图片作业（实现）",
+      "proposedPath": "src/ui/shell/MainWindow.cpp"
+    },
+    {
+      "path": "ui/MainWindow.h",
+      "lines": 99,
+      "bytes": 3589,
+      "sha256": "E754E57124261B10046A51979DC5D5498756801A1D36B12412C84C5B5DF9175A",
+      "symbols": [
+        "MainWindow",
+        "RenderedEditCaret"
+      ],
+      "includes": [],
+      "role": "装配界面，同时编排当前文档、保存/移动、双视图同步、撤销光标和图片作业（声明）",
+      "proposedPath": "src/ui/shell/MainWindow.h"
+    },
+    {
+      "path": "ui/common/AppIcon.cpp",
+      "lines": 8,
+      "bytes": 271,
+      "sha256": "347A7BD387941CB16EA8F35257CCBAC657A49CA4F92573F8A8CA413F71F2663E",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/common/AppIcon.h",
+          "line": 1
+        }
+      ],
+      "role": "treeMdIcon：读取品牌图标的函数（实现）",
+      "proposedPath": "src/ui/common/AppIcon.cpp"
+    },
+    {
+      "path": "ui/common/AppIcon.h",
+      "lines": 3,
+      "bytes": 50,
+      "sha256": "DECEBE8F46B8AAE89D2D620E93BED32E2E40BA3FCCC7951136959F89C8F01EFC",
+      "symbols": [],
+      "includes": [],
+      "role": "treeMdIcon：读取品牌图标的函数（声明）",
+      "proposedPath": "src/ui/common/AppIcon.h"
+    },
+    {
+      "path": "ui/common/Theme.cpp",
+      "lines": 112,
+      "bytes": 7351,
+      "sha256": "E4831952D061296E5325A814BB566A6AF3069E054597326B117930E0D8BB262E",
+      "symbols": [
+        "MenuPopupTheme"
+      ],
+      "includes": [
+        {
+          "target": "ui/common/Theme.h",
+          "line": 1
+        },
+        {
+          "target": "ui/common/AppIcon.h",
+          "line": 2
+        }
+      ],
+      "role": "applyTreeMdTheme：全局 Qt 主题和弹窗样式函数（实现）",
+      "proposedPath": "src/ui/common/Theme.cpp"
+    },
+    {
+      "path": "ui/common/Theme.h",
+      "lines": 3,
+      "bytes": 83,
+      "sha256": "CC0FBFE1C8688A0CA6DBDF5F056101BD47973701DCF11BFCC97B9DB71F7B2629",
+      "symbols": [],
+      "includes": [],
+      "role": "applyTreeMdTheme：全局 Qt 主题和弹窗样式函数（声明）",
+      "proposedPath": "src/ui/common/Theme.h"
+    },
+    {
+      "path": "ui/document/CodeBlockDecoration.cpp",
+      "lines": 111,
+      "bytes": 7603,
+      "sha256": "0A04A236BE760071685137321E29D6F2C80376EA39EEB2314CE43ED19B232B1C",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/document/CodeBlockDecoration.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/CodeBlockFormat.h",
+          "line": 2
+        },
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 4
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 5
+        }
+      ],
+      "role": "代码区语言标签、复制按钮、位置命中和装饰绘制（实现）",
+      "proposedPath": "src/ui/document/CodeBlockDecoration.cpp"
+    },
+    {
+      "path": "ui/document/CodeBlockDecoration.h",
+      "lines": 26,
+      "bytes": 718,
+      "sha256": "345BAB9B1019EC56BBECC14EAA44E39AA7EBA5DFD4B83922A9D30DEB702F94F2",
+      "symbols": [
+        "CodeBlockDecoration",
+        "Panel"
+      ],
+      "includes": [],
+      "role": "代码区语言标签、复制按钮、位置命中和装饰绘制（声明）",
+      "proposedPath": "src/ui/document/CodeBlockDecoration.h"
+    },
+    {
+      "path": "ui/document/CodeBlockFormat.h",
+      "lines": 13,
+      "bytes": 638,
+      "sha256": "8C3699F6253FDA962477EEB9C94779C72804104E64186B0F1A1D17AFC51685F8",
+      "symbols": [
+        "CodeBlockFormat"
+      ],
+      "includes": [],
+      "role": "代码块 Qt 格式属性常量和同一区域判断；无独立类（声明）",
+      "proposedPath": "src/ui/document/CodeBlockFormat.h"
+    },
+    {
+      "path": "ui/document/CodeSyntaxHighlighter.cpp",
+      "lines": 56,
+      "bytes": 3054,
+      "sha256": "D81D838652F131E79ABB1C2329D709A20925919124229B78A4840B87E34EB835",
+      "symbols": [
+        "SyntaxData"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/CodeSyntaxHighlighter.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/CodeBlockFormat.h",
+          "line": 2
+        },
+        {
+          "target": "core/markdown/CodeSyntax.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/MarkdownCodeBlocks.h",
+          "line": 5
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 6
+        }
+      ],
+      "role": "把核心分词结果映射成 QSyntaxHighlighter 文本格式（实现）",
+      "proposedPath": "src/ui/document/CodeSyntaxHighlighter.cpp"
+    },
+    {
+      "path": "ui/document/CodeSyntaxHighlighter.h",
+      "lines": 19,
+      "bytes": 636,
+      "sha256": "BCC78CB672914D882195A123E7F50FF565090DA4502B8043694DD97D52F527E0",
+      "symbols": [
+        "CodeSyntaxHighlighter",
+        "Context"
+      ],
+      "includes": [],
+      "role": "把核心分词结果映射成 QSyntaxHighlighter 文本格式（声明）",
+      "proposedPath": "src/ui/document/CodeSyntaxHighlighter.h"
+    },
+    {
+      "path": "ui/document/ImageInput.cpp",
+      "lines": 37,
+      "bytes": 1975,
+      "sha256": "371F9F64B7A00EC6EFA47C9AEB26635F42152FB7DE9313E3C3E274B85FF998EA",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/document/ImageInput.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 2
+        }
+      ],
+      "role": "从 Qt MIME 数据识别文件、图像和允许的图床地址（实现）",
+      "proposedPath": "src/ui/document/ImageInput.cpp"
+    },
+    {
+      "path": "ui/document/ImageInput.h",
+      "lines": 11,
+      "bytes": 313,
+      "sha256": "FB1BA6A4D1526FF5D01BDF079A6B6975D11FABEB4992DF0A5425252F891BE544",
+      "symbols": [
+        "ImageInput"
+      ],
+      "includes": [],
+      "role": "从 Qt MIME 数据识别文件、图像和允许的图床地址（声明）",
+      "proposedPath": "src/ui/document/ImageInput.h"
+    },
+    {
+      "path": "ui/document/InlineMarkupDecoration.cpp",
+      "lines": 244,
+      "bytes": 16299,
+      "sha256": "C4A73B5BD4ACD23FB1583CD76688568A934E16DB3FEC6FFA00A1216C78E5E9F6",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/document/InlineMarkupDecoration.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 10
+        }
+      ],
+      "role": "行内符号、圆角背景、边界光标和选中色的绘制（实现）",
+      "proposedPath": "src/ui/document/InlineMarkupDecoration.cpp"
+    },
+    {
+      "path": "ui/document/InlineMarkupDecoration.h",
+      "lines": 57,
+      "bytes": 2137,
+      "sha256": "144CF01EBD82521CBD162612561BEB82F59D005F0451F2688C60DE359B3AE408",
+      "symbols": [
+        "Hit",
+        "InlineMarkupDecoration",
+        "Piece",
+        "Slot"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 2
+        }
+      ],
+      "role": "行内符号、圆角背景、边界光标和选中色的绘制（声明）",
+      "proposedPath": "src/ui/document/InlineMarkupDecoration.h"
+    },
+    {
+      "path": "ui/document/MarkdownDocumentView.cpp",
+      "lines": 1299,
+      "bytes": 95149,
+      "sha256": "24938E114E0BC05ED9DADA47C900BC8DDF5A202BD5B156B9F24FA0354441CBC0",
+      "symbols": [
+        "ImageSpan",
+        "TableBreak"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownDocumentView.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/ImageInput.h",
+          "line": 2
+        },
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 3
+        },
+        {
+          "target": "ui/document/MarkdownFenceCompleter.h",
+          "line": 4
+        },
+        {
+          "target": "ui/document/MarkdownViewport.h",
+          "line": 5
+        },
+        {
+          "target": "ui/document/CodeBlockDecoration.h",
+          "line": 6
+        },
+        {
+          "target": "ui/document/CodeBlockFormat.h",
+          "line": 7
+        },
+        {
+          "target": "core/markdown/MarkdownCodeBlocks.h",
+          "line": 8
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 9
+        },
+        {
+          "target": "core/images/ImageLoader.h",
+          "line": 10
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 11
+        },
+        {
+          "target": "core/markdown/MarkdownCodeEditing.h",
+          "line": 12
+        },
+        {
+          "target": "core/markdown/MarkdownListEditing.h",
+          "line": 13
+        },
+        {
+          "target": "core/markdown/MarkdownSyntax.h",
+          "line": 14
+        },
+        {
+          "target": "core/markdown/MarkdownBlockSyntax.h",
+          "line": 15
+        },
+        {
+          "target": "core/markdown/MarkdownTableEditing.h",
+          "line": 16
+        },
+        {
+          "target": "core/markdown/MarkdownParagraphEditing.h",
+          "line": 17
+        },
+        {
+          "target": "core/markdown/MarkdownImport.h",
+          "line": 18
+        },
+        {
+          "target": "core/markdown/analysis/MarkdownSnapshot.h",
+          "line": 19
+        },
+        {
+          "target": "application/editing/EditCommandRouter.h",
+          "line": 20
+        },
+        {
+          "target": "ui/document/InlineMarkupDecoration.h",
+          "line": 21
+        },
+        {
+          "target": "ui/document/CodeSyntaxHighlighter.h",
+          "line": 40
+        }
+      ],
+      "role": "QTextBrowser 文档编辑宿主；目前还承载渲染管线、源码映射、选择/输入和图片状态（实现）",
+      "proposedPath": "src/ui/document/MarkdownDocumentView.cpp"
+    },
+    {
+      "path": "ui/document/MarkdownDocumentView.h",
+      "lines": 110,
+      "bytes": 4985,
+      "sha256": "863B379872199042CAE5D69C3D3A716054B5B5E37A8E6CA7C92850CBA9E44BBF",
+      "symbols": [
+        "MarkdownDocumentView",
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownImages.h",
+          "line": 6
+        },
+        {
+          "target": "core/markdown/MarkdownSourceMap.h",
+          "line": 7
+        }
+      ],
+      "role": "QTextBrowser 文档编辑宿主；目前还承载渲染管线、源码映射、选择/输入和图片状态（声明）",
+      "proposedPath": "src/ui/document/MarkdownDocumentView.h"
+    },
+    {
+      "path": "ui/document/MarkdownEditor.cpp",
+      "lines": 143,
+      "bytes": 8723,
+      "sha256": "7AECE49F4B47BDB2DA3C2230AD8FF0FA86813AA33F663F6EF81DCC739FF4C315",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownEditor.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/MarkdownImport.h",
+          "line": 2
+        },
+        {
+          "target": "ui/document/ImageInput.h",
+          "line": 3
+        },
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 4
+        },
+        {
+          "target": "ui/document/MarkdownFenceCompleter.h",
+          "line": 5
+        },
+        {
+          "target": "ui/document/MarkdownViewport.h",
+          "line": 6
+        },
+        {
+          "target": "ui/document/CodeSyntaxHighlighter.h",
+          "line": 7
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 8
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 9
+        },
+        {
+          "target": "application/editing/EditCommandRouter.h",
+          "line": 10
+        },
+        {
+          "target": "ui/document/QtTextEditAdapter.h",
+          "line": 11
+        }
+      ],
+      "role": "QTextEdit 原文编辑宿主、核心编辑分发、粘贴/图片输入、滚动/缩放（实现）",
+      "proposedPath": "src/ui/document/MarkdownEditor.cpp"
+    },
+    {
+      "path": "ui/document/MarkdownEditor.h",
+      "lines": 37,
+      "bytes": 1488,
+      "sha256": "8A447AA650ADCF484245BA480EA77352599266CF91E0D6E673BAAD1BF23EFD36",
+      "symbols": [
+        "MarkdownEditor"
+      ],
+      "includes": [],
+      "role": "QTextEdit 原文编辑宿主、核心编辑分发、粘贴/图片输入、滚动/缩放（声明）",
+      "proposedPath": "src/ui/document/MarkdownEditor.h"
+    },
+    {
+      "path": "ui/document/MarkdownFenceCompleter.cpp",
+      "lines": 178,
+      "bytes": 11810,
+      "sha256": "7B4C37C62FAF7CA2066CB8EEA1329082562499FE079DACCB7E27D331118F607A",
+      "symbols": [
+        "Fence"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownFenceCompleter.h",
+          "line": 1
+        },
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 2
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 3
+        },
+        {
+          "target": "core/markdown/MarkdownParser.h",
+          "line": 4
+        },
+        {
+          "target": "core/markdown/LanguageCatalog.h",
+          "line": 5
+        }
+      ],
+      "role": "围栏语言提示与创建交易的 Qt 输入控制（实现）",
+      "proposedPath": "src/ui/document/MarkdownFenceCompleter.cpp"
+    },
+    {
+      "path": "ui/document/MarkdownFenceCompleter.h",
+      "lines": 35,
+      "bytes": 1132,
+      "sha256": "FD0A8E84664F4E90605F48F4C07FEBBC540EB569E4CBAB9C8E2DDD01A6528993",
+      "symbols": [
+        "MarkdownFenceCompleter"
+      ],
+      "includes": [],
+      "role": "围栏语言提示与创建交易的 Qt 输入控制（声明）",
+      "proposedPath": "src/ui/document/MarkdownFenceCompleter.h"
+    },
+    {
+      "path": "ui/document/MarkdownTypography.cpp",
+      "lines": 42,
+      "bytes": 2155,
+      "sha256": "D876912A058CE4BE46C3B99B13EB08057FD93BDFA4A79E96584E0C467DBDEA1C",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownTypography.h",
+          "line": 1
+        },
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 2
+        }
+      ],
+      "role": "设置驱动的字体、字号、行距与滚轮步数辅助（实现）",
+      "proposedPath": "src/ui/document/MarkdownTypography.cpp"
+    },
+    {
+      "path": "ui/document/MarkdownTypography.h",
+      "lines": 11,
+      "bytes": 336,
+      "sha256": "69593596A697E47D63CDBDA8E6168E0F04F6C038E5AE1690CA0ACB2DCB15642D",
+      "symbols": [
+        "MarkdownTypography"
+      ],
+      "includes": [],
+      "role": "设置驱动的字体、字号、行距与滚轮步数辅助（声明）",
+      "proposedPath": "src/ui/document/MarkdownTypography.h"
+    },
+    {
+      "path": "ui/document/MarkdownViewport.cpp",
+      "lines": 40,
+      "bytes": 1868,
+      "sha256": "698F675B8D68E43E4662B1D40321987E14A572F534AF2E02BFAB7629D9CDE409",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/document/MarkdownViewport.h",
+          "line": 1
+        }
+      ],
+      "role": "视口三分之一锚点对齐及约半页底部滚动空间（实现）",
+      "proposedPath": "src/ui/document/MarkdownViewport.cpp"
+    },
+    {
+      "path": "ui/document/MarkdownViewport.h",
+      "lines": 18,
+      "bytes": 468,
+      "sha256": "554DDDB3DEB47E8280E12176DDDC2D6FFB142F7CDD17A529D32E33DF923CC8AE",
+      "symbols": [
+        "MarkdownViewport"
+      ],
+      "includes": [],
+      "role": "视口三分之一锚点对齐及约半页底部滚动空间（声明）",
+      "proposedPath": "src/ui/document/MarkdownViewport.h"
+    },
+    {
+      "path": "ui/document/QtTextEditAdapter.cpp",
+      "lines": 48,
+      "bytes": 2674,
+      "sha256": "94FBFA00355986AC0F6BE89405D6672A7F60A0AA274AFEB1B07673889DDF9E1E",
+      "symbols": [
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "ui/document/QtTextEditAdapter.h",
+          "line": 1
+        },
+        {
+          "target": "core/markdown/editing/TextPatch.h",
+          "line": 2
+        }
+      ],
+      "role": "校验预期原文，以单次 Qt undo 交易应用替换和恢复选区（实现）",
+      "proposedPath": "src/ui/document/QtTextEditAdapter.cpp"
+    },
+    {
+      "path": "ui/document/QtTextEditAdapter.h",
+      "lines": 18,
+      "bytes": 838,
+      "sha256": "70C65F95D6FD11F038DA0A6D290E686B7F418DFC78792378AE2FF6B67871B18B",
+      "symbols": [
+        "QtTextEditAdapter",
+        "tmd"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownEdit.h",
+          "line": 2
+        }
+      ],
+      "role": "校验预期原文，以单次 Qt undo 交易应用替换和恢复选区（声明）",
+      "proposedPath": "src/ui/document/QtTextEditAdapter.h"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeGraphWidget.cpp",
+      "lines": 5,
+      "bytes": 220,
+      "sha256": "73276BCF95CD8A01B4534785B2D28A1B343BCD1D381AE952C7827E4A27B43C62",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/knowledge/KnowledgeGraphWidget.h",
+          "line": 1
+        }
+      ],
+      "role": "知识树面板/完善窗口的宿主及关系修改交互（实现）",
+      "proposedPath": "src/ui/knowledge/KnowledgeGraphWidget.cpp"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeGraphWidget.h",
+      "lines": 9,
+      "bytes": 294,
+      "sha256": "9DB3C32D05DAB27BACDE44D3C77BF5628E8A710B5033621CCC18C3546BBEC5FA",
+      "symbols": [
+        "KnowledgeGraphWidget"
+      ],
+      "includes": [
+        {
+          "target": "ui/knowledge/KnowledgeTreeCanvas.h",
+          "line": 2
+        }
+      ],
+      "role": "知识树面板/完善窗口的宿主及关系修改交互（声明）",
+      "proposedPath": "src/ui/knowledge/KnowledgeGraphWidget.h"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeNodeWidget.cpp",
+      "lines": 65,
+      "bytes": 4240,
+      "sha256": "5A7B1B1D0D3234F1C24454DA9D068E4E8F8AB4DFE2C6BF8FCECB468F21AB989C",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/knowledge/KnowledgeNodeWidget.h",
+          "line": 1
+        }
+      ],
+      "role": "知识节点卡片和关系端口的绘制与鼠标交互（实现）",
+      "proposedPath": "src/ui/knowledge/KnowledgeNodeWidget.cpp"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeNodeWidget.h",
+      "lines": 30,
+      "bytes": 1254,
+      "sha256": "F0BB9DE8DC55F9344A49D2EADA5439152900061CF69CC4FDA5047108A4DF01AF",
+      "symbols": [
+        "KnowledgeNodeWidget"
+      ],
+      "includes": [],
+      "role": "知识节点卡片和关系端口的绘制与鼠标交互（声明）",
+      "proposedPath": "src/ui/knowledge/KnowledgeNodeWidget.h"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeTreeCanvas.cpp",
+      "lines": 357,
+      "bytes": 22647,
+      "sha256": "8A57C1632F2787EF431DB5416F0E9750C3B0EFAE366352999DC862F4BC7A99C4",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/knowledge/KnowledgeTreeCanvas.h",
+          "line": 1
+        },
+        {
+          "target": "ui/knowledge/KnowledgeNodeWidget.h",
+          "line": 2
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeLayout.h",
+          "line": 3
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeRouter.h",
+          "line": 4
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 5
+        },
+        {
+          "target": "core/knowledge/MarkdownRelation.h",
+          "line": 6
+        },
+        {
+          "target": "core/settings/KnowledgeViewSettings.h",
+          "line": 20
+        }
+      ],
+      "role": "图形场景、卡片/连线生命周期、选择/拖动/缩放/请求信号（实现）",
+      "proposedPath": "src/ui/knowledge/KnowledgeTreeCanvas.cpp"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeTreeCanvas.h",
+      "lines": 87,
+      "bytes": 3714,
+      "sha256": "C895FB826A3F00ECDC3497A11E3BF63A7F3A65A1F65BE40E8E0B36FA3AA0DBE8",
+      "symbols": [
+        "EdgeVisual",
+        "KnowledgeDropPreview",
+        "KnowledgeTreeCanvas"
+      ],
+      "includes": [
+        {
+          "target": "core/knowledge/KnowledgeIndex.h",
+          "line": 2
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeLayout.h",
+          "line": 3
+        }
+      ],
+      "role": "图形场景、卡片/连线生命周期、选择/拖动/缩放/请求信号（声明）",
+      "proposedPath": "src/ui/knowledge/KnowledgeTreeCanvas.h"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeTreeLayout.cpp",
+      "lines": 235,
+      "bytes": 15108,
+      "sha256": "F50C6BE6BA8BBCDF13511C8C126541B03A5880D5A17EEDD6230D46480DEBDD4F",
+      "symbols": [
+        "Attachment",
+        "Block"
+      ],
+      "includes": [
+        {
+          "target": "ui/knowledge/KnowledgeTreeLayout.h",
+          "line": 1
+        },
+        {
+          "target": "ui/knowledge/KnowledgeNodeWidget.h",
+          "line": 2
+        },
+        {
+          "target": "core/knowledge/MarkdownRelation.h",
+          "line": 3
+        },
+        {
+          "target": "core/knowledge/KnowledgeTopology.h",
+          "line": 4
+        }
+      ],
+      "role": "知识树节点矩形、层级、路由锚点和标题几何布局（实现）",
+      "proposedPath": "src/ui/knowledge/KnowledgeTreeLayout.cpp"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeTreeLayout.h",
+      "lines": 14,
+      "bytes": 373,
+      "sha256": "DC9B69918B58322EF29F35D786AD54A91FF71DF7A8B057D704C9E81B4EDDFCE0",
+      "symbols": [
+        "KnowledgeTreeLayout",
+        "KnowledgeTreeLayoutResult"
+      ],
+      "includes": [
+        {
+          "target": "core/knowledge/KnowledgeIndex.h",
+          "line": 2
+        }
+      ],
+      "role": "知识树节点矩形、层级、路由锚点和标题几何布局（声明）",
+      "proposedPath": "src/ui/knowledge/KnowledgeTreeLayout.h"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeTreeRouter.cpp",
+      "lines": 113,
+      "bytes": 7010,
+      "sha256": "B0EE55CBD80BB9D8EAE3C1ED2212B1DBB96B66DDB1CE4D87560D6053C551DC25",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/knowledge/KnowledgeTreeRouter.h",
+          "line": 1
+        },
+        {
+          "target": "core/knowledge/KnowledgeIndex.h",
+          "line": 2
+        }
+      ],
+      "role": "端口、方向、连线路径和避障几何；为命名空间（实现）",
+      "proposedPath": "src/ui/knowledge/KnowledgeTreeRouter.cpp"
+    },
+    {
+      "path": "ui/knowledge/KnowledgeTreeRouter.h",
+      "lines": 11,
+      "bytes": 460,
+      "sha256": "6794E82AA95368A27CC6CD644197889FD3D59F5D8D25F3BFB048A1D461B8FA56",
+      "symbols": [
+        "KnowledgeTreeRouter"
+      ],
+      "includes": [
+        {
+          "target": "core/knowledge/NodeRelationType.h",
+          "line": 2
+        }
+      ],
+      "role": "端口、方向、连线路径和避障几何；为命名空间（声明）",
+      "proposedPath": "src/ui/knowledge/KnowledgeTreeRouter.h"
+    },
+    {
+      "path": "ui/knowledge/RelationDialog.cpp",
+      "lines": 135,
+      "bytes": 9721,
+      "sha256": "011912C487C3F9329C84876B0BDE35DDA28C5FF7E5793F8FCBB75ED20FF15670",
+      "symbols": [
+        "AvailableDocuments"
+      ],
+      "includes": [
+        {
+          "target": "ui/knowledge/RelationDialog.h",
+          "line": 1
+        },
+        {
+          "target": "ui/library/DocumentTreeBuilder.h",
+          "line": 2
+        },
+        {
+          "target": "ui/knowledge/KnowledgeTreeCanvas.h",
+          "line": 3
+        },
+        {
+          "target": "core/library/MarkdownManager.h",
+          "line": 4
+        }
+      ],
+      "role": "关联节点选择及关系类型编辑对话框（实现）",
+      "proposedPath": "src/ui/knowledge/RelationDialog.cpp"
+    },
+    {
+      "path": "ui/knowledge/RelationDialog.h",
+      "lines": 25,
+      "bytes": 640,
+      "sha256": "E77C113B2F0FCCAFC903D757C44E9FE6609F3E74FC38C1194CDFA323EDC6D08D",
+      "symbols": [
+        "RelationDialog"
+      ],
+      "includes": [],
+      "role": "关联节点选择及关系类型编辑对话框（声明）",
+      "proposedPath": "src/ui/knowledge/RelationDialog.h"
+    },
+    {
+      "path": "ui/library/DocumentFileTree.cpp",
+      "lines": 260,
+      "bytes": 14101,
+      "sha256": "0A801458F1205E2C7883D35FBB3EAC84928D87201EACAFFD6B5021F1C0E90612",
+      "symbols": [
+        "TextItemDelegate"
+      ],
+      "includes": [
+        {
+          "target": "ui/library/DocumentFileTree.h",
+          "line": 1
+        },
+        {
+          "target": "ui/library/DocumentTreeBuilder.h",
+          "line": 2
+        }
+      ],
+      "role": "文字命中拖动、多选框选、拖动临时展开、边缘滚动及移动请求（实现）",
+      "proposedPath": "src/ui/library/DocumentFileTree.cpp"
+    },
+    {
+      "path": "ui/library/DocumentFileTree.h",
+      "lines": 47,
+      "bytes": 1934,
+      "sha256": "30340A9EF723A2CCB3822FAA7E450B381FA82052C61B8DCE0E34E3EE795732B6",
+      "symbols": [
+        "DocumentFileTree",
+        "Target"
+      ],
+      "includes": [],
+      "role": "文字命中拖动、多选框选、拖动临时展开、边缘滚动及移动请求（声明）",
+      "proposedPath": "src/ui/library/DocumentFileTree.h"
+    },
+    {
+      "path": "ui/library/DocumentSidebar.cpp",
+      "lines": 290,
+      "bytes": 18811,
+      "sha256": "D93C47DC95E4FDFA1E9E1A2357D8ACE5B04BF9D6D14B42626A55C8D11C11C2C1",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/library/DocumentSidebar.h",
+          "line": 1
+        },
+        {
+          "target": "ui/library/DocumentTreeBuilder.h",
+          "line": 2
+        },
+        {
+          "target": "ui/library/DocumentFileTree.h",
+          "line": 3
+        },
+        {
+          "target": "ui/common/AppIcon.h",
+          "line": 4
+        },
+        {
+          "target": "core/library/MarkdownNode.h",
+          "line": 5
+        }
+      ],
+      "role": "左侧文件/目录、搜索、开合持久化及菜单意图（实现）",
+      "proposedPath": "src/ui/library/DocumentSidebar.cpp"
+    },
+    {
+      "path": "ui/library/DocumentSidebar.h",
+      "lines": 70,
+      "bytes": 2783,
+      "sha256": "D173E44044EDDF0115C59DFA90B819F09ED30A1413EFDE08419686562A7DCC7F",
+      "symbols": [
+        "DocumentSidebar",
+        "SearchEntry"
+      ],
+      "includes": [],
+      "role": "左侧文件/目录、搜索、开合持久化及菜单意图（声明）",
+      "proposedPath": "src/ui/library/DocumentSidebar.h"
+    },
+    {
+      "path": "ui/library/DocumentTreeBuilder.cpp",
+      "lines": 61,
+      "bytes": 3326,
+      "sha256": "0A3F6274F5070AC0546010FADF04C69E04C0D05E7504B4B4739DF321FE8BF9A1",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/library/DocumentTreeBuilder.h",
+          "line": 1
+        }
+      ],
+      "role": "两个文件列表共用的建树、元数据角色、标题/未保存点更新和过滤（实现）",
+      "proposedPath": "src/ui/library/DocumentTreeBuilder.cpp"
+    },
+    {
+      "path": "ui/library/DocumentTreeBuilder.h",
+      "lines": 19,
+      "bytes": 750,
+      "sha256": "8E9BDFA7D250BF66C48798AB46D561346EA566EC292D786BD92959D4D2D70119",
+      "symbols": [
+        "DocumentTreeBuilder"
+      ],
+      "includes": [],
+      "role": "两个文件列表共用的建树、元数据角色、标题/未保存点更新和过滤（声明）",
+      "proposedPath": "src/ui/library/DocumentTreeBuilder.h"
+    },
+    {
+      "path": "ui/library/OutlineSidebar.cpp",
+      "lines": 19,
+      "bytes": 1206,
+      "sha256": "DC193A9E274D1FB1BF703CBADA056F9A58A86A59DE9DAB6A25FED87F95D25296",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/library/OutlineSidebar.h",
+          "line": 1
+        }
+      ],
+      "role": "正文标题目录控件及位置激活信号（实现）",
+      "proposedPath": "src/ui/library/OutlineSidebar.cpp"
+    },
+    {
+      "path": "ui/library/OutlineSidebar.h",
+      "lines": 12,
+      "bytes": 307,
+      "sha256": "35465EB33ABE8778FB0525AE786D97DBC67603D1A49A62AC6F5A200D4D8D655F",
+      "symbols": [
+        "OutlineSidebar"
+      ],
+      "includes": [
+        {
+          "target": "core/markdown/MarkdownOutline.h",
+          "line": 2
+        }
+      ],
+      "role": "正文标题目录控件及位置激活信号（声明）",
+      "proposedPath": "src/ui/library/OutlineSidebar.h"
+    },
+    {
+      "path": "ui/settings/ImageSettingsDialog.cpp",
+      "lines": 156,
+      "bytes": 15215,
+      "sha256": "E41B8EB8B34F9A934CBF15E231A7A830D7C6B61155E4FAD45E78FC96AB6D9E38",
+      "symbols": [],
+      "includes": [
+        {
+          "target": "ui/settings/ImageSettingsDialog.h",
+          "line": 1
+        },
+        {
+          "target": "core/images/ImageStorage.h",
+          "line": 2
+        }
+      ],
+      "role": "图片保存目录、图床配置及链接管理界面（实现）",
+      "proposedPath": "src/ui/settings/ImageSettingsDialog.cpp"
+    },
+    {
+      "path": "ui/settings/ImageSettingsDialog.h",
+      "lines": 32,
+      "bytes": 947,
+      "sha256": "6648E12B48B56CDAD316A5EAA4A38E16669D7ACB7013580986FB183313FC1783",
+      "symbols": [
+        "ImageSettingsDialog"
+      ],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 2
+        }
+      ],
+      "role": "图片保存目录、图床配置及链接管理界面（声明）",
+      "proposedPath": "src/ui/settings/ImageSettingsDialog.h"
+    },
+    {
+      "path": "ui/settings/MarkdownSettingsDialog.cpp",
+      "lines": 134,
+      "bytes": 10418,
+      "sha256": "E44E865A6693344CE478A572D76A133A79B5D05FCE04DD2C5446B3867E4CF290",
+      "symbols": [
+        "Toggle"
+      ],
+      "includes": [
+        {
+          "target": "ui/settings/MarkdownSettingsDialog.h",
+          "line": 1
+        }
+      ],
+      "role": "Markdown 外观设置界面，应用后通知刷新（实现）",
+      "proposedPath": "src/ui/settings/MarkdownSettingsDialog.cpp"
+    },
+    {
+      "path": "ui/settings/MarkdownSettingsDialog.h",
+      "lines": 30,
+      "bytes": 843,
+      "sha256": "2E40D1B952EC465DAA2E3D49408BEE45C08EB8596CCCBE133ACF5A0CC4D339DD",
+      "symbols": [
+        "MarkdownSettingsDialog"
+      ],
+      "includes": [
+        {
+          "target": "core/settings/MarkdownSettings.h",
+          "line": 3
+        }
+      ],
+      "role": "Markdown 外观设置界面，应用后通知刷新（声明）",
+      "proposedPath": "src/ui/settings/MarkdownSettingsDialog.h"
+    }
+  ],
+  "moduleIncludeEdges": {
+    "application/editing": [
+      "core/markdown"
+    ],
+    "core/images": [
+      "core/library",
+      "core/markdown",
+      "core/settings"
+    ],
+    "core/knowledge": [
+      "core/library"
+    ],
+    "core/library": [
+      "core/images",
+      "core/knowledge",
+      "core/markdown"
+    ],
+    "core/markdown": [
+      "third_party/md4c"
+    ],
+    "core/settings": [
+      "core/library",
+      "core/platform"
+    ],
+    "main.cpp": [
+      "core/images",
+      "core/library",
+      "core/markdown",
+      "ui/MainWindow.h",
+      "ui/common"
+    ],
+    "tests/DefaultLibraryTests.cpp": [
+      "core/library"
+    ],
+    "tests/EditingCodeAuditTests.cpp": [
+      "core/library",
+      "core/markdown",
+      "core/settings",
+      "ui/MainWindow.h",
+      "ui/document"
+    ],
+    "tests/EditingHeadingsAuditTests.cpp": [
+      "core/settings",
+      "ui/document"
+    ],
+    "tests/EditingIntegrationAuditTests.cpp": [
+      "core/library",
+      "core/settings",
+      "ui/MainWindow.h",
+      "ui/document"
+    ],
+    "tests/EditingListAuditTests.cpp": [
+      "core/settings",
+      "ui/document"
+    ],
+    "tests/EditingPolicyTests.cpp": [
+      "core/library",
+      "core/markdown",
+      "core/settings",
+      "ui/MainWindow.h",
+      "ui/document"
+    ],
+    "tests/MarkdownCoreTests.cpp": [
+      "core/images",
+      "core/library",
+      "core/markdown"
+    ],
+    "tests/ModularEditingTests.cpp": [
+      "application/editing",
+      "core/markdown",
+      "core/settings",
+      "ui/document"
+    ],
+    "tests/RefactorIntegrationTests.cpp": [
+      "core/library",
+      "core/settings",
+      "ui/knowledge"
+    ],
+    "tests/TreeMdTests.cpp": [
+      "core/images",
+      "core/knowledge",
+      "core/library",
+      "core/markdown",
+      "core/platform",
+      "core/settings",
+      "ui/MainWindow.h",
+      "ui/common",
+      "ui/document",
+      "ui/knowledge",
+      "ui/library",
+      "ui/settings"
+    ],
+    "ui/MainWindow.cpp": [
+      "core/images",
+      "core/library",
+      "core/markdown",
+      "core/platform",
+      "core/settings",
+      "ui/MainWindow.h",
+      "ui/document",
+      "ui/knowledge",
+      "ui/library",
+      "ui/settings"
+    ],
+    "ui/document": [
+      "application/editing",
+      "core/images",
+      "core/markdown",
+      "core/settings"
+    ],
+    "ui/knowledge": [
+      "core/knowledge",
+      "core/library",
+      "core/settings",
+      "ui/library"
+    ],
+    "ui/library": [
+      "core/library",
+      "core/markdown",
+      "ui/common"
+    ],
+    "ui/settings": [
+      "core/images",
+      "core/settings"
+    ]
+  },
+  "moduleIncludeCycles": [
+    [
+      "core/images",
+      "core/knowledge",
+      "core/library",
+      "core/settings"
+    ]
+  ],
+  "summary": {
+    "sourceFiles": 145,
+    "sourceLines": 17525,
+    "productionFiles": 135,
+    "testFiles": 10
+  }
+}

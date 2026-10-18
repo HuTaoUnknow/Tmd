@@ -10,7 +10,7 @@
 - 本版安装包未使用商业代码签名证书。下载后可用下面的命令核对文件摘要与 Release 中的校验文件。
 
 ```powershell
-Get-FileHash .\Tmd-1.1.0-Windows-x64-Setup.exe -Algorithm SHA256
+Get-FileHash .\Tmd-1.1.1-Windows-x64-Setup.exe -Algorithm SHA256
 ```
 
 ### 安装向导
@@ -50,7 +50,7 @@ tree_md.exe --library-root "D:\MyNotes"
 
 ### 便携版
 
-完整解压 `Tmd-1.1.0-Windows-x64-Portable.zip` 到有写入权限的目录，再运行 `tree_md.exe`。不要只移动 EXE，其他 DLL、插件、说明和图片也需要保留。
+完整解压 `Tmd-1.1.1-Windows-x64-Portable.zip` 到有写入权限的目录，再运行 `Start-Tmd.cmd` 或 `tree_md.exe`。不要只移动 EXE，其他 DLL、插件、说明和图片也需要保留。
 
 便携版在程序旁使用 `md_data` 与 `md_photo`。迁移时关闭程序，一起移动整个目录即可；放到 Program Files 等受保护目录时，改用安装版或明确指定可写知识库。
 
@@ -65,7 +65,7 @@ tree_md.exe --library-root "D:\MyNotes"
 ### 静默安装
 
 ```powershell
-Tmd-1.1.0-Windows-x64-Setup.exe /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="D:\Apps\Tmd" /APPNAME="Tmd" /TASKS="desktopicon,startmenu,registerapp"
+Tmd-1.1.1-Windows-x64-Setup.exe /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="D:\Apps\Tmd" /APPNAME="Tmd" /TASKS="desktopicon,startmenu,registerapp"
 ```
 
 `/TASKS=""` 可取消全部三个可选项；`/ALLUSERS` 选择所有用户模式；`/LANG=en` 选择英文。静默安装不会自动启动 Tmd。
@@ -100,7 +100,7 @@ Use `tree_md.exe --data-dir "D:\MyNotes\md_data"` to open an existing library, o
 
 ### Portable use
 
-Extract the entire portable ZIP into a writable directory and run `tree_md.exe`. Keep all DLLs and plugin folders. The portable edition uses `md_data` and `md_photo` beside the executable. Close the application before moving the complete folder.
+Extract the entire portable ZIP into a writable directory and run `Start-Tmd.cmd` or `tree_md.exe`. Keep all DLLs and plugin folders. The portable edition uses `md_data` and `md_photo` beside the executable. Close the application before moving the complete folder.
 
 ### Upgrade, backup and uninstall
 
@@ -111,7 +111,7 @@ To migrate from a development or portable library, copy both data folders into D
 ### Unattended installation
 
 ```powershell
-Tmd-1.1.0-Windows-x64-Setup.exe /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="D:\Apps\Tmd" /APPNAME="Tmd" /TASKS="desktopicon,startmenu,registerapp" /LANG=en
+Tmd-1.1.1-Windows-x64-Setup.exe /CURRENTUSER /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="D:\Apps\Tmd" /APPNAME="Tmd" /TASKS="desktopicon,startmenu,registerapp" /LANG=en
 ```
 
 `/TASKS=""` disables the three optional tasks. `/ALLUSERS` selects administrator installation. Silent installation does not launch the application.

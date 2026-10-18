@@ -1218,7 +1218,7 @@ void TreeMdTests::renderedParagraphsCodeAndDeletion() {
     MarkdownDocumentView view; view.resize(700, 540); view.show(); view.setMarkdownSource("doc.md", "# Title\n\nParagraph\n\n```cpp\nint value;\n```\n");
     auto cursor = view.document()->find("Paragraph"); cursor.setPosition(cursor.selectionEnd()); view.setTextCursor(cursor); view.setFocus();
     QTest::keyClick(&view, Qt::Key_Return); QTest::qWait(500); QVERIFY(view.textCursor().block().text().isEmpty());
-    QTest::keyClicks(&view, "New"); QVERIFY(view.markdownSource().contains("Paragraph\nNew"));
+    QTest::keyClicks(&view, "New"); QVERIFY(view.markdownSource().contains("Paragraph\n\nNew"));
     QTest::qWait(500); cursor = view.document()->find("New"); QVERIFY(!cursor.isNull()); QCOMPARE(cursor.block().text(), QString("New"));
     cursor.setPosition(cursor.selectionStart()); view.setTextCursor(cursor); QTest::keyClick(&view, Qt::Key_Backspace);
     QVERIFY(view.markdownSource().contains("ParagraphNew")); QVERIFY(view.markdownSource().contains("```cpp\nint value;\n```"));
@@ -1427,7 +1427,7 @@ void TreeMdTests::enterStartsBodyWithoutDecorationIndent() {
         QVERIFY(!view.currentCharFormat().fontFixedPitch());
         QTest::qWait(550); QCOMPARE(view.cursorRect().left(), qRound(view.document()->documentMargin()));
         QTest::keyClicks(&view, "Body"); QTest::qWait(550);
-        QCOMPARE(view.markdownSource(), source + "\nBody"); // N01: Enter writes one physical newline.
+        QCOMPARE(view.markdownSource(), source + "\n\nBody"); // N55: first source separator is hidden.
         QCOMPARE(view.textCursor().blockFormat().leftMargin(), qreal(0));
     }
 }
@@ -1530,7 +1530,7 @@ void TreeMdTests::fencedCodeIndentation() {
         QTest::keyClick(view, Qt::Key_Backtab, Qt::ShiftModifier);
         QCOMPARE(text(), QString("```cpp\n    one\nthree\n  two\n```\n\nTail"));
         QTest::keyClick(view, Qt::Key_Down); QCOMPARE(view->textCursor().block().text(), QString("  two"));
-        QTest::keyClick(view, Qt::Key_Down); QTest::keyClicks(view, "next"); QVERIFY(text().endsWith("next\nTail"));
+        QTest::keyClick(view, Qt::Key_Down); QTest::keyClicks(view, "next"); QVERIFY(text().endsWith(rendered ? "nextTail" : "next\nTail"));
         for (const QString &empty : {QString("```cpp\n\n```"), QString("```cpp\n```"), QString("> ```cpp\n> ```"), QString("- ```cpp\n  ```")}) {
             load(empty);
             if (rendered) {
@@ -1676,7 +1676,10 @@ void TreeMdTests::linePrefixSpaceEntersPreviewAndBackspaceRestores() {
     view.setMarkdownSource("preview.md", view.markdownSource(), true); QCOMPARE(view.toPlainText(), QString("   text"));
     for (int i = 0; i < 7; ++i) QTest::keyClick(&view, Qt::Key_Backspace);
     QCOMPARE(view.markdownSource(), prefix + ' '); QCOMPARE(view.toPlainText(), QString());
-    QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), prefix); QCOMPARE(view.toPlainText(), prefix);
+    const bool list = QStringList{"-", "+", "*", "1.", "2)"}.contains(prefix);
+    QTest::keyClick(&view, Qt::Key_Backspace);
+    QCOMPARE(view.markdownSource(), list ? QString() : prefix); QCOMPARE(view.toPlainText(), list ? QString() : prefix);
+    if (list) QTest::keyClicks(&view, prefix);
     QTest::keyClick(&view, Qt::Key_Space); QCOMPARE(view.markdownSource(), prefix + ' '); QCOMPARE(view.toPlainText(), QString());
     QTest::keyClicks(&view, "again"); QTest::qWait(550); QCOMPARE(view.markdownSource(), prefix + " again");
     if (prefix == "###" || prefix == "-") {
@@ -1714,24 +1717,25 @@ void TreeMdTests::listBackspaceRestoresMarkerInSameRow() {
         QTest::keyClick(&view, Qt::Key_Backspace);
     const QString before = view.markdownSource(); const int beforeCaret = view.inlineCursorSourcePosition();
     const int lineStart = before.lastIndexOf('\n', beforeCaret - 1) + 1;
-    QString expected = before; expected.remove(beforeCaret - 1, 1); expected.insert(lineStart, '\n');
-    const int nextRow = expected.indexOf('\n', beforeCaret);
-    if (nextRow >= 0 && nextRow + 1 < expected.size() && expected[nextRow + 1] != '\n') expected.insert(nextRow + 1, '\n');
+    QString expected = before; expected.remove(lineStart, beforeCaret - lineStart); expected.insert(lineStart, '\n');
+    const int bodyCaret = lineStart + 1;
     QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), expected);
-    QVERIFY(view.textCursor().block().text().endsWith('-'));
-    QCOMPARE(view.textCursor().positionInBlock(), view.textCursor().block().text().size());
-    QCOMPARE(view.inlineCursorSourcePosition(), beforeCaret);
+    QVERIFY(view.textCursor().block().text().isEmpty()); QVERIFY(!view.textCursor().block().textList());
+    QCOMPARE(view.textCursor().positionInBlock(), 0);
+    QCOMPARE(view.inlineCursorSourcePosition(), bodyCaret);
     QVERIFY(!view.textCursor().block().text().contains("first")); QVERIFY(!view.textCursor().block().text().contains("child"));
     const auto check = [&] {
-        QVERIFY(view.textCursor().block().text().endsWith('-'));
-        QCOMPARE(view.textCursor().positionInBlock(), view.textCursor().block().text().size());
-        QCOMPARE(view.inlineCursorSourcePosition(), beforeCaret);
+        QVERIFY(view.textCursor().block().text().isEmpty()); QVERIFY(!view.textCursor().block().textList());
+        QCOMPARE(view.textCursor().positionInBlock(), 0);
+        QCOMPARE(view.inlineCursorSourcePosition(), bodyCaret);
     };
     QTest::qWait(550); check(); view.setMarkdownSource("restore-row.md", view.markdownSource(), true); check();
-    QTest::keyClicks(&view, "x"); expected.insert(beforeCaret, 'x'); QCOMPARE(view.markdownSource(), expected);
-    QTest::keyClick(&view, Qt::Key_Backspace); expected.remove(beforeCaret, 1); QCOMPARE(view.markdownSource(), expected);
-    QTest::keyClick(&view, Qt::Key_Space); expected.insert(beforeCaret, ' '); QCOMPARE(view.markdownSource(), expected);
-    QVERIFY(view.textCursor().block().textList()); QTest::keyClicks(&view, "new"); expected.insert(beforeCaret + 1, "new"); QCOMPARE(view.markdownSource(), expected);
+    const bool needsSeparator = bodyCaret + 1 < expected.size() && expected[bodyCaret] == '\n' && expected[bodyCaret + 1] != '\n';
+    QTest::keyClick(&view, Qt::Key_Space); expected.insert(bodyCaret, ' ');
+    if (needsSeparator) expected.insert(bodyCaret + 1, '\n');
+    QCOMPARE(view.markdownSource(), expected);
+    QVERIFY(!view.textCursor().block().textList());
+    QTest::keyClicks(&view, "new"); expected.insert(bodyCaret + 1, "new"); QCOMPARE(view.markdownSource(), expected);
 }
 void TreeMdTests::unsavedDocumentsKeepDotsAndSaveIndividually() {
     QTemporaryDir directory; MarkdownManager seed(directory.path());
@@ -2790,18 +2794,18 @@ void TreeMdTests::fenceLanguageCompletionInDocument() {
     QTest::keyClicks(view, "```sq"); QTRY_VERIFY(completer->popup()->isVisible()); QTRY_COMPARE(completer->completionCount(), 1);
     // Rendering must not hide the language header while the user chooses a type.
     QTest::qWait(550); QVERIFY(view->toPlainText().contains("```sq")); QVERIFY(completer->popup()->isVisible());
-    QTest::keyClick(view, Qt::Key_Tab); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n```sql\n\n```\n"));
+    QTest::keyClick(view, Qt::Key_Tab); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n\n```sql\n\n```\n\n"));
     QCOMPARE(view->markdownSource(), editor->source()); QVERIFY(!completer->popup()->isVisible());
     QVERIFY(view->textCursor().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
     QTest::keyClicks(view, "SELECT 1;");
-    QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n```sql\nSELECT 1;\n```\n"));
+    QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n\n```sql\nSELECT 1;\n```\n\n"));
     QTest::qWait(550); QVERIFY(view->toPlainText().contains("SELECT 1;")); QVERIFY(!completer->popup()->isVisible());
     const auto code = view->document()->find("SELECT 1;").block(); QVERIFY(code.blockFormat().hasProperty(QTextFormat::BlockCodeFence));
     QVERIFY(code.blockFormat().background().color().lightness() > view->palette().color(QPalette::Base).lightness());
-    QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QVERIFY(editor->source().startsWith("# Keep\n\nBody\n```sql\n"));
-    QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTRY_VERIFY(editor->source().contains("SELECT 1;\n```\n"));
+    QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QVERIFY(editor->source().startsWith("# Keep\n\nBody\n\n```sql\n"));
+    QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QTRY_VERIFY(editor->source().contains("SELECT 1;\n```\n\n"));
     QTest::keyClick(view, Qt::Key_Down); QVERIFY(!view->textCursor().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
-    QTest::keyClicks(view, "After"); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n```sql\nSELECT 1;\n```\nAfter"));
+    QTest::keyClicks(view, "After"); QTRY_COMPARE(editor->source(), QString("# Keep\n\nBody\n\n```sql\nSELECT 1;\n```\n\nAfter"));
     const QString captures = qEnvironmentVariable("TMD_UI_CHECK_DIRECTORY");
     if (!captures.isEmpty()) { QVERIFY(QDir().mkpath(captures)); QVERIFY(view->grab().save(QDir(captures).filePath("fenceCodeDocument.png"))); }
     window.hide();
@@ -2835,10 +2839,11 @@ void TreeMdTests::fencePopupKeyboardSelection() {
     QCOMPARE(source(), QString("```")); QCOMPARE(target->textCursor().position(), caret);
     const QString language = popup->currentIndex().data(Qt::UserRole).toString(); QVERIFY(!language.isEmpty());
     QTest::keyClick(popup, Qt::Key(confirmKey));
-    QCOMPARE(source(), "```" + language + "\n\n```\n"); QVERIFY(!popup->isVisible()); QVERIFY(target->hasFocus());
-    QTest::keyClicks(target, "value"); QCOMPARE(source(), "```" + language + "\nvalue\n```\n");
+    const QString separator = rendered ? "\n\n" : "\n";
+    QCOMPARE(source(), "```" + language + "\n\n```" + separator); QVERIFY(!popup->isVisible()); QVERIFY(target->hasFocus());
+    QTest::keyClicks(target, "value"); QCOMPARE(source(), "```" + language + "\nvalue\n```" + separator);
     QTest::keyClick(target, Qt::Key_Down); QTest::keyClicks(target, "After");
-    QCOMPARE(source(), "```" + language + "\nvalue\n```\nAfter");
+    QCOMPARE(source(), "```" + language + "\nvalue\n```" + separator + "After");
 
     // Esc returns to text entry, and typing a prefix still filters candidates.
     if (rendered) document.setMarkdownSource("keyboard.md", QString()); else editor.setSource(QString());
@@ -2846,7 +2851,7 @@ void TreeMdTests::fencePopupKeyboardSelection() {
     QTest::keyClick(popup, Qt::Key_Escape); QVERIFY(!popup->isVisible()); QCOMPARE(source(), QString("```ja"));
     QTest::keyClick(target, Qt::Key_Space, Qt::ControlModifier); QTRY_VERIFY(popup->isVisible());
     QTest::keyClick(popup, Qt::Key_Down); QTest::keyClick(popup, Qt::Key(confirmKey));
-    QCOMPARE(source(), QString("```javascript\n\n```\n"));
+    QCOMPARE(source(), QString("```javascript\n\n```") + separator);
 }
 void TreeMdTests::fenceCompletionRespectsCodeBoundaries() {
     MarkdownEditor editor; editor.resize(700, 450); editor.show(); editor.activateWindow(); QVERIFY(QTest::qWaitForWindowActive(&editor)); editor.setFocus();
@@ -2941,7 +2946,7 @@ void TreeMdTests::emptyFencedBlocksKeepTypingInside() {
     view->setFocus(); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Return); QTest::keyClicks(view, "```py");
     auto *completer = view->findChild<QCompleter *>("fenceLanguageCompleter"); QTRY_VERIFY(completer->popup()->isVisible());
     const QString before = editor->source(); QTest::keyClick(view, Qt::Key_Tab); const QString completed = editor->source();
-    QVERIFY(completed.endsWith("```python\n\n```\n"));
+    QVERIFY(completed.endsWith("```python\n\n```\n\n"));
     QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(editor->source(), before);
     QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QCOMPARE(editor->source(), completed); window.hide();
 }
@@ -3511,7 +3516,7 @@ void TreeMdTests::listEnterIndentAndBackspace() {
         if (!rendered) { QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(text(), QString("- parent\n    - child")); }
         load("- only"); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Tab); QCOMPARE(text(), QString("- only"));
         load("- previous\n- "); view->moveCursor(QTextCursor::End); QTest::keyClick(view, Qt::Key_Backspace); QTest::keyClicks(view, "normal");
-        QCOMPARE(text(), QString("- previous\n\n-normal")); // P02: first Backspace restores the literal marker in either view.
+        QCOMPARE(text(), QString("- previous\n\nnormal")); // An empty ordinary item exits in one Backspace in either view.
     }
 }
 

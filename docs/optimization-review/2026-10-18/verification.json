@@ -1,0 +1,101 @@
+{
+  "reviewDate": "2026-10-18",
+  "verifiedAt": "2026-10-18T09:44:59+08:00",
+  "baselineSourceFilesVerifiedUnchanged": 136,
+  "changedBaselineSources": [],
+  "baselineDebugBuild": "passed",
+  "baselineRegressionGroups": {
+    "file": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\architecture-review-baseline.xml",
+    "tests": 3,
+    "cases": [
+      "tmd_markdown_core",
+      "tmd_incremental_refresh",
+      "tmd_editing_policy"
+    ]
+  },
+  "proposalIsolatedDebugBuild": "passed",
+  "proposalRegression": {
+    "file": "D:\\PC\\Project\\Qt\\tree_md\\build-architecture-proposal\\proposal-validation.xml",
+    "tests": 1,
+    "cases": [
+      "tmd_modular_editing_proposal"
+    ]
+  },
+  "qtTestTotals": {
+    "passed": 20,
+    "failed": 0,
+    "skipped": 0,
+    "includesInitAndCleanup": true,
+    "actualEditorParityRows": 8,
+    "unicodeCorpusPairs": 169,
+    "randomSequencePairs": 500
+  },
+  "productionIntegration": false,
+  "checks": {
+    "gitDiffCheck": "passed",
+    "newFileWhitespace": "passed",
+    "artifactFileLinks": "passed"
+  },
+  "limitations": [
+    "No full 14-group production regression rerun in this review-only change.",
+    "No claim of Windows native IME/visual validation or measured application speedup.",
+    "One offscreen FreeType debug message; no failed or skipped tests."
+  ],
+  "prototypeFiles": [
+    {
+      "path": "proposals/modular-editing/application/editing/EditCommandRouter.cpp",
+      "sha256": "C5878F0F114A4EF767CA338805435D0F39D25A78F5296C72A6E98CF8E81C37DB",
+      "lines": 81
+    },
+    {
+      "path": "proposals/modular-editing/application/editing/EditCommandRouter.h",
+      "sha256": "781C6B1515412F910943AFC7E6F541A87C563FAA0689044B73673D940EC720C2",
+      "lines": 32
+    },
+    {
+      "path": "proposals/modular-editing/CMakeLists.txt",
+      "sha256": "A0C886A0688B2FDC032D80A71B5AB0D60D616AB1D30A27FC85090703677118E9",
+      "lines": 27
+    },
+    {
+      "path": "proposals/modular-editing/core/markdown/analysis/MarkdownSnapshot.cpp",
+      "sha256": "8EF2D88B612635FED8874CA54269112D55B43AFB87B3B8BEDCB983096C1B3768",
+      "lines": 37
+    },
+    {
+      "path": "proposals/modular-editing/core/markdown/analysis/MarkdownSnapshot.h",
+      "sha256": "94CACD32071142068D92171D8763F5717D7CFC4573B22F7951DACC283B5B88B8",
+      "lines": 34
+    },
+    {
+      "path": "proposals/modular-editing/core/markdown/editing/TextPatch.cpp",
+      "sha256": "C9EAC7569FF411A719807A783F47B366BE6F1DF9CA335B91268087D7DDDC1EF9",
+      "lines": 28
+    },
+    {
+      "path": "proposals/modular-editing/core/markdown/editing/TextPatch.h",
+      "sha256": "A3F53029639F491500CFC43509733E59FD1E7261B7930EC2BBB3CB99C66838D1",
+      "lines": 13
+    },
+    {
+      "path": "proposals/modular-editing/README.md",
+      "sha256": "3CFC6FE1E09BA0FC13039F9D4D07E240A121EECEBF71E17DD42DE84DA87429D2",
+      "lines": 57
+    },
+    {
+      "path": "proposals/modular-editing/tests/ModularEditingTests.cpp",
+      "sha256": "7D986328788F49473F101796D33E6F8606A0D4C0845BD79FCFFC746F0CEF1478",
+      "lines": 186
+    },
+    {
+      "path": "proposals/modular-editing/ui/document/QtTextEditAdapter.cpp",
+      "sha256": "CDFD23E0182FD6BEE011A106E4521F1E5CCDD46F1542E68A22DA6EE02F187D4D",
+      "lines": 27
+    },
+    {
+      "path": "proposals/modular-editing/ui/document/QtTextEditAdapter.h",
+      "sha256": "2E34458C304B3A1CF2B3EA14981705636274F349D711B0BC65AEEF8C0D7995A9",
+      "lines": 13
+    }
+  ]
+}

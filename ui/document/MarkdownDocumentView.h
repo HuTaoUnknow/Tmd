@@ -2,10 +2,12 @@
 #include <QTextBrowser>
 #include <QImage>
 #include <QMap>
+#include <memory>
 #include "core/markdown/MarkdownImages.h"
 #include "core/markdown/MarkdownSourceMap.h"
 class ImageLoader;
 struct MarkdownEdit;
+namespace tmd { class MarkdownSnapshot; }
 class MarkdownDocumentView : public QTextBrowser {
     Q_OBJECT
 public:
@@ -79,6 +81,7 @@ private:
     void fitImages();
     QImage placeholder(const QString &message) const;
     QString m_path, m_source;
+    std::shared_ptr<const tmd::MarkdownSnapshot> m_snapshot;
     QVector<MarkdownImage> m_references;
     QMap<QUrl, QString> m_sources;
     QMap<QUrl, QImage> m_images, m_loaded;

@@ -52,6 +52,10 @@ Copy-Item -LiteralPath $executable -Destination $portableRoot
 & (Join-Path $QtDirectory 'bin\windeployqt.exe') --release --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --dir $portableRoot (Join-Path $portableRoot 'tree_md.exe')
 if ($LASTEXITCODE -ne 0) { throw 'Application runtime deployment failed.' }
 foreach ($file in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md','CHANGELOG.md')) { Copy-Item -LiteralPath (Join-Path $sourceRoot $file) -Destination $portableRoot }
+Copy-Item -LiteralPath (Join-Path $sourceRoot 'scripts\Start-Tmd.cmd') -Destination (Join-Path $portableRoot 'Start-Tmd.cmd')
+$releaseIntroduction = Join-Path $sourceRoot ('docs\releases\v' + $version + '.md')
+if (!(Test-Path -LiteralPath $releaseIntroduction -PathType Leaf)) { throw 'Write the version introduction under docs/releases before packaging.' }
+Copy-Item -LiteralPath $releaseIntroduction -Destination (Join-Path $portableRoot 'RELEASE-NOTES.md')
 foreach ($folder in @('docs','licenses','examples')) { Copy-Item -LiteralPath (Join-Path $sourceRoot $folder) -Destination $portableRoot -Recurse }
 # Only the reviewed starter library is distributed; working md_data is never packaged.
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'examples\md_data') -Destination $portableRoot -Recurse

@@ -1,5 +1,25 @@
 # Changelog / 更新记录
 
+## 未发布 / Unreleased
+
+## v1.1.1 — 2026-10-18
+
+### 中文
+
+- 文档页统一隐藏标题、正文、列表、引用、表格及代码区下方的首个结构空行，保留额外空行、普通空格与代码区内部空行；编写、重载与原文映射采用同一规则。
+- 普通无序与有序列表在正文起点按 Backspace 直接转为本行正文；有缩进先退一级，空任务框保留既有两步退出方式。
+- 标题第一个井号前按 Backspace：空行上移、普通正文合并为含井号的原文，遇列表、引用、表格、代码等元素时保持原位；保留原有标题文字起点及井号内部的编辑操作。
+- 接入独立编辑应用层，共用命令路由、UTF-16 文本替换、撤销交易和解析快照，避免过期交易覆盖当前原文。
+- 便携包附带 Start-Tmd.cmd 启动器和本版介绍；增加模块化编辑回归，现共十五组检查。
+
+### English
+
+- Hide the first structural blank row after document elements while retaining extra blank rows, ordinary spaces and literal code contents. Editing, reload and source mapping use the same policy.
+- Exit ordinary unordered and ordered items with one Backspace at the body start. Indented items outdent first; empty tasks retain their two-step exit.
+- Before a heading's first hash, Backspace moves across an empty row or joins a plain paragraph with literal hashes. Lists, quotes, tables, code and other block elements prevent merging. Existing heading-body and individual marker editing remain available.
+- Introduce a shared application editing layer with UTF-16 patches, undo transactions and immutable parsing snapshots; reject stale source transactions.
+- Include a portable Start-Tmd.cmd launcher and release introduction. Add modular editing regression coverage for fifteen test groups.
+
 ## v1.1.0 — 2026-10-16
 
 ### 中文

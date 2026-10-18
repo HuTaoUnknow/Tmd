@@ -1,0 +1,82 @@
+{
+  "recordedAt": "2026-10-18T18:35:31+08:00",
+  "rule": "N57",
+  "debugBuild": "all targets passed; added test targets rebuilt successfully",
+  "debugSha256": "3992347C29E2E4A6DB1D57F23B600DD0D3841C34F0312DF5AC1CB4A07C4E0EFC",
+  "ctestReport": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\heading-marker-regressions.xml",
+  "ctestPassed": 5,
+  "ctestFailed": 0,
+  "ctestSeconds": 131.92,
+  "checks": [
+    {
+      "name": "tmd_markdown_core",
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_markdown_core.txt"
+    },
+    {
+      "name": "tmd_editing_headings_audit",
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_headings_audit.txt"
+    },
+    {
+      "name": "tmd_editing_integration_audit",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_integration_audit.txt"
+    },
+    {
+      "name": "tmd_modular_editing",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_modular_editing.txt"
+    },
+    {
+      "name": "tmd_editing_policy",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_policy.txt"
+    },
+    {
+      "name": "heading-marker-document",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "four related document slots plus init/cleanup",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\heading-marker-document.txt"
+    }
+  ],
+  "sourceHashes": [
+    {
+      "path": "core/markdown/MarkdownParagraphEditing.cpp",
+      "sha256": "FD7BC8A2798F2281074AE5ACE83FCA595B2D1902088BB2B820B21C8659E56F8B"
+    },
+    {
+      "path": "ui/document/MarkdownDocumentView.cpp",
+      "sha256": "1AA1318E88CC478BC914B9F515C29F2B659B489B8C4592CD7D88F9281CD8DD96"
+    },
+    {
+      "path": "tests/EditingHeadingsAuditTests.cpp",
+      "sha256": "1C77948E50724ECA786791E63EA38548276AD6192D329329267E662E8F6BDB3E"
+    },
+    {
+      "path": "tests/EditingIntegrationAuditTests.cpp",
+      "sha256": "48C0BDE29BE249F762A18E1757FC7527F1329AE791D1AAAFB1B0D81DCAB1ECE3"
+    },
+    {
+      "path": "tests/EditingPolicyTests.cpp",
+      "sha256": "FF7BD4C5F953C1A59119EBD1EDF75CBA79C5E31E8DB200D659650D7EFA3409B6"
+    }
+  ]
+}

@@ -17,6 +17,7 @@ public:
         MarkdownOutline headings;
         QVector<Format> formats;
         QSet<int> underlineLines;
+        QSet<int> containerParagraphLines;
         int frontMatterEnd = 0;
         bool parsed = false;
     };

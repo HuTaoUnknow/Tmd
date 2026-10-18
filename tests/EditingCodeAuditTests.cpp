@@ -335,20 +335,27 @@ void EditingCodeAuditTests::blankParagraphAfterHeaderOnlyTableIsEditable() {
     const int afterTable = table->lastCursorPosition().position() + 1;
     QTextBlock body;
     for (auto block = view.document()->findBlock(afterTable); block.isValid() && block.position() < heading.block().position(); block = block.next()) {
-        if (block.text().trimmed().isEmpty() && !QTextCursor(block).currentTable()) { body = block; break; }
+        if (block.isVisible() && block.text().trimmed().isEmpty() && !QTextCursor(block).currentTable()) { body = block; break; }
+    }
+    const auto sourceTables = MarkdownTableEditing::tables(source); QCOMPARE(sourceTables.size(), 1);
+    const int headingStart = source.indexOf("## 8.");
+    if (source.mid(sourceTables[0].end, headingStart - sourceTables[0].end).count('\n') == 2) {
+        // N55: the only physical blank before a heading is a hidden separator.
+        QVERIFY(!body.isValid());
+        auto next = view.document()->findBlock(afterTable);
+        while (next.isValid() && !next.isVisible()) next = next.next();
+        QCOMPARE(next, heading.block()); return;
     }
     QVERIFY2(body.isValid(), "The source blank paragraph after the table must remain editable");
     view.setTextCursor(QTextCursor(body));
     const int sourceCaret = view.inlineCursorSourcePosition();
-    const auto sourceTables = MarkdownTableEditing::tables(source); QCOMPARE(sourceTables.size(), 1);
     QVERIFY(sourceCaret > sourceTables[0].end);
     QVERIFY(sourceCaret < source.indexOf("## 8."));
     QTest::keyClicks(&view, "body");
     const QString edited = view.markdownSource();
     QVERIFY(edited.contains("body"));
     QVERIFY(edited.endsWith(QString::fromUtf8("## 8.条件竞争")));
-    const int beforeBreaks = source.mid(sourceTables[0].end, sourceCaret - sourceTables[0].end).count('\n');
-    QCOMPARE(edited.count('\n'), source.count('\n') + qMax(0, 2 - beforeBreaks));
+    QCOMPARE(edited.count('\n'), source.count('\n') + 1); // New body's hidden separator; retain later user blanks.
     QTest::qWait(550);
     QCOMPARE(view.textCursor().block().text().trimmed(), QString("body"));
     QCOMPARE(view.textCursor().blockFormat().headingLevel(), 0);
@@ -371,11 +378,21 @@ void EditingCodeAuditTests::tableGapTypingPreservesParagraphSeparators() {
     QTextTable *table = nullptr;
     for (auto *frame : view.document()->rootFrame()->childFrames()) if ((table = dynamic_cast<QTextTable *>(frame))) break;
     QVERIFY(table);
-    const auto body = view.document()->findBlock(table->lastCursorPosition().position() + 1);
+    auto body = view.document()->findBlock(table->lastCursorPosition().position() + 1);
+    while (body.isValid() && !body.isVisible()) body = body.next();
+    if (blankRows == 1) {
+        // The only existing empty row belongs to the table/body grammar. Add
+        // a real user row before typing rather than editing an invisible gap.
+        QCOMPARE(body.text(), QString("next"));
+        view.restoreSourceCursor(source.indexOf("next"), source.indexOf("next"));
+        QTest::keyClick(&view, Qt::Key_Return);
+        body = view.document()->find("next").block().previous();
+        while (body.isValid() && !body.isVisible()) body = body.previous();
+    }
     QVERIFY(body.isValid()); QVERIFY(body.text().isEmpty());
     view.setTextCursor(QTextCursor(body));
     QTest::keyClicks(&view, "body");
-    const QString expected = tableSource + "\n\nbody\n\nnext";
+    const QString expected = tableSource + "\n\nbody" + QString(qMax(2, blankRows), '\n') + "next";
     QCOMPARE(view.markdownSource(), expected);
     QTest::qWait(550);
     QCOMPARE(view.textCursor().block().text(), QString("body"));
@@ -388,7 +405,7 @@ void EditingCodeAuditTests::tableGapInputUndoRedoKeepsCaret() {
     QTemporaryDir directory; QVERIFY(directory.isValid());
     const QString tableSource = "| A | B |\n|---|---|";
     const QString source = tableSource + "\n\n\n\n## Next";
-    const QString expected = tableSource + "\n\nbody\n\n## Next";
+    const QString expected = tableSource + "\n\nbody\n\n\n## Next";
     MarkdownManager manager(directory.path()); QVERIFY(manager.createDocument("doc.md", source));
     MainWindow window(directory.path()); window.show();
     QVERIFY(window.openDocument("doc.md")); window.setSourceMode(false);
@@ -397,7 +414,8 @@ void EditingCodeAuditTests::tableGapInputUndoRedoKeepsCaret() {
     QTextTable *table = nullptr;
     for (auto *frame : view->document()->rootFrame()->childFrames()) if ((table = dynamic_cast<QTextTable *>(frame))) break;
     QVERIFY(table);
-    const auto body = view->document()->findBlock(table->lastCursorPosition().position() + 1);
+    auto body = view->document()->findBlock(table->lastCursorPosition().position() + 1);
+    while (body.isValid() && !body.isVisible()) body = body.next();
     QVERIFY(body.isValid()); view->setTextCursor(QTextCursor(body)); view->setFocus();
     const int originalCaret = view->inlineCursorSourcePosition();
     QInputMethodEvent commit; commit.setCommitString("body"); QApplication::sendEvent(view, &commit);

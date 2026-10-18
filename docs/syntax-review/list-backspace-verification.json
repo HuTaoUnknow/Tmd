@@ -1,0 +1,78 @@
+{
+  "recordedAt": "2026-10-18T18:11:50+08:00",
+  "rule": "N56",
+  "debugBuild": "all targets passed; changed test targets rebuilt successfully",
+  "debugSha256": "5D16E692C4A970D83A1235689287EAED3FD38AB0A460546236D8410A37D7AA07",
+  "productionSource": "core/markdown/MarkdownBlockSyntax.cpp",
+  "productionSourceSha256": "C4B4489CCF6A177B4469D1F260B825898C229CC0C0D29A5DAE42C430351304C0",
+  "initialCTestReport": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\list-backspace-regressions.xml",
+  "initialResult": "5/8 groups passed; three groups had expectations for the old marker restoration or body separator sequence",
+  "finalCTestReport": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\list-backspace-final.xml",
+  "finalResult": "7 complete groups passed across the runs; affected document slot separately passed all 6 data cases; no final complete-document-group rerun claimed",
+  "checks": [
+    {
+      "name": "tmd_markdown_core",
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_markdown_core.txt"
+    },
+    {
+      "name": "tmd_editing_headings_audit",
+      "passed": 84,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_headings_audit.txt"
+    },
+    {
+      "name": "tmd_editing_code_audit",
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_code_audit.txt"
+    },
+    {
+      "name": "tmd_editing_list_audit",
+      "passed": 108,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_list_audit.txt"
+    },
+    {
+      "name": "tmd_editing_integration_audit",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_integration_audit.txt"
+    },
+    {
+      "name": "tmd_modular_editing",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_modular_editing.txt"
+    },
+    {
+      "name": "tmd_editing_policy",
+      "passed": 92,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "complete group",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_policy.txt"
+    },
+    {
+      "name": "list-backspace-document-final",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "scope": "six affected document data cases plus init/cleanup",
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\list-backspace-document-final.txt"
+    }
+  ]
+}

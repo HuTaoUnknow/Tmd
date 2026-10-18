@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(tree_md VERSION 1.1.0 LANGUAGES CXX C)
+project(tree_md VERSION 1.1.1 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -7,6 +7,8 @@ set(CMAKE_AUTORCC ON)
 find_package(Qt6 6.2 REQUIRED COMPONENTS Widgets Network)
 add_library(tree_md_core STATIC
     third_party/md4c/md4c.c
+    core/markdown/editing/TextPatch.cpp
+    core/markdown/analysis/MarkdownSnapshot.cpp
     core/markdown/MarkdownBlockSyntax.cpp
     core/markdown/MarkdownSyntax.cpp
     core/markdown/MarkdownCodeEditing.cpp
@@ -53,7 +55,13 @@ if(WIN32)
     target_link_libraries(tree_md_core PRIVATE crypt32 shell32 ole32)
 endif()
 target_include_directories(tree_md_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(tree_md_application STATIC
+    application/editing/EditCommandRouter.cpp
+)
+target_link_libraries(tree_md_application PUBLIC tree_md_core)
+target_include_directories(tree_md_application PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(tree_md_ui STATIC
+    ui/document/QtTextEditAdapter.cpp
     ui/document/InlineMarkupDecoration.cpp
     ui/document/MarkdownDocumentView.cpp
     ui/document/MarkdownEditor.cpp
@@ -81,7 +89,7 @@ add_library(tree_md_ui STATIC
     resources/branding.qrc
     resources/typography.qrc
 )
-target_link_libraries(tree_md_ui PUBLIC tree_md_core Qt6::Widgets)
+target_link_libraries(tree_md_ui PUBLIC tree_md_application Qt6::Widgets)
 qt_add_executable(tree_md main.cpp)
 if(WIN32)
     enable_language(RC)
@@ -122,6 +130,11 @@ if(BUILD_TESTING)
     add_executable(tmd_library_tests tests/DefaultLibraryTests.cpp)
     add_executable(tmd_editing_policy_tests tests/EditingPolicyTests.cpp)
     target_link_libraries(tmd_editing_policy_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_modular_editing_tests tests/ModularEditingTests.cpp)
+    target_link_libraries(tmd_modular_editing_tests PRIVATE tree_md_ui Qt6::Test)
+    add_test(NAME tmd_modular_editing COMMAND tmd_modular_editing_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_modular_editing.txt,txt")
+    set_tests_properties(tmd_modular_editing PROPERTIES TIMEOUT 180
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
     add_test(NAME tmd_editing_policy COMMAND tmd_editing_policy_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_editing_policy.txt,txt")
     set_tests_properties(tmd_editing_policy PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
     target_link_libraries(tmd_library_tests PRIVATE tree_md_core Qt6::Test)

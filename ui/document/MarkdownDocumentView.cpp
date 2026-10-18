@@ -16,6 +16,8 @@
 #include "core/markdown/MarkdownTableEditing.h"
 #include "core/markdown/MarkdownParagraphEditing.h"
 #include "core/markdown/MarkdownImport.h"
+#include "core/markdown/analysis/MarkdownSnapshot.h"
+#include "application/editing/EditCommandRouter.h"
 #include "ui/document/InlineMarkupDecoration.h"
 #include <QAbstractTextDocumentLayout>
 #include <QClipboard>
@@ -91,7 +93,7 @@ MarkdownDocumentView::MarkdownDocumentView(QWidget *parent) : QTextBrowser(paren
             setMarkdownSource(m_path, source);
             QTextCursor cursor(document()); cursor.setPosition(m_sourceMap.displayPosition(caret)); setTextCursor(cursor);
             emit sourceEdited(m_source, m_sourceMap.sourcePosition(cursor.position())); ensureCursorVisible();
-        });
+        }, true);
     connect(document(), &QTextDocument::contentsChange, this, &MarkdownDocumentView::documentEdited);
     connect(this, &QTextEdit::cursorPositionChanged, this, &MarkdownDocumentView::refreshInlineCursorFormat);
     connect(this, &QTextEdit::selectionChanged, this, &MarkdownDocumentView::refreshInlineCursorFormat);
@@ -146,9 +148,11 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     m_markupTimer->stop(); ++m_generation;
     for (auto *loader : m_pending) { loader->cancel(); loader->deleteLater(); }
     m_pending.clear(); m_sources.clear(); m_images.clear(); m_loaded.clear(); m_errors.clear(); m_requestedSizes.clear();
-    const auto analysis = MarkdownAnalysis::forRendering(source);
-    const auto sourceSyntax = MarkdownSyntax::scan(source, &analysis);
-    m_path = path; m_source = source; m_references = MarkdownImages::parse(source, analysis);
+    if (!m_snapshot || m_snapshot->source() != source)
+        m_snapshot = std::make_shared<tmd::MarkdownSnapshot>(source, tmd::MarkdownSnapshot::Mode::Rendering);
+    const auto &analysis = m_snapshot->analysis();
+    const auto &sourceSyntax = m_snapshot->syntax();
+    m_path = path; m_source = source; m_references = m_snapshot->images();
     m_references.erase(std::remove_if(m_references.begin(), m_references.end(), [&](const auto &image) {
         return source.mid(image.position, 2) != "![" || (m_revealed.valid() && ((image.position >= m_revealed.start && image.position < m_revealed.end)
             || (image.start >= m_revealed.start && image.start < m_revealed.end)));
@@ -183,6 +187,7 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     QVector<QPair<QString, int>> bodyTokens;
     auto renderedRows = renderSource.split('\n');
     const auto originalRows = source.split('\n');
+    const auto separatorLines = MarkdownBlockSyntax::separatorLines(source, &analysis);
     const int metadataEnd = sourceSyntax.frontMatterEnd;
     if (metadataEnd > 0) {
         renderedRows[0] = "```yaml";
@@ -191,19 +196,10 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     }
     for (int i = 0, start = 0; i < originalRows.size() && i < renderedRows.size(); start += originalRows[i++].size() + 1) {
         if (!originalRows[i].trimmed().isEmpty() || source.isEmpty()) continue;
-        bool literal = false, separator = false;
+        bool literal = false;
         if (i < analysis.lines.size()) literal = analysis.lines[i].code || analysis.lines[i].fenceMarker;
         if (literal) continue;
-        const bool afterHeading = i > 0 && i < analysis.lines.size()
-            && (sourceSyntax.underlineLines.contains(analysis.lines[i - 1].start)
-                || std::any_of(sourceSyntax.headings.cbegin(), sourceSyntax.headings.cend(), [&](const auto &heading) { return heading.position == analysis.lines[i - 1].start; }));
-        if (i > 0 && i < analysis.lines.size() && !afterHeading && !analysis.lines[i - 1].code
-            && (analysis.lines[i - 1].listMarkerStart >= 0 || originalRows[i - 1].startsWith("> "))) {
-            int next = i + 1; while (next < originalRows.size() && originalRows[next].trimmed().isEmpty()) ++next;
-            separator = next >= originalRows.size() ? i + 1 < originalRows.size() : next < analysis.lines.size() && analysis.lines[next].listMarkerStart < 0
-                && !originalRows[next].startsWith("> ") && !QRegularExpression("^ {0,3}#{1,6} ").match(originalRows[next]).hasMatch();
-        }
-        if (separator) continue;
+        if (separatorLines.contains(start)) continue;
         const QString token = bodyPrefix + QString::number(bodyTokens.size()) + QChar(0xe101);
         bodyTokens.append({token, start}); renderedRows[i] = '\n' + renderedRows[i] + token + '\n';
     }
@@ -222,22 +218,20 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     QString emptyContainerPrefix = emptyHeadingPrefix + "container:";
     const auto originalMarkers = MarkdownBlockSyntax::markers(source, &analysis);
     const auto preparedMarkers = MarkdownBlockSyntax::markers(renderSource);
+    const auto preparedSeparators = MarkdownBlockSyntax::separatorLines(renderSource);
     QVector<int> emptyContainers;
-    const auto quoteSeparator = [](const QString &text, const MarkdownBlockSyntax::Marker &marker) {
-        static const QRegularExpression quoteOnly("^(?: {0,3}> +)+ *$");
-        const auto row = text.mid(marker.lineStart, marker.lineEnd - marker.lineStart);
-        if (!quoteOnly.match(row).hasMatch() || marker.lineEnd >= text.size()) return false;
-        const int nextStart = marker.lineEnd + 1; int nextEnd = text.indexOf('\n', nextStart); if (nextEnd < 0) nextEnd = text.size();
-        const auto nextMarkers = MarkdownBlockSyntax::markers(text.mid(nextStart, nextEnd - nextStart));
-        return !nextMarkers.isEmpty() && nextMarkers.front().text.count('>') == row.count('>');
-    };
     for (const auto &marker : originalMarkers) if (marker.prefix && !marker.heading && source.mid(marker.end, marker.lineEnd - marker.end).trimmed().isEmpty()
-        && !quoteSeparator(source, marker)) emptyContainers.append(marker.end);
+        && !separatorLines.contains(marker.lineStart)) emptyContainers.append(marker.end);
     int containerIndex = emptyContainers.size();
-    for (auto it = preparedMarkers.crbegin(); it != preparedMarkers.crend(); ++it)
+    for (auto it = preparedMarkers.crbegin(); it != preparedMarkers.crend(); ++it) {
         if (it->prefix && !it->heading && renderSource.mid(it->end, it->lineEnd - it->end).trimmed().isEmpty() && containerIndex > 0
-            && !quoteSeparator(renderSource, *it))
-            renderSource.insert(it->end, emptyContainerPrefix + QString::number(--containerIndex) + QChar(0xe001));
+            && !preparedSeparators.contains(it->lineStart)) {
+            QString token = emptyContainerPrefix + QString::number(--containerIndex) + QChar(0xe001);
+            static const QRegularExpression quoteOnly("^(?: {0,3}> )+$");
+            if (quoteOnly.match(it->text).hasMatch() && it->lineEnd < renderSource.size()) token += '\n' + it->text;
+            renderSource.insert(it->end, token);
+        }
+    }
     // Qt may discard a fence with no body line. Keep a virtual empty line
     // for editing, while source positions continue to refer to the real fence.
     const auto renderFences = MarkdownParser::codeFences(renderSource);
@@ -310,14 +304,32 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
             emptyHeadingCursors.append({cursor, body});
         }
     }
-    QVector<QPair<int, int>> blockBoundaries;
+    QVector<QPair<QTextCursor, int>> containerCursors;
     for (int i = 0; i < emptyContainers.size(); ++i) {
         auto cursor = document()->find(emptyContainerPrefix + QString::number(i) + QChar(0xe001));
-        if (!cursor.isNull()) { cursor.removeSelectedText(); blockBoundaries.append({cursor.position(), emptyContainers[i]}); }
+        if (!cursor.isNull()) { cursor.removeSelectedText(); containerCursors.append({cursor, emptyContainers[i]}); }
     }
-    for (const auto &heading : emptyHeadingCursors) blockBoundaries.append({heading.first.position(), heading.second});
+    // Qt leaves an empty frame paragraph after an imported table, in addition
+    // to the real body paragraph. Merge this import-only placeholder into the
+    // following body; keep it hidden when a real empty body follows, since Qt
+    // needs its frame boundary. All real rows retain tracked source cursors.
+    for (auto *table : documentTables(document()->rootFrame())) {
+        const auto body = document()->findBlock(table->lastCursorPosition().position() + 1);
+        const auto next = body.next();
+        if (!body.isValid() || !body.text().isEmpty() || !next.isValid() || QTextCursor(next).currentTable()) continue;
+        if (std::any_of(bodyCursors.cbegin(), bodyCursors.cend(), [&](const auto &entry) { return entry.first.block() == body; })) continue;
+        if (next.text().isEmpty()) {
+            auto placeholder = body; placeholder.setVisible(false); placeholder.setLineCount(0);
+            continue;
+        }
+        const auto format = next.blockFormat();
+        QTextCursor cursor(body); cursor.deleteChar(); cursor.setBlockFormat(format);
+    }
+    QVector<QPair<int, int>> blockBoundaries;
+    for (const auto &entry : containerCursors) blockBoundaries.append({entry.first.position(), entry.second});
+    for (const auto &entry : emptyHeadingCursors) blockBoundaries.append({entry.first.position(), entry.second});
     const auto &fences = analysis.fences;
-    const auto sourceCodeBlocks = MarkdownCodeBlocks::scan(source, &analysis);
+    const auto &sourceCodeBlocks = m_snapshot->codeBlocks();
     // Blank lines outside a fence must not steal an empty code line's source
     // position. Match the code lines Qt retained before applying our styles.
     QList<QTextBlock> codeBlocks; QList<QPair<int, int>> codeBoundaries;
@@ -376,7 +388,7 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     if (trailingCodeParagraph) blockBoundaries.append({document()->lastBlock().position(), source.size()});
     // Importing Markdown trims editable line-end whitespace. Restore only the
     // mapped text gaps after parsing, leaving syntax and hard breaks intact.
-    m_sourceMap.rebuild(source, displayedText(), blockBoundaries);
+    m_sourceMap.rebuild(source, displayedText(), blockBoundaries, m_snapshot);
     const auto sourceTables = MarkdownTableEditing::tables(source);
     const auto tables = documentTables(document()->rootFrame());
     QSet<int> matchedTables;
@@ -396,13 +408,13 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
         auto format = table->format(); format.setProperty(tableSourceIndex, index + 1); table->setFormat(format);
         for (int row = 0; row < table->rows(); ++row) for (int column = 0; column < table->columns(); ++column)
             blockBoundaries.append({table->cellAt(row, column).firstCursorPosition().position(), sourceTables[index].rows[row][column].contentStart});
-        const int paragraph = MarkdownTableEditing::paragraphAfter(source, sourceTables[index]);
+        const int paragraph = MarkdownTableEditing::paragraphAfter(source, sourceTables[index], &separatorLines);
         const auto body = document()->findBlock(table->lastCursorPosition().position() + 1);
-        if (paragraph >= 0 && body.isValid() && body.text().trimmed().isEmpty()
+        if (paragraph >= 0 && body.isValid() && body.isVisible() && body.text().trimmed().isEmpty()
             && !QTextCursor(body).currentTable())
             blockBoundaries.append({body.position(), paragraph});
     }
-    if (!matchedTables.isEmpty()) m_sourceMap.rebuild(source, displayedText(), blockBoundaries);
+    if (!matchedTables.isEmpty()) m_sourceMap.rebuild(source, displayedText(), blockBoundaries, m_snapshot);
     if (m_revealed.valid() && m_revealed.kind == MarkdownSpelling::Kind::Underline) {
         for (const auto &heading : sourceSyntax.headings) {
             const int end = source.indexOf('\n', heading.position);
@@ -452,7 +464,7 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     }
     applyMarkdownStyles(); document()->setModified(false); m_preparing = false; fitImages();
     m_display = displayedText();
-    if (!whitespaceEdits.isEmpty()) m_sourceMap.rebuild(m_source, m_display, blockBoundaries);
+    if (!whitespaceEdits.isEmpty()) m_sourceMap.rebuild(m_source, m_display, blockBoundaries, m_snapshot);
     if (sameDocument) {
         QTextCursor cursor(document()); cursor.setPosition(qBound(0, m_sourceMap.displayPosition(anchor), document()->characterCount() - 1));
         cursor.setPosition(qBound(0, m_sourceMap.displayPosition(caret), document()->characterCount() - 1), QTextCursor::KeepAnchor); setTextCursor(cursor);
@@ -629,10 +641,10 @@ void MarkdownDocumentView::documentEdited(int position, int removed, int added) 
     inserted.replace(QChar::LineSeparator, block.blockFormat().nonBreakableLines() || block.blockFormat().hasProperty(QTextFormat::BlockCodeFence) ? "\n" : "  \n");
     int paragraphCaret = -1;
     if (oldEnd == prefix && !inserted.isEmpty() && block.position() == prefix
-        && !QTextCursor(block).currentTable() && block.previous().isValid()
-        && QTextCursor(block.previous()).currentTable()) {
+        && !QTextCursor(block).currentTable()) {
         const int raw = m_sourceMap.sourcePosition(prefix);
-        const auto paragraph = MarkdownTableEditing::insertParagraph(m_source, raw, inserted);
+        auto paragraph = MarkdownTableEditing::insertParagraph(m_source, raw, inserted);
+        if (!paragraph.handled) paragraph = MarkdownParagraphEditing::insertParagraph(m_source, raw, inserted);
         if (paragraph.handled) {
             inserted = paragraph.source.mid(raw, paragraph.source.size() - m_source.size());
             paragraphCaret = paragraph.caret;
@@ -960,6 +972,16 @@ QRect MarkdownDocumentView::cursorRect(const QTextCursor &cursor) const {
 void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
     emit sourceEditStarted(hasSourceSelection() ? m_selectionCaret : inlineCursorSourcePosition());
     const auto finished = qScopeGuard([this] { emit sourceEditFinished(); });
+    // Handle the heading's opening hashes before image selection or native
+    // block merging can reach the preceding element.
+    if (event->key() == Qt::Key_Backspace && event->modifiers() == Qt::NoModifier
+        && !textCursor().hasSelection() && !hasSourceSelection() && textCursor().blockFormat().headingLevel() > 0) {
+        const int caret = inlineCursorSourcePosition();
+        if (caret < m_source.size() && m_source[caret] == '#') {
+            const auto edit = tmd::EditCommandRouter::dispatch({m_source, {caret, caret}, tmd::EditCommand::Backspace, tmd::ViewMode::Rendered}).edit;
+            if (edit.handled) { applySourceEdit(edit); event->accept(); return; }
+        }
+    }
     if (event->modifiers() == Qt::NoModifier && !textCursor().hasSelection()
         && (event->key() == Qt::Key_Down || event->key() == Qt::Key_Up)) {
         const auto *layout = textCursor().block().layout(); const bool down = event->key() == Qt::Key_Down;
@@ -988,8 +1010,11 @@ void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
         const bool enter = event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter;
         const bool tab = event->key() == Qt::Key_Tab || event->key() == Qt::Key_Backtab;
         if ((plain || shift) && ((enter && shift) || tab)) {
-            const auto action = enter ? Action::AddRow : shift || event->key() == Qt::Key_Backtab ? Action::AddColumn : Action::NextCell;
-            applySourceEdit(MarkdownTableEditing::operate(m_source, index, cell.row(), cell.column(), action));
+            using Command = tmd::EditCommand;
+            const auto action = enter ? Command::AddRow : shift || event->key() == Qt::Key_Backtab ? Command::AddColumn : Command::NextCell;
+            tmd::EditRequest request{m_source, {inlineCursorSourcePosition(), inlineCursorSourcePosition()}, action, tmd::ViewMode::Rendered};
+            request.tableCell = tmd::TableCellAddress{index, cell.row(), cell.column()};
+            applySourceEdit(tmd::EditCommandRouter::dispatch(request).edit);
             event->accept(); return;
         }
         if (plain && !textCursor().hasSelection() && (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete)) {
@@ -1023,8 +1048,9 @@ void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
             const int caret = hasSourceSelection() ? m_selectionCaret : inlineCursorSourcePosition();
             const auto cell = table->cellAt(textCursor());
             const int index = table->format().intProperty(tableSourceIndex) - 1;
-            auto edit = index >= 0 ? MarkdownTableEditing::newline(m_source, anchor, caret, index, cell.row(), cell.column())
-                                  : MarkdownTableEditing::newline(m_source, anchor, caret);
+            tmd::EditRequest request{m_source, {anchor, caret}, tmd::EditCommand::Newline, tmd::ViewMode::Rendered};
+            if (index >= 0) request.tableCell = tmd::TableCellAddress{index, cell.row(), cell.column()};
+            auto edit = index >= 0 ? tmd::EditCommandRouter::dispatch(request).edit : MarkdownTableEditing::newline(m_source, anchor, caret);
             if (edit.handled) applySourceEdit(edit);
             event->accept(); return;
         }
@@ -1060,12 +1086,16 @@ void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
         }
     }
     if (event->key() == Qt::Key_Backspace && event->modifiers() == Qt::NoModifier && !textCursor().hasSelection()) {
-        auto edit = MarkdownListEditing::backspaceIndent(m_source, inlineCursorSourcePosition());
-        if (!edit.handled) edit = MarkdownBlockSyntax::backspaceEmptyPrefix(m_source, inlineCursorSourcePosition());
-        if (!edit.handled) edit = MarkdownCodeEditing::backspace(m_source, inlineCursorSourcePosition());
-        if (!edit.handled) edit = MarkdownParagraphEditing::backspace(m_source, inlineCursorSourcePosition());
+        const int caret = inlineCursorSourcePosition();
         const QString body = textCursor().block().text();
-        if (!edit.handled && (body.isEmpty() || !body.trimmed().isEmpty())) edit = MarkdownListEditing::backspace(m_source, inlineCursorSourcePosition());
+        tmd::EditRequest request{m_source, {caret, caret}, tmd::EditCommand::Backspace, tmd::ViewMode::Rendered};
+        request.listBackspaceAllowed = body.isEmpty() || !body.trimmed().isEmpty();
+        const auto edit = tmd::EditCommandRouter::dispatch(request).edit;
+        if (edit.handled) { applySourceEdit(edit); event->accept(); return; }
+    }
+    if (event->key() == Qt::Key_Delete && event->modifiers() == Qt::NoModifier && !textCursor().hasSelection()) {
+        const int caret = inlineCursorSourcePosition();
+        const auto edit = tmd::EditCommandRouter::dispatch({m_source, {caret, caret}, tmd::EditCommand::DeleteForward, tmd::ViewMode::Rendered}).edit;
         if (edit.handled) { applySourceEdit(edit); event->accept(); return; }
     }
     // At the beginning of a heading, Backspace first restores the heading marker.
@@ -1108,16 +1138,16 @@ void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
     if (indent || newline) {
         const int anchor = hasSourceSelection() ? m_selectionAnchor : m_sourceMap.sourcePosition(textCursor().anchor());
         const int caret = hasSourceSelection() ? m_selectionCaret : m_sourceMap.sourcePosition(textCursor().position());
-        auto edit = indent ? MarkdownCodeEditing::indent(m_source, anchor, caret, event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier)
-                                 : MarkdownCodeEditing::newline(m_source, anchor, caret);
-        if (!edit.handled) edit = indent ? MarkdownListEditing::indent(m_source, anchor, caret, event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier)
-                                       : MarkdownListEditing::newline(m_source, anchor, caret);
-        if (!edit.handled && newline) {
+        const bool outdent = event->key() == Qt::Key_Backtab || event->modifiers() == Qt::ShiftModifier;
+        tmd::EditRequest request{m_source, {anchor, caret}, newline ? tmd::EditCommand::Newline
+            : outdent ? tmd::EditCommand::Outdent : tmd::EditCommand::Indent, tmd::ViewMode::Rendered};
+        if (newline) {
             const auto format = m_sourceMap.inlineFormatAt(textCursor().position());
             const int end = !textCursor().hasSelection() && textCursor().atBlockEnd() && format.valid() && format.displayEnd == textCursor().position()
                 ? format.sourceEnd : caret;
-            edit = MarkdownParagraphEditing::newline(m_source, anchor == caret ? end : anchor, end);
+            request.paragraphSelection = tmd::SourceSelection{anchor == caret ? end : anchor, end};
         }
+        const auto edit = tmd::EditCommandRouter::dispatch(request).edit;
         if (edit.handled) {
             applySourceEdit(edit);
             event->accept(); return;
@@ -1156,6 +1186,8 @@ void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
         && !CodeBlockFormat::samePanel(textCursor().block(), textCursor().block().next())
         && textCursor().block().layout()->lineForTextPosition(textCursor().positionInBlock()).lineNumber()
             + 1 >= textCursor().block().layout()->lineCount()) {
+        const auto leave = MarkdownCodeEditing::leave(m_source, inlineCursorSourcePosition());
+        if (leave.handled) { applySourceEdit(leave); event->accept(); return; }
         auto next = textCursor().block().next();
         while (next.isValid() && next.blockFormat().hasProperty(QTextFormat::BlockCodeFence)) next = next.next();
         if (next.isValid()) { setTextCursor(QTextCursor(next)); ensureCursorVisible(); event->accept(); return; }
@@ -1207,6 +1239,10 @@ void MarkdownDocumentView::keyPressEvent(QKeyEvent *event) {
     if (event->modifiers() == Qt::NoModifier && !event->text().isEmpty() && QString("-=*_").contains(event->text())
         && MarkdownSettingsStore::current().enabled(MarkdownSettings::AutoRender)) {
         const int caret = inlineCursorSourcePosition();
+        if (event->text() == "-" || event->text() == "=") {
+            const auto underline = MarkdownParagraphEditing::completeUnderline(m_source, caret);
+            if (underline.handled) { applySourceEdit(underline); event->accept(); return; }
+        }
         for (const auto &region : MarkdownSpelling::regions(m_source)) if (region.end == caret
             && (region.kind == MarkdownSpelling::Kind::Rule || region.kind == MarkdownSpelling::Kind::Underline)) {
             m_markupRefresh = true; setMarkdownSource(m_path, m_source); m_markupRefresh = false; restoreSourceCursor(caret, caret); break;

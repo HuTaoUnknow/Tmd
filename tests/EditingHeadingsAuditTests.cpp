@@ -1,6 +1,7 @@
 #include "ui/document/MarkdownDocumentView.h"
 #include "ui/document/MarkdownEditor.h"
 #include "core/settings/MarkdownSettings.h"
+#include "application/editing/EditCommandRouter.h"
 #include <QApplication>
 #include <QInputMethodEvent>
 #include <QTemporaryDir>
@@ -24,9 +25,107 @@ private slots:
     void paragraphEnterAndShiftEnterAgree();
     void quotedHeadingImportKeepsContainer_data();
     void quotedHeadingImportKeepsContainer();
+    void headingMarkerBackspace_data();
+    void headingMarkerBackspace();
+    void headingMarkerArrowNavigation();
 private:
     std::unique_ptr<QTemporaryDir> m_settings;
 };
+
+void EditingHeadingsAuditTests::headingMarkerBackspace_data() {
+    QTest::addColumn<QString>("initial"); QTest::addColumn<QString>("expected");
+    QTest::addColumn<int>("caret"); QTest::addColumn<int>("expectedCaret");
+    QTest::addColumn<bool>("rendered");
+    const auto add = [&](const char *name, const QString &before, const QString &sourcePrefix, const QString &documentPrefix,
+                         const QString &indent = QString(), const QString &body = "Title") {
+        for (int level : {1, 3, 6}) for (bool rendered : {false, true}) {
+            const QString heading = indent + QString(level, '#') + ' ' + body + "\n\nAfter";
+            const QString prefix = rendered ? documentPrefix : sourcePrefix;
+            QTest::newRow(qPrintable(QString("%1-h%2-%3").arg(name).arg(level).arg(rendered ? "doc" : "source")))
+                << before + heading << prefix + heading << int(before.size() + indent.size())
+                << int(prefix.size() + indent.size()) << rendered;
+        }
+    };
+    add("first-line", "", "", "");
+    add("leading-blank", "\n", "", "");
+    add("two-leading-blanks", "\n\n", "\n", "\n");
+    add("body-adjacent", "Body\n", "Body", "Body");
+    add("body-hidden-separator", "Body\n\n", "Body\n", "Body");
+    add("body-visible-blank", "Body\n\n\n", "Body\n\n", "Body\n\n");
+    add("body-spaces", "Body  \n", "Body  ", "Body  ");
+    add("indented-heading", "Body\n", "Body", "Body", "  ");
+    add("empty-heading", "Body\n", "Body", "Body", "", "");
+    add("bullet", "- item\n", "- item\n", "- item\n");
+    add("ordered", "2. item\n", "2. item\n", "2. item\n");
+    add("task", "- [ ] item\n", "- [ ] item\n", "- [ ] item\n");
+    add("list-continuation", "- item\ncontinuation\n", "- item\ncontinuation\n", "- item\ncontinuation\n");
+    add("list-hidden-separator", "- item\n\n", "- item\n", "- item\n\n");
+    add("list-visible-blank", "- item\n\n\n", "- item\n\n", "- item\n\n");
+    add("quote", "> quote\n", "> quote\n", "> quote\n");
+    add("heading", "## Previous\n", "## Previous\n", "## Previous\n");
+    add("setext", "Previous\n===\n", "Previous\n===\n", "Previous\n===\n");
+    add("rule", "***\n", "***\n", "***\n");
+    add("code", "```cpp\nx\n```\n", "```cpp\nx\n```\n", "```cpp\nx\n```\n");
+    add("code-hidden-separator", "```cpp\nx\n```\n\n", "```cpp\nx\n```\n", "```cpp\nx\n```\n\n");
+    add("table", "| A |\n| --- |\n", "| A |\n| --- |\n", "| A |\n| --- |\n");
+    add("image", "![alt](missing.png)\n", "![alt](missing.png)\n", "![alt](missing.png)\n");
+    add("definition", "[ref]: https://example.com\n", "[ref]: https://example.com\n", "[ref]: https://example.com\n");
+    add("html", "<div>body</div>\n\n", "<div>body</div>\n", "<div>body</div>\n\n");
+    add("metadata", "---\ntitle: meta\n---\n", "---\ntitle: meta\n---\n", "---\ntitle: meta\n---\n");
+}
+void EditingHeadingsAuditTests::headingMarkerBackspace() {
+    QFETCH(QString, initial); QFETCH(QString, expected); QFETCH(int, caret); QFETCH(int, expectedCaret); QFETCH(bool, rendered);
+    const auto mode = rendered ? tmd::ViewMode::Rendered : tmd::ViewMode::Source;
+    const auto edit = tmd::EditCommandRouter::dispatch({initial, {caret, caret}, tmd::EditCommand::Backspace, mode}).edit;
+    QVERIFY(edit.handled); QCOMPARE(edit.source, expected); QCOMPARE(edit.caret, expectedCaret);
+    QCOMPARE(edit.changed, initial != expected);
+    MarkdownDocumentView document; MarkdownEditor source;
+    QTextEdit *view = rendered ? static_cast<QTextEdit *>(&document) : &source;
+    view->resize(740, 420); view->show(); view->setFocus();
+    if (rendered) { document.setMarkdownSource("heading-marker.md", initial); document.restoreSourceCursor(caret, caret); }
+    else { source.setSource(initial); auto cursor = source.textCursor(); cursor.setPosition(caret); source.setTextCursor(cursor); }
+    QTest::keyClick(view, Qt::Key_Backspace);
+    QCOMPARE(rendered ? document.markdownSource() : source.source(), expected);
+    QCOMPARE(rendered ? document.inlineCursorSourcePosition() : source.textCursor().position(), expectedCaret);
+    QVERIFY(!view->textCursor().hasSelection());
+    if (rendered) {
+        document.setMarkdownSource("heading-marker.md", expected, true);
+        QCOMPARE(document.inlineCursorSourcePosition(), expectedCaret);
+        if (expected.indexOf('#') > 0 && !expected.left(expected.indexOf('#')).contains('\n')
+            && !expected.left(expected.indexOf('#')).trimmed().isEmpty()) {
+            QCOMPARE(view->textCursor().blockFormat().headingLevel(), 0);
+            QVERIFY(document.toPlainText().contains("#"));
+        }
+    } else if (initial != expected) {
+        QTest::keyClick(view, Qt::Key_Z, Qt::ControlModifier); QCOMPARE(source.source(), initial);
+        QTest::keyClick(view, Qt::Key_Y, Qt::ControlModifier); QCOMPARE(source.source(), expected);
+    }
+}
+
+void EditingHeadingsAuditTests::headingMarkerArrowNavigation() {
+    const QString initial = "Body\n\n### Title\n\nAfter";
+    MarkdownDocumentView view; view.resize(740, 420); view.show(); view.setFocus();
+    view.setMarkdownSource("heading-arrows.md", initial);
+    view.restoreSourceCursor(initial.indexOf("Title"), initial.indexOf("Title"));
+    for (int i = 0; i < 4; ++i) QTest::keyClick(&view, Qt::Key_Left);
+    QCOMPARE(view.inlineCursorSourcePosition(), initial.indexOf("###"));
+    QTest::keyClick(&view, Qt::Key_Backspace);
+    QCOMPARE(view.markdownSource(), QString("Body### Title\n\nAfter"));
+    QCOMPARE(view.inlineCursorSourcePosition(), 4); QCOMPARE(view.textCursor().blockFormat().headingLevel(), 0);
+    QTest::qWait(550); QCOMPARE(view.toPlainText(), QString("Body### Title\nAfter"));
+    // Inside the hash prefix, Backspace still edits one character normally.
+    view.setMarkdownSource("heading-arrows.md", initial);
+    view.restoreSourceCursor(initial.indexOf("###") + 2, initial.indexOf("###") + 2);
+    QTest::keyClick(&view, Qt::Key_Backspace);
+    QCOMPARE(view.markdownSource(), QString("Body\n\n## Title\n\nAfter"));
+    QCOMPARE(view.textCursor().blockFormat().headingLevel(), 2);
+    for (const QString prefix : {QString("> "), QString("- ")}) {
+        view.setMarkdownSource("nested-heading.md", prefix + "### Title");
+        view.restoreSourceCursor(prefix.size(), prefix.size()); QTest::keyClick(&view, Qt::Key_Backspace);
+        QCOMPARE(view.markdownSource(), prefix + "### Title");
+        QCOMPARE(view.inlineCursorSourcePosition(), prefix.size());
+    }
+}
 
 void EditingHeadingsAuditTests::initTestCase() {
     QCoreApplication::setOrganizationName("TmdEditingAudit");
@@ -52,6 +151,7 @@ void EditingHeadingsAuditTests::headingSpacesAndChineseInput() {
     QFETCH(int, level);
     QFETCH(bool, rendered);
     QFETCH(QString, before);
+    if (rendered && !before.isEmpty()) before += '\n';
     MarkdownDocumentView documentView;
     MarkdownEditor sourceView;
     QTextEdit *view = rendered ? static_cast<QTextEdit *>(&documentView) : &sourceView;
@@ -110,7 +210,7 @@ void EditingHeadingsAuditTests::quoteEnterKeepsSeparateParagraphs() {
     const QString expected = "Before\n\n" + quote + "Title\n" + quote + '\n' + quote + "next\n\nAfter";
     QCOMPARE(view.markdownSource(), expected);
     const auto verifyParagraphs = [&] {
-        QCOMPARE(view.toPlainText(), QString("Before\n\nTitle\nnext\nAfter"));
+        QCOMPARE(view.toPlainText(), QString("Before\nTitle\nnext\nAfter"));
         const auto title = view.document()->find("Title"), next = view.document()->find("next");
         QVERIFY(title.block() != next.block());
         QCOMPARE(title.blockFormat().intProperty(QTextFormat::BlockQuoteLevel), quote.count('>'));
@@ -140,7 +240,7 @@ void EditingHeadingsAuditTests::emptyQuoteEnterLeavesContainer() {
     const int titleEnd = source.indexOf("Title") + 5, normal = source.indexOf("normal");
     QVERIFY(normal > titleEnd);
     QCOMPARE(source.mid(titleEnd, normal - titleEnd).count('>'), remainingDepth * 2);
-    const QString display = remainingDepth ? "Before\n\nTitle\nnormal\nAfter" : "Before\n\nTitle\nnormal\n\nAfter";
+    const QString display = "Before\nTitle\nnormal\nAfter";
     QCOMPARE(view.toPlainText(), display);
     QCOMPARE(view.document()->find("normal").blockFormat().intProperty(QTextFormat::BlockQuoteLevel), remainingDepth);
     view.setMarkdownSource("quote-exit-audit.md", source, true);

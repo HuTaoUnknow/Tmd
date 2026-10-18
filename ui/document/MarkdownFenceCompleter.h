@@ -13,7 +13,7 @@ public:
     using Context = QPair<QString, int>;
     using ReadContext = std::function<Context()>;
     using ReplaceFence = std::function<void(int, int, const QString &, int)>;
-    MarkdownFenceCompleter(QTextEdit *editor, ReadContext read, ReplaceFence replace);
+    MarkdownFenceCompleter(QTextEdit *editor, ReadContext read, ReplaceFence replace, bool separateElements = false);
     bool isEditingFence() const;
     void reset();
     static bool isOpeningFence(const QString &source, int cursor);
@@ -30,5 +30,6 @@ private:
     QString m_dismissed;
     bool m_scheduled = false;
     bool m_choiceNavigated = false;
+    bool m_separateElements = false;
     int m_newFenceLineStart = -1;
 };

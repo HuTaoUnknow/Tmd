@@ -2,7 +2,9 @@
 #include <QString>
 #include <QVector>
 #include <QMap>
+#include <memory>
 #include "core/markdown/MarkdownSpelling.h"
+namespace tmd { class MarkdownSnapshot; }
 
 // Maps displayed characters to their original spelling, including escaped text
 // and images. Edits touch those spans rather than reserializing the whole file.
@@ -33,7 +35,8 @@ public:
     using InlineCode = InlineFormat;
     const QVector<InlineFormat> &inlineFormats() const { return m_inlineFormats; }
     InlineFormat inlineFormatAt(int displayPosition) const;
-    void rebuild(const QString &source, const QString &display, const QVector<QPair<int, int>> &blockBoundaries = {});
+    void rebuild(const QString &source, const QString &display, const QVector<QPair<int, int>> &blockBoundaries = {},
+                 std::shared_ptr<const tmd::MarkdownSnapshot> snapshot = {});
     struct WhitespaceEdit { int position, removed; QString text; };
     QVector<WhitespaceEdit> editableWhitespaceEdits() const;
     int sourcePosition(int displayPosition) const;
@@ -45,6 +48,8 @@ public:
 private:
     struct Container { int start, end, contentStart, contentEnd; bool inlineCode = false; };
     QString m_source, m_display;
+    mutable std::shared_ptr<const tmd::MarkdownSnapshot> m_snapshot;
+    const tmd::MarkdownSnapshot &snapshot() const;
     QVector<Span> m_spans;
     QVector<Span> m_literalRanges;
     QVector<Container> m_containers;

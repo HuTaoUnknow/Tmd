@@ -27,15 +27,17 @@ cmake --build build-release --parallel 4
 .\scripts\Build-Release.ps1 -QtDirectory "D:\Qt\6.11.1\mingw_64" -InnoCompiler "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 ```
 
-脚本依次构建 Release、部署测试运行依赖、串行运行十四组回归检查、部署程序依赖、创建便携 ZIP、编译安装包并生成 SHA256 校验文件。默认输出到 `dist/`。`-BuildDirectory` 和 `-OutputDirectory` 可指定其他位置。各组 QtTest 明细保存到构建目录中同名 `.txt` 文件；五组编辑检查（含本轮语法规则回归）可使用 `ctest -R tmd_editing --output-on-failure` 单独运行。
+脚本依次构建 Release、部署测试运行依赖、串行运行十五组回归检查、部署程序依赖、创建便携 ZIP、编译安装包并生成 SHA256 校验文件。默认输出到 `dist/`。`-BuildDirectory` 和 `-OutputDirectory` 可指定其他位置。各组 QtTest 明细保存到构建目录中同名 `.txt` 文件；六组编辑检查（含语法规则及模块化编辑回归）可使用 `ctest -R 'tmd_(editing|modular_editing)' --output-on-failure` 单独运行。
 
 `-SkipBuild` 用于已有构建；`-SkipTests` 仅适合已经验证的同一构建。发布包始终使用 `examples/` 中的五篇公开示例，不打包开发者的本地知识库。
+
+每版介绍保存在 `docs/releases/vX.Y.Z.md`，打包时复制为根目录的 `RELEASE-NOTES.md`。便携包附带 `Start-Tmd.cmd`，从其所在目录启动程序，可传递与 EXE 相同的命令行参数。
 
 ### 发布约定
 
 更新 `CMakeLists.txt` 中的版本和 `CHANGELOG.md`，完整运行构建与安装验证，再建立 `vX.Y.Z` 标签。GitHub Release 上传 Setup、Portable、源代码包和 `SHA256SUMS.txt`，使用中英文说明。
 
-仅源码发布时，完成源码构建与检查、建立版本标签并发布中英文说明即可，不调用安装包生成脚本。v1.0.2 为历史源码发布；当前 v1.1.0 同时提供安装版和便携版。生成新版安装包时执行安装、升级及卸载验证。
+仅源码发布时，完成源码构建与检查、建立版本标签并发布中英文说明即可，不调用安装包生成脚本。v1.0.2 为历史源码发布；当前 v1.1.1 同时提供安装版和便携版。生成新版安装包时执行安装、升级及卸载验证。
 
 `.github/workflows/build.yml` 在推送或 PR 时进行 Windows 构建与测试，并保存测试记录。初版安装包在本地完成实际安装、升级、注册与卸载检查后发布。
 
@@ -45,10 +47,10 @@ Use C++17, CMake 3.21+, Ninja, Qt 6.11.1 for MinGW 64-bit and a matching MinGW t
 
 Open `CMakeLists.txt` in Qt Creator, select the Qt MinGW 64-bit kit, and build the `tree_md` target. Development startup seeds a new local library from `examples/`; existing libraries are preserved. Local `md_data` and `md_photo` are ignored by Git.
 
-From a configured development terminal, use the commands above or run `scripts/Build-Release.ps1` with your Qt and ISCC paths. The script builds Release, deploys test runtimes, runs fourteen regression groups serially, deploys application runtimes, creates the portable ZIP, compiles Setup and writes SHA256 checksums to `dist/`. Per-group QtTest details are saved as matching `.txt` files in the build directory. Run `ctest -R tmd_editing --output-on-failure` for the five editing groups, including the confirmed syntax policy tests. Set `TEMP` and `TMP` to a writable build-local directory in restricted environments. Localhost HTTP and Windows Recycle Bin tests require the corresponding operating-system permissions.
+From a configured development terminal, use the commands above or run `scripts/Build-Release.ps1` with your Qt and ISCC paths. The script builds Release, deploys test runtimes, runs fifteen regression groups serially, deploys application runtimes, creates the portable ZIP, compiles Setup and writes SHA256 checksums to `dist/`. Per-group QtTest details are saved as matching `.txt` files in the build directory. Run `ctest -R 'tmd_(editing|modular_editing)' --output-on-failure` for the six editing groups, including syntax policy and modular editing checks. Set `TEMP` and `TMP` to a writable build-local directory in restricted environments. Localhost HTTP and Windows Recycle Bin tests require the corresponding operating-system permissions.
 
 `-BuildDirectory` and `-OutputDirectory` customize locations. `-SkipBuild` reuses a build; `-SkipTests` is intended only for an already verified identical build. Packages contain the reviewed starter files from `examples/`, never the developer's working library.
 
 For a release, update the CMake version and changelog, validate build and installation behavior, tag `vX.Y.Z`, and upload Setup, Portable, source and checksums with bilingual release notes. The GitHub workflow performs Windows builds/tests for pushes and pull requests.
 
-For a source-only release, build and check the source, create the version tag and publish bilingual notes without running the installer generation script. v1.0.2 was a source-only release; v1.1.0 includes installer and portable downloads. Installation, upgrade and removal checks are required when a new installer is produced.
+For a source-only release, build and check the source, create the version tag and publish bilingual notes without running the installer generation script. v1.0.2 was a source-only release; v1.1.1 includes installer and portable downloads. Installation, upgrade and removal checks are required when a new installer is produced.

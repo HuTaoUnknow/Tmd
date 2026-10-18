@@ -36,8 +36,8 @@ Fence openingFence(const QString &source, int cursor) {
 }
 }
 
-MarkdownFenceCompleter::MarkdownFenceCompleter(QTextEdit *editor, ReadContext read, ReplaceFence replace)
-    : QObject(editor), m_editor(editor), m_completer(new QCompleter(this)), m_read(std::move(read)), m_replace(std::move(replace)) {
+MarkdownFenceCompleter::MarkdownFenceCompleter(QTextEdit *editor, ReadContext read, ReplaceFence replace, bool separateElements)
+    : QObject(editor), m_editor(editor), m_completer(new QCompleter(this)), m_read(std::move(read)), m_replace(std::move(replace)), m_separateElements(separateElements) {
     m_completer->setObjectName("fenceLanguageCompleter");
     auto *model = new QStandardItemModel(m_completer);
     for (const auto &language : LanguageCatalog::entries()) {
@@ -107,7 +107,7 @@ void MarkdownFenceCompleter::complete(const QString &language) {
         // paragraphs after that header are not code supplied by the user.
         QString replacement = language + context.first.mid(fence.start + fence.length, fence.lineEnd - fence.start - fence.length)
             + "\n\n" + fence.indent + fence.delimiter;
-        if (fence.lineEnd == context.first.size()) replacement += "\n";
+        if (fence.lineEnd == context.first.size()) replacement += m_separateElements ? "\n\n" : "\n";
         else if (context.first.mid(fence.lineEnd, 2) != "\n\n") replacement += '\n';
         const int bodyCaret = fence.start + language.size() + fence.lineEnd - fence.start - fence.length + 1;
         m_replace(fence.start, fence.lineEnd - fence.start, replacement, bodyCaret);
@@ -118,7 +118,7 @@ void MarkdownFenceCompleter::complete(const QString &language) {
     if (body.isEmpty() || !body.endsWith('\n')) body += '\n';
     const QString closer = closeStart < 0 ? fence.indent + fence.delimiter : context.first.mid(closeStart, closeEnd - closeStart);
     QString replacement = language + context.first.mid(fence.start + fence.length, fence.lineEnd - fence.start - fence.length) + '\n' + body + closer;
-    if (closeEnd == context.first.size()) replacement += "\n";
+    if (closeEnd == context.first.size()) replacement += m_separateElements ? "\n\n" : "\n";
     else if (context.first.mid(closeEnd, 2) != "\n\n") replacement += '\n';
     const int bodyCaret = fence.start + language.size() + fence.lineEnd - fence.start - fence.length + 1;
     m_replace(fence.start, closeEnd - fence.start, replacement, bodyCaret);

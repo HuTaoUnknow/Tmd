@@ -1,7 +1,7 @@
 {
   "verifiedAt": "2026-10-15T19:40:04+08:00",
   "rules": {
-    "confirmed": 54,
+    "confirmed": 55,
     "existing": 13,
     "openQuestions": 0
   },
@@ -56,5 +56,91 @@
     "sha256": "8BDC1478E2E9E3CD3611A8B99F59230A8B8E7465D05CF4FEE9A17A27E63F78EB",
     "report": "build-release-v110/release-validation.xml",
     "testedOn": "2026-10-15"
+  },
+  "blankSeparatorCorrection": {
+    "verifiedAt": "2026-10-16T14:44:14.5979173+08:00",
+    "configuration": "Debug",
+    "binary": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tree_md.exe",
+    "sha256": "49CBFDB26493ADC4CD67D4127E6C299D7AC46BF14AC5E6120D21FD5C60D0EEB4",
+    "fullRegression": {
+      "groups": 14,
+      "failed": 0,
+      "seconds": 393.32,
+      "report": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/blank-separator-final.xml",
+      "scope": "完整空行修复通过；之后补充活动/原文任务前缀边界，并完成最终相关复测"
+    },
+    "finalRegression": {
+      "groups": 3,
+      "failed": 0,
+      "seconds": 35.17,
+      "names": [
+        "tmd_markdown_core",
+        "tmd_editing_list_audit",
+        "tmd_editing_policy"
+      ],
+      "report": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/blank-prefix-final.xml"
+    },
+    "policyTests": {
+      "qtTestPassed": 55,
+      "failed": 0,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt"
+    },
+    "tableTypingTests": {
+      "qtTestPassed": 19,
+      "failed": 0,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/blank-table-editing-final.txt"
+    },
+    "comparison": "package/blankline-review/README.md",
+    "debugLaunch": "opened at user request on 2026-10-16",
+    "publication": "user chose not to publish this correction"
+  },
+  "firstElementBlankPolicy": {
+    "verifiedAt": "2026-10-16T19:47:57.6594712+08:00",
+    "rule": "N55: hide the first empty physical row after each Markdown element; preserve extra rows, spaces and literal interiors",
+    "configuration": "Debug",
+    "binary": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tree_md.exe",
+    "sha256": "0B3806958B12C738507FF0F14A65C110748B79BFC0C34AF1EE422773739A299B",
+    "build": "all targets passed",
+    "fullRegression": {
+      "groups": 14,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 379.72,
+      "report": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/element-separators-verified.xml",
+      "names": [
+        "tmd_markdown_core",
+        "tmd_incremental_refresh",
+        "tmd_editing_headings_audit",
+        "tmd_editing_code_audit",
+        "tmd_editing_list_audit",
+        "tmd_editing_integration_audit",
+        "tmd_library_regressions",
+        "tmd_images_regressions",
+        "tmd_document_regressions",
+        "tmd_knowledge_regressions",
+        "tmd_workspace_regressions",
+        "tmd_settings_regressions",
+        "tmd_editing_policy",
+        "tmd_library_initialization"
+      ]
+    },
+    "policyTests": {
+      "functionalCases": 90,
+      "qtTestPassed": 92,
+      "failed": 0,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt",
+      "preflightLog": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/element-blank-policy-verified.txt"
+    },
+    "renderComparison": {
+      "path": "package/element-blank-review/README.md",
+      "sourceUnchangedOnLoad": true,
+      "sampleSha256": "2F56C394F1785E5EE70C1FC9FB782F63603510F216CD2752FD596C32ECD395B6",
+      "screenshots": [
+        "before.png",
+        "after.png",
+        "after-code-blanks.png"
+      ]
+    },
+    "debugEntry": "desktop Tmd Debug shortcut via scripts/Start-Debug.ps1"
   }
 }

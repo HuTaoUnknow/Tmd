@@ -29,6 +29,18 @@ private slots:
         QSettings::setDefaultFormat(QSettings::IniFormat); QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings.path());
         QVERIFY(MarkdownSettingsStore::save(MarkdownSettings()));
     }
+    void headingMarkerCrLfKeepsLineEndings() {
+        const QString title = "### Title\r\n\r\nAfter";
+        for (bool rendered : {false, true}) {
+            const QString initial = "Body\r\n\r\n" + title;
+            const auto edit = MarkdownParagraphEditing::backspace(initial, initial.indexOf('#'), rendered);
+            QVERIFY(edit.handled); QCOMPARE(edit.source, (rendered ? QString("Body") : QString("Body\r\n")) + title);
+            QCOMPARE(edit.caret, rendered ? 4 : 6);
+            const QString blocked = "- item\r\n" + title;
+            const auto blockedEdit = MarkdownParagraphEditing::backspace(blocked, blocked.indexOf('#'), rendered);
+            QVERIFY(blockedEdit.handled); QVERIFY(!blockedEdit.changed); QCOMPARE(blockedEdit.source, blocked);
+        }
+    }
     void rectangularTablePreservesExtraContent() {
         const QString input = "Before\n\n| A | B |\n| :--- | ---: |\n| one | two | three |\n\nAfter";
         const auto result = MarkdownTableEditing::normalize(input);
@@ -135,24 +147,243 @@ private slots:
             MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
             view.setMarkdownSource("split-inline.md", delimiter + "AB" + delimiter);
             view.restoreSourceCursor(delimiter.size() + 1, delimiter.size() + 1); QTest::keyClick(&view, Qt::Key_Return);
-            const QString expected = delimiter + "A\nB" + delimiter;
-            QCOMPARE(view.markdownSource(), expected); QCOMPARE(view.toPlainText(), expected);
+            const QString expected = delimiter + "A\n\nB" + delimiter;
+            const QString displayed = delimiter + "A\nB" + delimiter;
+            QCOMPARE(view.markdownSource(), expected); QCOMPARE(view.toPlainText(), displayed);
             const auto first = view.document()->find("A"); QVERIFY(first.charFormat().fontWeight() < QFont::Bold);
             QVERIFY(!first.charFormat().fontItalic()); QVERIFY(!first.charFormat().fontStrikeOut()); QVERIFY(!first.charFormat().fontFixedPitch());
-            view.setMarkdownSource("split-inline.md", expected, true); QCOMPARE(view.toPlainText(), expected);
+            view.setMarkdownSource("split-inline.md", expected, true); QCOMPARE(view.toPlainText(), displayed);
         }
     }
     void physicalBodyLinesAndSpacesSurviveReload() {
         MarkdownDocumentView view;
         const QString input = "first  \n    second\n\n\n  third \n";
         view.setMarkdownSource("space.md", input);
-        QCOMPARE(view.toPlainText(), input); QCOMPARE(view.markdownSource(), input);
-        view.setMarkdownSource("space.md", input, true); QCOMPARE(view.toPlainText(), input);
+        const QString displayed = "first  \n    second\n\n  third \n";
+        QCOMPARE(view.toPlainText(), displayed); QCOMPARE(view.markdownSource(), input);
+        view.setMarkdownSource("space.md", input, true); QCOMPARE(view.toPlainText(), displayed);
         for (const QString &heading : {QString("> ## title"), QString("> title\n> ---")}) {
             const QString quoted = heading + "\n\nbody";
             view.setMarkdownSource("quoted-heading-space.md", quoted);
-            QCOMPARE(view.toPlainText(), QString("title\n\nbody")); QCOMPARE(view.markdownSource(), quoted);
+            QCOMPARE(view.toPlainText(), QString("title\nbody")); QCOMPARE(view.markdownSource(), quoted);
         }
+    }
+    void grammarBlankRows_data() {
+        QTest::addColumn<QString>("source");
+        QTest::addColumn<int>("visibleBlanks");
+        QTest::newRow("ordinary") << QString("first\n\nbody") << 0;
+        QTest::newRow("ordinary-extra") << QString("first\n\n\nbody") << 1;
+        QTest::newRow("heading") << QString("## title\n\nbody") << 0;
+        QTest::newRow("heading-extra") << QString("## title\n\n\nbody") << 1;
+        QTest::newRow("setext") << QString("title\n===\n\nbody") << 0;
+        QTest::newRow("heading-to-heading") << QString("## title\n\n### body") << 0;
+        QTest::newRow("fence") << QString("```cpp\nx\n```\n\nbody") << 0;
+        QTest::newRow("fence-extra") << QString("```cpp\nx\n```\n\n\nbody") << 1;
+        QTest::newRow("unpaired-fence-is-body") << QString("```unknown\n\nbody") << 0;
+        QTest::newRow("crlf") << QString("first\r\n\r\nbody") << 0;
+        QTest::newRow("spaced-row-is-content") << QString("first\n  \nbody") << 1;
+        QTest::newRow("ordered-list") << QString("3. item\n\nbody") << 0;
+        QTest::newRow("list-to-heading") << QString("- item\n\n## body") << 0;
+        QTest::newRow("list") << QString("- item\n\nbody") << 0;
+        QTest::newRow("list-extra") << QString("- item\n\n\nbody") << 1;
+        QTest::newRow("restored-task-prefix-is-literal") << QString("- [ ]\n\nbody") << 0;
+        QTest::newRow("empty-active-list") << QString("- \n\nbody") << 0;
+        QTest::newRow("empty-active-task") << QString("- [ ] \n\nbody") << 0;
+        QTest::newRow("list-continuation") << QString("- item\n  continuation\n\nbody") << 0;
+        QTest::newRow("list-continuation-extra") << QString("- item\n  continuation\n\n\nbody") << 1;
+        QTest::newRow("quote") << QString("> item\n\nbody") << 0;
+        QTest::newRow("quote-extra") << QString("> item\n\n\nbody") << 1;
+        QTest::newRow("quote-paragraph") << QString("> item\n> \n> body") << 0;
+        QTest::newRow("quote-paragraph-extra") << QString("> item\n> \n> \n> body") << 1;
+        QTest::newRow("table") << QString("| A |\n| --- |\n| value |\n\nbody") << 0;
+        QTest::newRow("table-extra") << QString("| A |\n| --- |\n| value |\n\n\nbody") << 1;
+        QTest::newRow("table-spaced-extra") << QString("| A |\n| --- |\n| value |\n\n  \nbody") << 1;
+    }
+    void documentEnterGeneratesHiddenSeparator_data() {
+        QTest::addColumn<QString>("source"); QTest::addColumn<int>("caret");
+        QTest::addColumn<QString>("expected"); QTest::addColumn<QString>("displayed"); QTest::addColumn<QString>("typed");
+        QTest::newRow("body-middle") << QString("AB") << 1 << QString("A\n\nB") << QString("A\nB") << QString("A\n\nxB");
+        QTest::newRow("body-end") << QString("AB") << 2 << QString("AB\n\n") << QString("AB\n") << QString("AB\n\nx");
+        QTest::newRow("body-before-existing-paragraph") << QString("A\n\nbody") << 1 << QString("A\n\n\nbody") << QString("A\n\nbody") << QString("A\n\nx\n\nbody");
+        QTest::newRow("heading-before-existing-paragraph") << QString("## A\n\nbody") << 4 << QString("## A\n\n\nbody") << QString("A\n\nbody") << QString("## A\n\nx\n\nbody");
+        QTest::newRow("setext-before-existing-paragraph") << QString("A\n---\n\nbody") << 1 << QString("A\n---\n\n\nbody") << QString("A\n\nbody") << QString("A\n---\n\nx\n\nbody");
+        QTest::newRow("quote-before-existing-paragraph") << QString("> A\n> \n> B") << 3 << QString("> A\n> \n> \n> B") << QString("A\n\nB") << QString("> A\n> \n> x\n> B");
+        QTest::newRow("quote-before-outside-paragraph") << QString("> A\n\nbody") << 3 << QString("> A\n> \n> \n\nbody") << QString("A\n\nbody") << QString("> A\n> \n> x\n\nbody");
+        QTest::newRow("body-start") << QString("AB") << 0 << QString("\nAB") << QString("\nAB") << QString("\nxAB");
+        QTest::newRow("heading-middle") << QString("## AB") << 4 << QString("## A\n\nB") << QString("A\nB") << QString("## A\n\nxB");
+        QTest::newRow("setext-middle") << QString("AB\n---") << 1 << QString("A\n---\n\nB") << QString("A\nB") << QString("A\n---\n\nxB");
+        QTest::newRow("empty") << QString() << 0 << QString("\n") << QString("\n") << QString("\nx");
+        QTest::newRow("spaces") << QString("  ") << 2 << QString("  \n") << QString("  \n") << QString("  \nx");
+    }
+    void documentEnterGeneratesHiddenSeparator() {
+        QFETCH(QString, source); QFETCH(int, caret); QFETCH(QString, expected); QFETCH(QString, displayed); QFETCH(QString, typed);
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        view.setMarkdownSource("generated-separator.md", source); view.restoreSourceCursor(caret, caret);
+        QTest::keyClick(&view, Qt::Key_Return);
+        QCOMPARE(view.markdownSource(), expected); QCOMPARE(view.toPlainText(), displayed);
+        const int bodyCaret = view.inlineCursorSourcePosition();
+        QTest::keyClicks(&view, "x");
+        QCOMPARE(view.markdownSource(), typed); QCOMPARE(view.inlineCursorSourcePosition(), bodyCaret + 1);
+        view.setMarkdownSource("generated-separator.md", typed, true);
+        QCOMPARE(view.markdownSource(), typed);
+    }
+    void visibleExtraRowsAndHiddenSeparatorsDeleteInOneStep() {
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        view.setMarkdownSource("extra.md", "first"); view.moveCursor(QTextCursor::End);
+        QTest::keyClick(&view, Qt::Key_Return); QTest::keyClick(&view, Qt::Key_Return); QTest::keyClicks(&view, "next");
+        QCOMPARE(view.markdownSource(), QString("first\n\n\nnext")); QCOMPARE(view.toPlainText(), QString("first\n\nnext"));
+        view.setMarkdownSource("extra.md", view.markdownSource(), true);
+        view.restoreSourceCursor(view.markdownSource().indexOf("next"), view.markdownSource().indexOf("next"));
+        QTest::keyClick(&view, Qt::Key_Backspace);
+        QCOMPARE(view.markdownSource(), QString("first\n\nnext")); QCOMPARE(view.toPlainText(), QString("first\nnext"));
+        QTest::keyClick(&view, Qt::Key_Backspace);
+        QCOMPARE(view.markdownSource(), QString("firstnext")); QCOMPARE(view.inlineCursorSourcePosition(), 5);
+        view.setMarkdownSource("delete.md", "first\n\nnext"); view.restoreSourceCursor(5, 5);
+        QTest::keyClick(&view, Qt::Key_Delete); QCOMPARE(view.markdownSource(), QString("firstnext"));
+    }
+    void fillingVisibleBlankKeepsLaterVisibleRows() {
+        for (const QString &before : {QString("first"), QString("## title"), QString("| A |\n| --- |")}) {
+            const QString input = before + "\n\n\n\nnext";
+            MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+            view.setMarkdownSource("fill-blank.md", input);
+            const int caret = before.size() + 2;
+            view.restoreSourceCursor(caret, caret); QTest::keyClicks(&view, "body");
+            QCOMPARE(view.markdownSource(), before + "\n\nbody\n\n\nnext");
+            const auto next = view.document()->find("next");
+            auto previous = next.block().previous();
+            while (previous.isValid() && !previous.isVisible()) previous = previous.previous();
+            QVERIFY(previous.text().isEmpty());
+            QCOMPARE(view.inlineCursorSourcePosition(), caret + 4);
+        }
+    }
+    void literalPanelBlanksAndBoundaryDeletionStayIntact() {
+        const QString input = "```cpp\na\n\nb\n```\n\nbody";
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        view.setMarkdownSource("panel-separator.md", input);
+        QVERIFY(view.toPlainText().startsWith("a\n\nb\nbody"));
+        view.restoreSourceCursor(input.indexOf("body"), input.indexOf("body"));
+        QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), input);
+        const QString metadata = "---\ntitle: a\n\ntags: b\n---\n\nbody";
+        view.setMarkdownSource("metadata.md", metadata); QVERIFY(view.toPlainText().contains("title: a\n\ntags: b\nbody"));
+        QCOMPARE(view.markdownSource(), metadata);
+    }
+    void setextSeparatorMergesKeepTheUnderline() {
+        const QString input = "title\n===\n\nbody";
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        view.setMarkdownSource("setext-merge.md", input);
+        view.restoreSourceCursor(input.indexOf("body"), input.indexOf("body"));
+        QTest::keyClick(&view, Qt::Key_Backspace);
+        QCOMPARE(view.markdownSource(), QString("titlebody\n===")); QCOMPARE(view.toPlainText(), QString("titlebody"));
+        view.setMarkdownSource("setext-merge.md", input); view.restoreSourceCursor(5, 5);
+        QTest::keyClick(&view, Qt::Key_Delete); QCOMPARE(view.markdownSource(), QString("titlebody\n==="));
+    }
+    void typedUnderlineReusesGeneratedGapButRetainsExplicitBlank() {
+        for (const QString &underline : {QString("---"), QString("===")}) {
+            MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+            view.setMarkdownSource("typed-underline.md", "title"); view.moveCursor(QTextCursor::End);
+            QTest::keyClick(&view, Qt::Key_Return); QTest::keyClicks(&view, underline);
+            QCOMPARE(view.markdownSource(), "title\n" + underline);
+            QCOMPARE(MarkdownParser::outline(view.markdownSource()).size(), 1);
+            view.setMarkdownSource("typed-underline.md", "title"); view.moveCursor(QTextCursor::End);
+            QTest::keyClick(&view, Qt::Key_Return); QTest::keyClick(&view, Qt::Key_Return); QTest::keyClicks(&view, underline);
+            QCOMPARE(view.markdownSource(), "title\n\n\n" + underline);
+            QVERIFY(MarkdownParser::outline(view.markdownSource()).isEmpty());
+            view.setMarkdownSource("loaded-underline.md", "title\n\n" + underline);
+            QCOMPARE(view.markdownSource(), "title\n\n" + underline);
+            QVERIFY(MarkdownParser::outline(view.markdownSource()).isEmpty());
+        }
+    }
+    void emptyQuoteExitSharesOutsideSeparator_data() {
+        QTest::addColumn<QString>("quote"); QTest::addColumn<QString>("suffix"); QTest::addColumn<QString>("displayed");
+        QTest::newRow("one-before-body") << QString("> ") << QString("\n\nAfter") << QString("Title\nnormal\nAfter");
+        QTest::newRow("two-before-body") << QString("> > ") << QString("\n\nAfter") << QString("Title\nnormal\nAfter");
+        QTest::newRow("one-before-extra-blank") << QString("> ") << QString("\n\n\nAfter") << QString("Title\nnormal\n\nAfter");
+        QTest::newRow("one-at-eof") << QString("> ") << QString() << QString("Title\nnormal");
+        QTest::newRow("two-at-eof") << QString("> > ") << QString() << QString("Title\nnormal");
+    }
+    void emptyQuoteExitSharesOutsideSeparator() {
+        QFETCH(QString, quote); QFETCH(QString, suffix); QFETCH(QString, displayed);
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        const QString source = quote + "Title" + suffix;
+        view.setMarkdownSource("quote-exit.md", source); view.restoreSourceCursor(quote.size() + 5, quote.size() + 5);
+        QTest::keyClick(&view, Qt::Key_Return); QTest::keyClick(&view, Qt::Key_Return);
+        QCOMPARE(view.textCursor().blockFormat().intProperty(QTextFormat::BlockQuoteLevel), quote.count('>') - 1);
+        QTest::keyClicks(&view, "normal"); QCOMPARE(view.toPlainText(), displayed);
+        const QString edited = view.markdownSource();
+        view.setMarkdownSource("quote-exit.md", edited, true); QCOMPARE(view.toPlainText(), displayed);
+        QVERIFY(edited.endsWith(suffix.isEmpty() ? "normal" : "After"));
+    }
+    void codeExitCreatesExactlyOneHiddenSeparator_data() {
+        QTest::addColumn<QString>("suffix");
+        QTest::newRow("eof") << QString(); QTest::newRow("terminal-newline") << QString("\n");
+        QTest::newRow("body") << QString("\nbody"); QTest::newRow("separated-body") << QString("\n\nbody");
+        QTest::newRow("extra-blank") << QString("\n\n\nbody");
+    }
+    void codeExitCreatesExactlyOneHiddenSeparator() {
+        QFETCH(QString, suffix);
+        const QString code = "```cpp\nx\n```";
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        view.setMarkdownSource("code-exit.md", code + suffix); view.restoreSourceCursor(8, 8);
+        QTest::keyClick(&view, Qt::Key_Down);
+        const QString expected = code + (suffix.startsWith("\n\n") ? suffix : "\n\n" + suffix.mid(suffix.startsWith('\n') ? 1 : 0));
+        QCOMPARE(view.markdownSource(), expected); QCOMPARE(view.inlineCursorSourcePosition(), code.size() + 2);
+        QVERIFY(!view.textCursor().blockFormat().hasProperty(QTextFormat::BlockCodeFence));
+        QTest::keyClicks(&view, "z"); QString edited = expected; edited.insert(code.size() + 2, suffix == "\n\n\nbody" ? "z\n" : "z");
+        QCOMPARE(view.markdownSource(), edited);
+    }
+    void grammarBlankRows() {
+        QFETCH(QString, source); QFETCH(int, visibleBlanks);
+        MarkdownDocumentView view;
+        for (bool reload : {false, true}) {
+            view.setMarkdownSource("blank-policy.md", source, reload);
+            QCOMPARE(view.markdownSource(), source);
+            const auto body = view.document()->find("body"); QVERIFY(!body.isNull());
+            int empty = 0;
+            for (auto block = body.block().previous(); block.isValid() && !block.textList() && block.text().trimmed().isEmpty(); block = block.previous())
+                if (block.isVisible()) ++empty;
+            QCOMPARE(empty, visibleBlanks);
+            view.restoreSourceCursor(source.lastIndexOf("body"), source.lastIndexOf("body"));
+            QCOMPARE(view.inlineCursorSourcePosition(), source.lastIndexOf("body"));
+        }
+    }
+    void generatedTableSeparatorAndAdditionalBlankStayDistinct() {
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        const QString table = "| A |\n| --- |\n| value |";
+        view.setMarkdownSource("table-exit-space.md", table);
+        view.restoreSourceCursor(table.indexOf("value") + 5, table.indexOf("value") + 5);
+        QTest::keyClick(&view, Qt::Key_Tab); QVERIFY(!view.textCursor().currentTable());
+        QCOMPARE(view.markdownSource(), table + "\n\n");
+        QCOMPARE(view.inlineCursorSourcePosition(), view.markdownSource().size());
+        QTest::keyClicks(&view, "body");
+        QCOMPARE(view.markdownSource(), table + "\n\nbody");
+        auto previous = view.document()->find("body").block().previous();
+        while (previous.isValid() && !previous.isVisible()) previous = previous.previous();
+        QCOMPARE(previous.text(), QString("value"));
+        view.restoreSourceCursor(view.markdownSource().indexOf("body"), view.markdownSource().indexOf("body"));
+        QTest::keyClick(&view, Qt::Key_Return);
+        QCOMPARE(view.markdownSource(), table + "\n\n\nbody");
+        QVERIFY(view.document()->find("body").block().previous().text().isEmpty());
+        QTest::keyClick(&view, Qt::Key_Backspace);
+        QCOMPARE(view.markdownSource(), table + "\n\nbody");
+        previous = view.document()->find("body").block().previous();
+        while (previous.isValid() && !previous.isVisible()) previous = previous.previous();
+        QCOMPARE(previous.text(), QString("value"));
+    }
+    void tablePlaceholderRemovalKeepsLaterEmptyPrefixCarets() {
+        MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
+        const QString source = "| A |\n| --- |\n| value |\n\nbody\n\n- \n\n## \n\nlast";
+        view.setMarkdownSource("table-prefixes.md", source);
+        const int list = source.indexOf("- \n") + 2;
+        view.restoreSourceCursor(list, list);
+        QVERIFY(view.textCursor().block().textList()); QVERIFY(view.textCursor().block().text().isEmpty());
+        QTest::keyClicks(&view, "item");
+        QString expected = source; expected.insert(list, "item"); QCOMPARE(view.markdownSource(), expected);
+        view.setMarkdownSource("table-prefixes.md", expected, true);
+        const int heading = expected.indexOf("## ") + 3;
+        view.restoreSourceCursor(heading, heading);
+        QCOMPARE(view.textCursor().blockFormat().headingLevel(), 2); QVERIFY(view.textCursor().block().text().isEmpty());
+        QTest::keyClicks(&view, "title");
+        expected.insert(heading, "title"); QCOMPARE(view.markdownSource(), expected);
     }
     void ordinaryIndentDoesNotCreateHiddenBlocksOrBreakInlineStyle() {
         MarkdownDocumentView view;
@@ -192,7 +423,9 @@ private slots:
     void htmlAndCommentsAreLiteral() {
         MarkdownDocumentView view;
         const QString input = "<b>text</b>\n\n<!-- first\nsecond -->\n<div>after</div>";
-        view.setMarkdownSource("html.md", input); QCOMPARE(view.toPlainText(), input); QCOMPARE(view.markdownSource(), input);
+        view.setMarkdownSource("html.md", input);
+        QCOMPARE(view.toPlainText(), QString("<b>text</b>\n<!-- first\nsecond -->\n<div>after</div>"));
+        QCOMPARE(view.markdownSource(), input);
     }
     void linkAndEntityExpandWithoutChangingSource() {
         MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
@@ -241,7 +474,7 @@ private slots:
     void exitListHasOneBodyPositionAndOneMerge() {
         MarkdownDocumentView view; view.resize(700, 400); view.show(); view.setFocus();
         view.setMarkdownSource("exit.md", "- first\n- "); view.restoreSourceCursor(10, 10);
-        QTest::keyClick(&view, Qt::Key_Backspace); QTest::keyClick(&view, Qt::Key_Backspace);
+        QTest::keyClick(&view, Qt::Key_Backspace);
         QCOMPARE(view.markdownSource(), QString("- first\n\n")); QCOMPARE(view.toPlainText(), QString("first\n"));
         QTest::keyClick(&view, Qt::Key_Backspace); QCOMPARE(view.markdownSource(), QString("- first"));
     }
@@ -322,9 +555,10 @@ private slots:
             if (rendered) { document.setMarkdownSource("code-exit.md", input); document.restoreSourceCursor(8, 8); }
             else { editor.setSource(input); auto cursor = editor.textCursor(); cursor.setPosition(8); editor.setTextCursor(cursor); }
             QTest::keyClick(view, Qt::Key_Down);
-            QCOMPARE(rendered ? document.markdownSource() : editor.source(), input + '\n');
+            QCOMPARE(rendered ? document.markdownSource() : editor.source(), input + (rendered ? "\n\n" : "\n"));
             QVERIFY(view->textCursor().block().text().isEmpty());
-            QTest::keyClicks(view, "body"); QCOMPARE(rendered ? document.markdownSource() : editor.source(), input + "\nbody");
+            QTest::keyClicks(view, "body");
+            QCOMPARE(rendered ? document.markdownSource() : editor.source(), input + (rendered ? "\n\nbody" : "\nbody"));
         }
     }
 };

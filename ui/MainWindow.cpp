@@ -3,6 +3,8 @@
 #include "ui/library/OutlineSidebar.h"
 #include "ui/document/MarkdownEditor.h"
 #include "ui/document/MarkdownDocumentView.h"
+#include "ui/document/QtTextEditAdapter.h"
+#include <QScopedValueRollback>
 #include "ui/settings/MarkdownSettingsDialog.h"
 #include "ui/settings/ImageSettingsDialog.h"
 #include "core/settings/MarkdownSettings.h"
@@ -160,6 +162,7 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_graph, &KnowledgeGraphWidget::nodeActivated, this, [this](const QString &path) { openDocument(path); }, Qt::QueuedConnection);
     connect(m_outline, &OutlineSidebar::headingActivated, this, [this](int position) { if (m_sourceAction->isChecked()) m_editor->goToPosition(position); else m_document->goToSourcePosition(position); });
     connect(m_editor, &MarkdownEditor::imageFilesInserted, this, &MainWindow::insertImageFiles);
+    connect(m_editor, &MarkdownEditor::editRejected, this, &MainWindow::showError);
     connect(m_editor, &MarkdownEditor::clipboardImageInserted, this, &MainWindow::insertClipboardImage);
     connect(m_document, &MarkdownDocumentView::imageInputPositionRequested, this, [this](int position) { QTextCursor cursor(m_editor->document()); cursor.setPosition(qBound(0, position, m_editor->document()->characterCount() - 1)); m_editor->setTextCursor(cursor); });
     connect(m_document, &MarkdownDocumentView::imageFilesInserted, this, &MainWindow::insertImageFiles);
@@ -169,20 +172,21 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_document, &MarkdownDocumentView::sourceEdited, this, [this](const QString &source, int position) {
         const int documentCaret = m_pendingDocumentCaret; m_pendingDocumentCaret = -1;
         if (m_loading || m_current.isEmpty()) return;
-        const QString previous = m_editor->source(); int prefix = 0, oldEnd = previous.size(), newEnd = source.size();
+        const QString previous = m_editor->source();
         if (previous == source) return;
-        while (prefix < oldEnd && prefix < newEnd && previous[prefix] == source[prefix]) ++prefix;
-        while (oldEnd > prefix && newEnd > prefix && previous[oldEnd - 1] == source[newEnd - 1]) { --oldEnd; --newEnd; }
-        const int previousCaret = documentCaret >= 0 ? documentCaret : position < prefix ? position : position <= newEnd ? oldEnd : position + oldEnd - newEnd;
         const int undoSteps = m_editor->document()->availableUndoSteps();
-        for (auto it = m_renderedEditCarets.upperBound(undoSteps); it != m_renderedEditCarets.end();) it = m_renderedEditCarets.erase(it);
-        m_syncingDocument = true;
-        QTextCursor cursor(m_editor->document()); cursor.setPosition(qBound(0, previousCaret, previous.size()));
-        m_editor->setTextCursor(cursor); cursor.beginEditBlock(); cursor.setPosition(prefix); cursor.setPosition(oldEnd, QTextCursor::KeepAnchor);
-        cursor.insertText(source.mid(prefix, newEnd - prefix));
-        cursor.setPosition(qBound(0, position, m_editor->document()->characterCount() - 1)); cursor.endEditBlock(); m_editor->setTextCursor(cursor);
-        m_renderedEditCarets.insert(m_editor->document()->availableUndoSteps(), {previousCaret, position});
-        m_syncingDocument = false;
+        const int caret = qBound(0, position, int(source.size()));
+        MarkdownEdit edit{source, caret, caret, true, true};
+        auto cursor = m_editor->textCursor(); int previousCaret = 0; QString error;
+        {
+            QScopedValueRollback<bool> syncing(m_syncingDocument, true);
+            if (!tmd::QtTextEditAdapter::applyWithHistory(cursor, previous, edit, documentCaret, &previousCaret, &error)) {
+                showError(error); return;
+            }
+            for (auto it = m_renderedEditCarets.upperBound(undoSteps); it != m_renderedEditCarets.end();) it = m_renderedEditCarets.erase(it);
+            m_editor->setTextCursor(cursor);
+            m_renderedEditCarets.insert(m_editor->document()->availableUndoSteps(), {previousCaret, caret});
+        }
         updateEditorStatus();
     });
     connect(m_document, &MarkdownDocumentView::undoRequested, this, [this] { undoRedo(false); });

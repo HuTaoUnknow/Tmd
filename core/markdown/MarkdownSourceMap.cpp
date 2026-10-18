@@ -3,6 +3,7 @@
 #include "core/markdown/MarkdownAnalysis.h"
 #include "core/markdown/MarkdownSyntax.h"
 #include "core/markdown/MarkdownBlockSyntax.h"
+#include "core/markdown/analysis/MarkdownSnapshot.h"
 #include <QRegularExpression>
 #include <QTextDocumentFragment>
 #include <algorithm>
@@ -49,20 +50,30 @@ QVector<int> align(const QString &a, const QString &b) {
     return result;
 }
 }
-void MarkdownSourceMap::rebuild(const QString &source, const QString &display, const QVector<QPair<int, int>> &blockBoundaries) {
+const tmd::MarkdownSnapshot &MarkdownSourceMap::snapshot() const {
+    if (!m_snapshot || m_snapshot->source() != m_source || m_snapshot->mode() != tmd::MarkdownSnapshot::Mode::Rendering)
+        m_snapshot = std::make_shared<tmd::MarkdownSnapshot>(m_source, tmd::MarkdownSnapshot::Mode::Rendering);
+    return *m_snapshot;
+}
+void MarkdownSourceMap::rebuild(const QString &source, const QString &display, const QVector<QPair<int, int>> &blockBoundaries,
+                                std::shared_ptr<const tmd::MarkdownSnapshot> provided) {
     m_source = source; m_display = display; m_containers.clear(); m_boundaries.clear();
+    if (provided && provided->source() == source && provided->mode() == tmd::MarkdownSnapshot::Mode::Rendering)
+        m_snapshot = std::move(provided);
     for (const auto &boundary : blockBoundaries) m_boundaries.insert(boundary.first, boundary.second);
     QString visible; QVector<Span> candidates;
-    const auto analysis = MarkdownAnalysis::forRendering(source);
-    const auto syntax = MarkdownSyntax::scan(source, &analysis);
+    const auto &analysis = snapshot().analysis();
+    const auto &syntax = snapshot().syntax();
+    const auto separators = MarkdownBlockSyntax::separatorLines(source, &analysis);
     QMap<int, int> editablePrefixEnds;
     for (const auto &marker : MarkdownBlockSyntax::markers(source, &analysis)) if (marker.prefix) editablePrefixEnds.insert(marker.lineStart, marker.end);
     QVector<char> opaque(source.size(), 0);
-    QSet<int> imagePositions; for (const auto &image : MarkdownImages::parse(source, analysis)) imagePositions.insert(image.position);
+    QSet<int> imagePositions; for (const auto &image : snapshot().images()) imagePositions.insert(image.position);
     auto append = [&](QChar character, int start, int end) { visible += character; candidates.append({start, end}); };
     static const QRegularExpression hidden(R"(^ {0,3}(?:\[[^]]+\]:.*|(?:-[ \t]*){3,}|(?:[*][ \t]*){3,}|(?:_[ \t]*){3,}|\|? *:?-{3,}:? *(?:\| *:?-{3,}:? *)+\|?)$)");
     for (const auto &classified : analysis.lines) {
         const int lineStart = classified.start, end = classified.end;
+        if (separators.contains(lineStart)) continue;
         const QString line = source.mid(lineStart, end - lineStart);
         const bool revealed = std::any_of(m_literalRanges.cbegin(), m_literalRanges.cend(), [&](const auto &r) { return r.start <= lineStart && r.end >= end; });
         if (classified.fenceMarker || (!revealed && syntax.underlineLines.contains(classified.start))) continue;
@@ -169,8 +180,8 @@ void MarkdownSourceMap::rebuild(const QString &source, const QString &display, c
 }
 QVector<MarkdownSourceMap::WhitespaceEdit> MarkdownSourceMap::editableWhitespaceEdits() const {
     QVector<WhitespaceEdit> result;
-    const auto analysis = MarkdownAnalysis::forRendering(m_source);
-    const auto syntax = MarkdownSyntax::scan(m_source, &analysis);
+    const auto &analysis = snapshot().analysis();
+    const auto &syntax = snapshot().syntax();
     const auto markers = MarkdownBlockSyntax::markers(m_source, &analysis);
     QMap<int, int> markerEnds;
     for (const auto &marker : markers) markerEnds[marker.lineStart] = qMax(markerEnds.value(marker.lineStart), marker.end);
@@ -256,7 +267,7 @@ void MarkdownSourceMap::indexBlockMarkers(const QVector<QPair<int, int>> &mapped
     for (auto it = m_boundaries.cbegin(); it != m_boundaries.cend(); ++it) explicitPositions.insert(it.value(), it.key());
     const auto firstAt = [&](int source) { return std::lower_bound(mapped.cbegin(), mapped.cend(), source,
         [](const auto &p, int at) { return p.first < at; }); };
-    for (auto marker : MarkdownBlockSyntax::markers(m_source)) {
+    for (auto marker : MarkdownBlockSyntax::markers(m_source, &snapshot().analysis())) {
         int display = -1;
         const auto visible = firstAt(marker.start);
         // A prefix already visible as literal text must not be painted twice.
@@ -349,7 +360,7 @@ int MarkdownSourceMap::displayPosition(int position) const {
 MarkdownSourceMap::EditPlan MarkdownSourceMap::planEdit(int position, int removed, const QString &inserted) const {
     const bool singlePrefixedBody = !m_display.contains('\n') && std::any_of(m_blockMarkers.cbegin(), m_blockMarkers.cend(), [](const auto &marker) { return marker.prefix; });
     if (position == 0 && removed >= m_display.size() && removed > 0 && !singlePrefixedBody) {
-        const auto analysis = MarkdownAnalysis::forRendering(m_source);
+        const auto &analysis = snapshot().analysis();
         const bool singleFencedBody = analysis.fences.size() == 1 && analysis.fences[0].closed()
             && m_source.left(analysis.fences[0].start).trimmed().isEmpty()
             && m_source.mid(analysis.fences[0].end).trimmed().isEmpty();

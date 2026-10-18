@@ -18,6 +18,7 @@ public:
     int zoomPercent() const { return m_zoomPercent; }
     void refreshAppearance();
 signals:
+    void editRejected(const QString &error);
     void zoomRequested(int percent);
     void imageFilesInserted(const QList<QUrl> &files);
     void clipboardImageInserted(const QImage &image);

@@ -1,5 +1,6 @@
 #include "core/markdown/MarkdownBlockSyntax.h"
 #include "core/markdown/MarkdownAnalysis.h"
+#include "core/markdown/MarkdownListEditing.h"
 #include "core/markdown/MarkdownSyntax.h"
 #include <QRegularExpression>
 #include <QSet>
@@ -159,6 +160,41 @@ MarkdownBlockSyntax::Prepared MarkdownBlockSyntax::prepare(const QString &source
     }
     result.positions.append(source.size()); return result;
 }
+QSet<int> MarkdownBlockSyntax::separatorLines(const QString &source, const MarkdownAnalysis *analysis) {
+    const auto scanned = analysis ? MarkdownAnalysis() : MarkdownAnalysis::forRendering(source);
+    const auto &classified = analysis ? *analysis : scanned;
+    const auto rows = source.split('\n');
+    QVector<int> starts; int start = 0;
+    for (const auto &row : rows) { starts.append(start); start += row.size() + 1; }
+    QSet<int> closedCodeEnds;
+    for (const auto &fence : classified.fences) if (fence.closed()) closedCodeEnds.insert(fence.end);
+    const int metadataEnd = MarkdownSyntax::frontMatterEnd(source);
+    static const QRegularExpression quoteOnly("^(?: {0,3}> )+$");
+    QSet<int> result;
+    for (int i = 1; i < rows.size(); ++i) {
+        const auto &previous = classified.lines[i - 1];
+        // Literal interiors never own paragraph separators. The closing fence
+        // (and metadata closer) can own one immediately outside the panel.
+        const bool metadataCloser = metadataEnd > 0 && previous.fenceMarker && previous.end + 1 == metadataEnd;
+        const bool literalFence = std::any_of(classified.literalFences.cbegin(), classified.literalFences.cend(),
+            [&](const auto &range) { return range.start >= previous.start && range.end <= previous.end; });
+        if ((previous.code || previous.fenceMarker) && !closedCodeEnds.contains(previous.end) && !metadataCloser && !literalFence) continue;
+        if (i < classified.lines.size() && (classified.lines[i].code || classified.lines[i].html || classified.lines[i].comment)) continue;
+        // Ordinary spaces are content, even on otherwise blank rows.
+        if (rows[i].isEmpty() || rows[i] == "\r") {
+            // A final split() record is an editable body position, not a
+            // physical blank row. Consume exactly the first terminated blank
+            // after every element, independently of the following element.
+            if (i + 1 < rows.size() && !rows[i - 1].trimmed().isEmpty()) result.insert(starts[i]);
+        } else if (quoteOnly.match(rows[i]).hasMatch() && !quoteOnly.match(rows[i - 1]).hasMatch()) {
+            // The next quote paragraph may itself still be empty while typing.
+            // Its first separator must not turn into another empty container.
+            const int next = i + 1;
+            if (next < rows.size() && rows[i - 1].startsWith(rows[i]) && rows[next].startsWith(rows[i])) result.insert(starts[i]);
+        }
+    }
+    return result;
+}
 QVector<MarkdownBlockSyntax::Marker> MarkdownBlockSyntax::markers(const QString &source, const MarkdownAnalysis *analysis) {
     const auto scanned = analysis ? MarkdownAnalysis() : MarkdownAnalysis::forRendering(source);
     const auto &lines = analysis ? analysis->lines : scanned.lines;
@@ -204,6 +240,11 @@ MarkdownEdit MarkdownBlockSyntax::backspaceEmptyPrefix(const QString &source, in
     }
     for (const auto &marker : markers(source)) {
         if (!marker.prefix || marker.end != caret || marker.end != marker.lineEnd) continue;
+        // Ordinary empty lists exit in one key, just like a populated item's
+        // body start. Tasks retain their explicit restore-then-clear rule.
+        static const QRegularExpression plainList("^((?: {0,3}> +)*)( *)(?:[-+*]|[0-9]{1,9}[.)]) $");
+        if (plainList.match(marker.text).hasMatch())
+            return MarkdownListEditing::backspace(source, caret);
         edit.source.remove(caret - 1, 1); edit.anchor = edit.caret = caret - 1;
         // A literal prefix immediately following a list is a lazy continuation
         // to Markdown importers. Separate the restored row without moving its

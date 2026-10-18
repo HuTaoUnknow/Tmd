@@ -237,6 +237,8 @@ MarkdownEdit MarkdownTableEditing::operate(const QString &source, int index, int
         if (after < source.size() && source[after] == '\n') ++after;
         else { edit.source.insert(after, "\n\n"); after += 2; edit.changed = true; }
         if (after == edit.source.size() && !edit.source.endsWith("\n\n")) { edit.source += '\n'; ++after; edit.changed = true; }
+        const int paragraph = paragraphAfter(edit.source, table);
+        if (paragraph >= 0) after = paragraph;
         edit.anchor = edit.caret = after; return edit;
     }
     if ((action == Action::DeleteRow && value.rows.size() == 1) || (action == Action::DeleteColumn && width == 1)) {
@@ -276,27 +278,26 @@ MarkdownEdit MarkdownTableEditing::operate(const QString &source, int index, int
     edit.changed = edit.source != source; return edit;
 }
 
-int MarkdownTableEditing::paragraphAfter(const QString &source, const Table &table) {
-    int blankRows = 0, caret = -1;
-    for (int start = table.end + 1; start < source.size();) {
+int MarkdownTableEditing::paragraphAfter(const QString &source, const Table &table, const QSet<int> *separatorLines) {
+    const auto classified = separatorLines ? QSet<int>() : MarkdownBlockSyntax::separatorLines(source);
+    const auto &separators = separatorLines ? *separatorLines : classified;
+    for (int start = table.end + 1; start <= source.size();) {
         int end = source.indexOf('\n', start);
         if (end < 0) end = source.size();
         if (!source.mid(start, end - start).trimmed().isEmpty()) break;
-        ++blankRows;
-        if (blankRows == 1) caret = end;
-        // Prefer a position with an existing empty separator on both sides.
-        if (blankRows == 2) caret = start;
+        if (!separators.contains(start)) return end;
         if (end == source.size()) break;
         start = end + 1;
     }
-    return caret;
+    return -1;
 }
 
 MarkdownEdit MarkdownTableEditing::insertParagraph(const QString &source, int caret, const QString &text) {
     MarkdownEdit edit{source, caret, caret};
     if (text.isEmpty()) return edit;
+    const auto separators = MarkdownBlockSyntax::separatorLines(source);
     for (const auto &table : tables(source)) {
-        if (paragraphAfter(source, table) != caret) continue;
+        if (paragraphAfter(source, table, &separators) != caret) continue;
         int next = caret;
         while (next < source.size()) {
             int end = source.indexOf('\n', next);
@@ -307,9 +308,11 @@ MarkdownEdit MarkdownTableEditing::insertParagraph(const QString &source, int ca
         const int beforeBreaks = source.mid(table.end, caret - table.end).count('\n');
         const QString before(qMax(0, 2 - beforeBreaks), '\n');
         const int afterBreaks = source.mid(caret, next - caret).count('\n');
-        static const QRegularExpression heading("^ {0,3}#{1,6} ");
-        const bool nextHeading = heading.match(source.mid(next)).hasMatch();
-        const QString after(next < source.size() && !nextHeading ? qMax(0, 2 - afterBreaks) : 0, '\n');
+        // The row being filled was visible. Allocate the new body's separator
+        // without consuming any of the user's remaining visible blank rows.
+        const int paddingAfter = !text.contains('\n') && afterBreaks > 0 ? 1
+            : next < source.size() ? qMax(0, 2 - afterBreaks) : 0;
+        const QString after(paddingAfter, '\n');
         edit.source.insert(caret, before + text + after);
         edit.anchor = edit.caret = caret + before.size() + text.size();
         edit.handled = edit.changed = true;

@@ -1,0 +1,259 @@
+{
+  "verifiedAt": "2026-10-18T16:05:25+08:00",
+  "productionIntegration": true,
+  "scope": "Edit routing, source undo adapter, UTF-16 patch and shared rendered-source analysis.",
+  "debugBuild": "passed",
+  "debugExecutableSha256": "12227DEFD266B6897C30C69284F588F4EC2A748CCF28C66DD37906F82F59B146",
+  "fullCTest": {
+    "groups": 15,
+    "failed": 0,
+    "seconds": 421.637,
+    "qtTestSkipped": 0,
+    "junit": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\modular-integration-full.xml"
+  },
+  "groups": [
+    {
+      "name": "tmd_markdown_core",
+      "seconds": 1.19276,
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_markdown_core.txt"
+    },
+    {
+      "name": "tmd_incremental_refresh",
+      "seconds": 0.719536,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_incremental_refresh.txt"
+    },
+    {
+      "name": "tmd_editing_headings_audit",
+      "seconds": 83.946,
+      "passed": 84,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_headings_audit.txt"
+    },
+    {
+      "name": "tmd_editing_code_audit",
+      "seconds": 28.0622,
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_code_audit.txt"
+    },
+    {
+      "name": "tmd_editing_list_audit",
+      "seconds": 33.7644,
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_list_audit.txt"
+    },
+    {
+      "name": "tmd_editing_integration_audit",
+      "seconds": 43.1577,
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_integration_audit.txt"
+    },
+    {
+      "name": "tmd_library_regressions",
+      "seconds": 9.4498,
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_library_regressions.txt"
+    },
+    {
+      "name": "tmd_images_regressions",
+      "seconds": 1.75477,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_images_regressions.txt"
+    },
+    {
+      "name": "tmd_document_regressions",
+      "seconds": 128.009,
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_document_regressions.txt"
+    },
+    {
+      "name": "tmd_knowledge_regressions",
+      "seconds": 78.6072,
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_knowledge_regressions.txt"
+    },
+    {
+      "name": "tmd_workspace_regressions",
+      "seconds": 9.99043,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_workspace_regressions.txt"
+    },
+    {
+      "name": "tmd_settings_regressions",
+      "seconds": 1.30981,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_settings_regressions.txt"
+    },
+    {
+      "name": "tmd_modular_editing",
+      "seconds": 0.302895,
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_modular_editing.txt"
+    },
+    {
+      "name": "tmd_editing_policy",
+      "seconds": 1.20399,
+      "passed": 92,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_policy.txt"
+    },
+    {
+      "name": "tmd_library_initialization",
+      "seconds": 0.166208,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "log": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_library_initialization.txt"
+    }
+  ],
+  "moduleRegressionPassed": 23,
+  "layerIncludeChecks": "passed",
+  "newSourceWhitespace": "passed",
+  "gitDiffCheck": "passed",
+  "sourceCatalogueFilesVerified": 145,
+  "newSourcesRegisteredInCMake": true,
+  "backup": "D:\\PC\\Project\\Qt\\tree_md\\package\\architecture-integration-20261018-152555",
+  "changedPreexistingFiles": [
+    {
+      "path": "AGENTS.md",
+      "beforeSha256": "D4176187B9711FB21E46806863D2CE8A1C7EB5F7FDFD7DEBB4F261DEB6E65859",
+      "afterSha256": "14974E7F5B93A250B9F1C2B00B7422BD44F9E8EB26DE5FC6E790C1B4F47B369B"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "beforeSha256": "F84907394478796570A761583F311FD5B42C28A8133D23658DF46FCD1F2BD7F5",
+      "afterSha256": "39BFEBF40AC0BE392DA66652A0C4BC0225448D6EEDFC73EC372A6EB076771912"
+    },
+    {
+      "path": "CMakeLists.txt",
+      "beforeSha256": "DAF714139293DA95AE6DC5576F6808B96B631A91E65E187461A5799A148B515F",
+      "afterSha256": "8D57E98F02BED95459BBECD698A3B606EF4FEFBEA0FCE273132B6C3D23910491"
+    },
+    {
+      "path": "core/markdown/MarkdownSourceMap.cpp",
+      "beforeSha256": "42133396A532FBB996F8E546876A2848045D4BBC522BA87E898C4160F37DC523",
+      "afterSha256": "3F26E6A287DA9599CA38332D623D9576EEE70D9BD0E2C6011B9071415355D143"
+    },
+    {
+      "path": "core/markdown/MarkdownSourceMap.h",
+      "beforeSha256": "F362003E71C4F28D5ACD71F5265930F8C2E47F5130B16E6EC666CD9071178665",
+      "afterSha256": "97D39E1CAA93DE9BDE73283AE62D5729626CE5238913572C9BAC624073584FED"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "beforeSha256": "4AF1500227AA5CED295A129FAFC6028EE0EE8425F3E9A78E60A918934C5DA660",
+      "afterSha256": "4EB46DE0319882EE676A279AA7A56E53665AC39A18BF8BAF7644538C557B062F"
+    },
+    {
+      "path": "docs/BUILDING.md",
+      "beforeSha256": "EE41FF184CBAB2F0D99B1F5F61B141EEAD481B756B486912E3391E8543D1991A",
+      "afterSha256": "5A66EA56BEF74683B324745E098B551F3698C9834393A7F9CF189A72BEFD1980"
+    },
+    {
+      "path": "docs/optimization-review/2026-10-18/REPORT.md",
+      "beforeSha256": "39CA1781124DC3F19E4594F768BED152934FD6B390A7786BC7088675ECE08B96",
+      "afterSha256": "C5335D17174309BB2954F4938BD1D6FB70DB7E3141E4C7F854ED0180CC4670BB"
+    },
+    {
+      "path": "docs/optimization-review/2026-10-18/tools/inspect_architecture.py",
+      "beforeSha256": "E37A2387FBF226FD2C0BCC2A018795D818548B293BCBED3BE72FFD8CC40A0A2D",
+      "afterSha256": "FF5C7CA99779FA2A252821BE53D5585834E550D543F252EE4EEF7ABEF8AD1F38"
+    },
+    {
+      "path": "ui/document/MarkdownDocumentView.cpp",
+      "beforeSha256": "55538FDFA9CA03D84AD34451BCBF80A5247A7A508A1CD1ADD9B49FF361A83647",
+      "afterSha256": "24938E114E0BC05ED9DADA47C900BC8DDF5A202BD5B156B9F24FA0354441CBC0"
+    },
+    {
+      "path": "ui/document/MarkdownDocumentView.h",
+      "beforeSha256": "297F646A91EEA1B8E88885E710F56D368A98F3BBC61D276EFCA6FDAA4CABD3E0",
+      "afterSha256": "863B379872199042CAE5D69C3D3A716054B5B5E37A8E6CA7C92850CBA9E44BBF"
+    },
+    {
+      "path": "ui/document/MarkdownEditor.cpp",
+      "beforeSha256": "409FEEE93E2CF1651FB5D4AF55D2FA610E6A4DE951D8E96EFA5D887670013AAD",
+      "afterSha256": "7AECE49F4B47BDB2DA3C2230AD8FF0FA86813AA33F663F6EF81DCC739FF4C315"
+    },
+    {
+      "path": "ui/document/MarkdownEditor.h",
+      "beforeSha256": "6D3BD0BCC790F2C8D763026C1310423388281DA2A3C48A5338B1457109F5A9FB",
+      "afterSha256": "8A447AA650ADCF484245BA480EA77352599266CF91E0D6E673BAAD1BF23EFD36"
+    },
+    {
+      "path": "ui/MainWindow.cpp",
+      "beforeSha256": "8B3E0ACC225B922D4F2CB243C7C758279DC2E022E2FB8F9BDC67DFFB3E030232",
+      "afterSha256": "99FBB453EE3E8AE7A4CC537BE9279CB905231E988770FB63F2EE7E06918774EE"
+    }
+  ],
+  "newSources": [
+    {
+      "path": "application/editing/EditCommandRouter.h",
+      "sha256": "DCBE277080AA1B162026A010C54D1BBA909941DBBF06FBA7F073F0073FBBA622"
+    },
+    {
+      "path": "application/editing/EditCommandRouter.cpp",
+      "sha256": "1EFD8C3718113B61FA2CA4BC449A181E75E40CE32314F4F647D0CC5B2AC8C639"
+    },
+    {
+      "path": "core/markdown/editing/TextPatch.h",
+      "sha256": "F8D4FC035C9BDF4A001915C28C6F1C5274BA26982BFB98F08AB96B928DD0464E"
+    },
+    {
+      "path": "core/markdown/editing/TextPatch.cpp",
+      "sha256": "56E7A5B9B1BC2DB198C8013C7C367ACEA46959CB8E223898635217950E8B4AD6"
+    },
+    {
+      "path": "core/markdown/analysis/MarkdownSnapshot.h",
+      "sha256": "0E68C427BBCD41FC74C378C06DDB3E2C226E1A2B95B34C94409309597C7E4BCF"
+    },
+    {
+      "path": "core/markdown/analysis/MarkdownSnapshot.cpp",
+      "sha256": "78B396D4B10D761555D317686E9B5D3E48A369557000E0250577C59ED22972D9"
+    },
+    {
+      "path": "ui/document/QtTextEditAdapter.h",
+      "sha256": "70C65F95D6FD11F038DA0A6D290E686B7F418DFC78792378AE2FF6B67871B18B"
+    },
+    {
+      "path": "ui/document/QtTextEditAdapter.cpp",
+      "sha256": "94FBFA00355986AC0F6BE89405D6672A7F60A0AA274AFEB1B07673889DDF9E1E"
+    },
+    {
+      "path": "tests/ModularEditingTests.cpp",
+      "sha256": "32A99E13126FE78CF20A5FE1068F02D0616DD8BB68B7675908B0674FFF8FC0FF"
+    }
+  ],
+  "deferred": [
+    "Render/selection class extraction",
+    "Knowledge graph read-only input and relation storage split",
+    "Full directory migration",
+    "Native Windows IME/visual acceptance"
+  ]
+}
