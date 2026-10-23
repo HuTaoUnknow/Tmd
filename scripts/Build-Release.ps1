@@ -60,6 +60,12 @@ foreach ($folder in @('docs','licenses','examples')) { Copy-Item -LiteralPath (J
 # Only the reviewed starter library is distributed; working md_data is never packaged.
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'examples\md_data') -Destination $portableRoot -Recurse
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'examples\md_photo') -Destination $portableRoot -Recurse
+# File identities and local absolute paths are per-library runtime state, never public examples.
+foreach ($inventory in @(Get-ChildItem -LiteralPath $portableRoot -Recurse -File -Force -Filter '.tree-md-files.*' | Where-Object Name -In @('.tree-md-files.json','.tree-md-files.lock'))) {
+    $inventoryPath = [IO.Path]::GetFullPath($inventory.FullName)
+    if (!$inventoryPath.StartsWith([IO.Path]::GetFullPath($portableRoot) + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Unexpected inventory cleanup target.' }
+    Remove-Item -LiteralPath $inventoryPath
+}
 Copy-Item -LiteralPath $portableRoot -Destination $installedRoot -Recurse
 foreach ($folder in @('md_data','md_photo')) {
     $from = [IO.Path]::GetFullPath((Join-Path $installedRoot $folder))

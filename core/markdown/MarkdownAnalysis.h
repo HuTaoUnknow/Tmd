@@ -10,6 +10,7 @@ struct MarkdownAnalysis {
         int start = 0, end = 0, contentStart = 0, number = 0;
         bool code = false, fenceMarker = false, html = false, comment = false;
         int listMarkerStart = -1;
+        int listDepth = 0;
     };
     struct Fence {
         int start = 0, headerEnd = 0, bodyStart = 0, closeStart = -1, end = 0;

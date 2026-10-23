@@ -1,5 +1,14 @@
 # Each slot belongs to exactly one group; use tree_md_tests directly for an
 # all-in-one manual run. Offscreen groups deliberately run serially by default.
+add_test(NAME tmd_reference_maintenance COMMAND tmd_reference_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_reference_maintenance.txt,txt")
+set_tests_properties(tmd_reference_maintenance PROPERTIES TIMEOUT 180
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
+add_test(NAME tmd_selection_links COMMAND tmd_selection_link_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_selection_links.txt,txt")
+set_tests_properties(tmd_selection_links PROPERTIES TIMEOUT 180
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
+add_test(NAME tmd_document_find COMMAND tmd_document_find_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_document_find.txt,txt")
+set_tests_properties(tmd_document_find PROPERTIES TIMEOUT 180
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
 add_test(NAME tmd_editing_headings_audit COMMAND tmd_editing_headings_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_editing_headings_audit.txt,txt")
 add_test(NAME tmd_editing_code_audit COMMAND tmd_editing_code_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_editing_code_audit.txt,txt")
 add_test(NAME tmd_editing_list_audit COMMAND tmd_editing_list_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_editing_list_audit.txt,txt")

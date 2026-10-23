@@ -1,0 +1,106 @@
+{
+  "recordedAt": "2026-10-20T10:37:16.1708246+08:00",
+  "feature": "Ctrl-click document/file/web navigation, confirmed selection wrapping, staged code Ctrl+A",
+  "build": "Final all-target Debug build succeeded after modifier-key and IME event handling fixes.",
+  "finalDebugSha256": "785B3FD7BD989B776B2E95CB17E64ED0B555FC3C1B9327D0A3ABC540FB1EE15A",
+  "regression": {
+    "scope": "Nine complete related groups on the final build; all 17 registered groups were not rerun for this change.",
+    "report": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\selection-links-regressions.xml",
+    "groupsPassed": 9,
+    "groupsFailed": 0,
+    "seconds": 225.09,
+    "qtTestCountsIncludeInitAndCleanup": true,
+    "checks": [
+      {
+        "name": "tmd_markdown_core",
+        "seconds": 1.05585,
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_markdown_core.txt"
+      },
+      {
+        "name": "tmd_incremental_refresh",
+        "seconds": 0.526062,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_incremental_refresh.txt"
+      },
+      {
+        "name": "tmd_selection_links",
+        "seconds": 4.44748,
+        "passed": 60,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_selection_links.txt"
+      },
+      {
+        "name": "tmd_document_find",
+        "seconds": 4.79525,
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_document_find.txt"
+      },
+      {
+        "name": "tmd_editing_code_audit",
+        "seconds": 29.0497,
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_code_audit.txt"
+      },
+      {
+        "name": "tmd_editing_integration_audit",
+        "seconds": 45.2485,
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_integration_audit.txt"
+      },
+      {
+        "name": "tmd_document_regressions",
+        "seconds": 138.778,
+        "passed": 81,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_document_regressions.txt"
+      },
+      {
+        "name": "tmd_modular_editing",
+        "seconds": 0.399323,
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_modular_editing.txt"
+      },
+      {
+        "name": "tmd_editing_policy",
+        "seconds": 0.74882,
+        "passed": 93,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_editing_policy.txt"
+      }
+    ]
+  },
+  "rules": {
+    "links": "Ctrl+left-click in either view resolves current-document relative paths, library-root paths, encoded Unicode/spaces and Windows absolute paths. Library-contained MD opens through MainWindow; other local targets and web URLs use QDesktopServices.",
+    "wrapping": "Mouse or keyboard selection remains unchanged while delimiter input accumulates. Enter commits one source transaction without newline. Esc cancels; Backspace corrects pending markers. Original content remains selected, including backwards selections.",
+    "selectAll": "Inside a closed fenced body, successive Ctrl+A presses select the logical line, code body, then entire source. Single-line and empty bodies retain separate stages. Modifier keys and empty IME refresh events do not reset the sequence."
+  },
+  "modules": [
+    "core/library/DocumentLinkResolver",
+    "core/markdown/MarkdownSelectionEditing",
+    "ui/document/MarkdownSelectionController"
+  ],
+  "focusedCoverage": "60 QtTest records cover both views, forward/backward selections, actual mouse drags, multiple delimiters, cancellation/correction, Chinese IME commits, empty IME refresh, staged selections, shared undo, and link dispatch with unsaved edits retained.",
+  "visualVerification": {
+    "capture": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\selection-wrap-pending.png",
+    "result": "Inspected selected body, pending raw delimiters and Enter/Esc instructions; source text is unchanged before confirmation."
+  },
+  "externalApplicationTest": "Default-app/browser dispatch was intercepted with QDesktopServices URL handlers. Automated checks did not launch real external programs or browsers.",
+  "desktopLauncher": "Existing Tmd Debug.lnk and scripts/Start-Debug.ps1 -CheckOnly verified against the rebuilt Debug executable.",
+  "dataIsolation": "Temporary libraries and isolated settings only; actual md_data/md_photo and pre-existing workspace changes retained. No release, GitHub sync or normal Debug launch."
+}

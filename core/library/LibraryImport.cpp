@@ -1,4 +1,5 @@
 #include "core/library/MarkdownManager.h"
+#include "core/library/LibraryScanLock.h"
 #include "core/markdown/MarkdownImages.h"
 #include "core/images/ImageStorage.h"
 #include <QDir>
@@ -8,6 +9,7 @@
 #include <algorithm>
 LibraryImportResult MarkdownManager::importDirectory(const QString &sourceDirectory) {
     LibraryImportResult result; const QDir source(sourceDirectory);
+    const LibraryScanLock transaction(m_root); if (!transaction.locked()) { result.error=transaction.error(); return result; }
     if (!source.exists()) { result.error = QStringLiteral("导入目录不存在。"); return result; }
     if (!scan(&result.error) || !ImageStorage(m_root).ensureRoot(&result.error)) return result;
     QStringList files; QDirIterator iterator(source.path(), QDir::Files, QDirIterator::Subdirectories);

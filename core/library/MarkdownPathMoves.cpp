@@ -1,6 +1,7 @@
 #include "core/library/MarkdownManager.h"
 #include "core/library/MarkdownFileIO.h"
 #include "core/library/FileWatcher.h"
+#include "core/library/LibraryScanLock.h"
 #include "core/images/ImageStorage.h"
 #include <QDir>
 #include <QFileInfo>
@@ -9,6 +10,7 @@
 
 bool MarkdownManager::moveDocuments(const QStringList &paths, const QString &destinationDirectory, QString *error) {
     const auto fail = [&](const QString &message) { if (error) *error = message; return false; };
+    const LibraryScanLock transaction(m_root); if (!transaction.locked()) return fail(transaction.error());
     if (paths.isEmpty()) return fail(QStringLiteral("请选择要移动的文档。"));
     if (!scan(error)) return false;
     const QString parent = destinationDirectory.isEmpty() ? m_root : safeDirectoryPath(destinationDirectory, error);
@@ -91,8 +93,9 @@ bool MarkdownManager::moveDocuments(const QStringList &paths, const QString &des
         move.node->m_fileIdentity = MarkdownFileIO::fileIdentity(move.to); move.node->m_externalChange = false;
     }
     m_relations = next; applyRelations(); ++m_graphRevision;
+    for (const auto &move : moves) m_pendingReferenceMoves.insert(LibraryFileIndex::key(move.from),move.to);
     for (const auto &move : moves) emit documentRenamed(move.oldRelative, move.newRelative);
-    emit documentsChanged(); emit relationsChanged(); return true;
+    emit relationsChanged(); return scan(error);
 }
 bool MarkdownManager::movePath(const QString &path, const QString &destinationDirectory, QString *error) {
     const QString parent = destinationDirectory.isEmpty() ? m_root : safeDirectoryPath(destinationDirectory, error);
@@ -111,6 +114,7 @@ bool MarkdownManager::renameDirectory(const QString &path, const QString &newRel
 }
 bool MarkdownManager::relocatePath(const QString &path, const QString &newRelativePath, QString *error) {
     const auto fail = [&](const QString &message) { if (error) *error = message; return false; };
+    const LibraryScanLock transaction(m_root); if (!transaction.locked()) return fail(transaction.error());
     if (!scan(error)) return false;
     const bool directory = QFileInfo(QDir(m_root).absoluteFilePath(path)).isDir();
     const QString from = directory ? safeDirectoryPath(path, error) : safePath(path, error);
@@ -210,6 +214,7 @@ bool MarkdownManager::relocatePath(const QString &path, const QString &newRelati
         document.node->m_externalChange = false;
     }
     m_relations = next; applyRelations(); ++m_graphRevision;
+    m_pendingReferenceMoves.insert(LibraryFileIndex::key(from),to);
     for (const auto &document : documents) emit documentRenamed(document.oldRelative, document.newRelative);
-    emit documentsChanged(); emit relationsChanged(); return true;
+    emit relationsChanged(); return scan(error);
 }

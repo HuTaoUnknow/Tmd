@@ -19,6 +19,8 @@
 #include "core/markdown/analysis/MarkdownSnapshot.h"
 #include "application/editing/EditCommandRouter.h"
 #include "ui/document/InlineMarkupDecoration.h"
+#include "ui/document/ListMarkerDecoration.h"
+#include "ui/document/MarkdownSelectionController.h"
 #include <QAbstractTextDocumentLayout>
 #include <QClipboard>
 #include <QApplication>
@@ -81,6 +83,7 @@ MarkdownDocumentView::MarkdownDocumentView(QWidget *parent) : QTextBrowser(paren
         if (index >= 0 && index < blocks.size()) QApplication::clipboard()->setText(blocks[index].code);
     });
     m_inlineDecorations = new InlineMarkupDecoration(this);
+    m_listDecoration = new ListMarkerDecoration(this);
     m_fenceCompleter = new MarkdownFenceCompleter(this,
         [this] {
             const auto format = textCursor().blockFormat();
@@ -106,6 +109,14 @@ MarkdownDocumentView::MarkdownDocumentView(QWidget *parent) : QTextBrowser(paren
             || textCursor().block().text().trimmed().isEmpty() || m_fenceCompleter->isEditingFence()) return;
         m_markupRefresh = true; setMarkdownSource(m_path, m_source); m_markupRefresh = false;
     });
+    m_selectionController = new MarkdownSelectionController(this,
+        [this] { return MarkdownSelectionController::Context{m_source,
+            hasSourceSelection() ? m_selectionAnchor : m_sourceMap.sourcePosition(textCursor().anchor()),
+            hasSourceSelection() ? m_selectionCaret : inlineCursorSourcePosition()}; },
+        [this](const MarkdownEdit &edit) {
+            emit sourceEditStarted(hasSourceSelection() ? m_selectionCaret : inlineCursorSourcePosition());
+            applySourceEdit(edit); emit sourceEditFinished();
+        });
 }
 QString MarkdownDocumentView::displayedText() const {
     QString result = document()->toRawText(); result.replace(QChar::ParagraphSeparator, '\n'); return result;
@@ -122,6 +133,7 @@ QImage MarkdownDocumentView::placeholder(const QString &message) const {
     painter.drawText(image.rect().adjusted(12, 8, -12, -8), Qt::AlignVCenter | Qt::TextWordWrap, message); return image;
 }
 void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString &inputSource, bool force) {
+    if (m_selectionController && path != m_path) m_selectionController->reset();
     const QString source = MarkdownTableEditing::normalize(inputSource);
     if (!force && !m_markupRefresh && path == m_path && source == m_source) return;
     const bool wasRebuilding = m_rebuilding; m_rebuilding = true;
@@ -454,17 +466,11 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
         blockBoundaries.clear();
         for (const auto &boundary : trackedBoundaries) blockBoundaries.append({boundary.first.position(), boundary.second});
     }
-    for (const auto &marker : originalMarkers) if (marker.prefix) {
-        const auto number = QRegularExpression("(?:^|[ >])([0-9]{1,9})([.)]) ").match(marker.text);
-        if (!number.hasMatch()) continue;
-        const auto block = document()->findBlock(m_sourceMap.displayPosition(marker.end));
-        if (!block.textList()) continue;
-        auto format = block.textList()->format(); format.setStart(number.captured(1).toInt()); format.setNumberSuffix(number.captured(2));
-        QTextCursor(block).createList(format);
-    }
     applyMarkdownStyles(); document()->setModified(false); m_preparing = false; fitImages();
     m_display = displayedText();
     if (!whitespaceEdits.isEmpty()) m_sourceMap.rebuild(m_source, m_display, blockBoundaries, m_snapshot);
+    m_preparing = true; m_listDecoration->rebuild(m_source, analysis, m_sourceMap);
+    document()->setModified(false); m_preparing = false;
     if (sameDocument) {
         QTextCursor cursor(document()); cursor.setPosition(qBound(0, m_sourceMap.displayPosition(anchor), document()->characterCount() - 1));
         cursor.setPosition(qBound(0, m_sourceMap.displayPosition(caret), document()->characterCount() - 1), QTextCursor::KeepAnchor); setTextCursor(cursor);
@@ -719,7 +725,8 @@ void MarkdownDocumentView::paintEvent(QPaintEvent *event) {
     const auto &settings = MarkdownSettingsStore::current();
     { QPainter background(viewport()); m_codeDecoration->paintBackground(background); }
     { QPainter background(viewport()); m_inlineDecorations->paintCodeBackground(background, m_sourceMap); }
-    QTextBrowser::paintEvent(event); QPainter painter(viewport()); m_codeDecoration->paintHeaders(painter); m_inlineDecorations->paint(painter); painter.setPen(QPen(QColor("#83a88f"), 3));
+    QTextBrowser::paintEvent(event); QPainter painter(viewport()); m_codeDecoration->paintHeaders(painter);
+    m_listDecoration->paint(painter, *m_inlineDecorations); m_inlineDecorations->paint(painter); painter.setPen(QPen(QColor("#83a88f"), 3));
     for (auto block = document()->begin(); block.isValid(); block = block.next()) if (block.blockFormat().intProperty(QTextFormat::BlockQuoteLevel) > 0 && !m_inlineDecorations->hasBlockPrefix(block.position())) {
         const QRectF rect = document()->documentLayout()->blockBoundingRect(block).translated(0, -offset);
         if (rect.bottom() < 0 || rect.top() > viewport()->height()) continue;
@@ -849,6 +856,21 @@ void MarkdownDocumentView::mousePressEvent(QMouseEvent *event) {
             }
         }
     }
+    if (event->button() == Qt::LeftButton && event->modifiers() == Qt::NoModifier) {
+        const auto hit = m_listDecoration->hitTest(event->position().toPoint(), *m_inlineDecorations);
+        if (hit.valid()) {
+            // Text typed before this item may have moved its source offset
+            // since the last delayed preview. Resolve it through today's map.
+            const auto item = MarkdownListSyntax::itemAt(m_source, MarkdownAnalysis::scan(m_source),
+                m_sourceMap.sourcePosition(hit.displayPosition));
+            if (item.valid() && item.ordered()) {
+                clearSourceSelection(); m_selecting = false;
+                const int caret = item.markerStart() + item.marker.size() - 1;
+                restoreSourceCursor(caret, caret); setFocus();
+                event->accept(); return;
+            }
+        }
+    }
     clearSourceSelection();
     const auto marker = m_inlineDecorations->hitTest(event->position().toPoint());
     m_preparing = true; QTextBrowser::mousePressEvent(event); m_preparing = false;
@@ -945,6 +967,27 @@ void MarkdownDocumentView::restoreSourceCursor(int anchor, int caret) {
         m_inlineDecorations->setSourceSelection(anchor, caret, false);
     }
     refreshInlineCursorFormat(); ensureCursorVisible();
+}
+bool MarkdownDocumentView::replaceDisplayText(int position, int length, const QString &replacement, QPair<int, int> *sourceSelection) {
+    if (position < 0 || length < 0 || position + length > document()->characterCount() - 1) return false;
+    const int before = m_sourceMap.sourcePosition(position + length);
+    int caret = 0;
+    MarkdownEdit edit; edit.source = m_sourceMap.replacedText(position, length, replacement, &caret);
+    edit.anchor = caret - replacement.size(); edit.caret = caret;
+    edit.handled = true; edit.changed = edit.source != m_source;
+    emit sourceEditStarted(before); applySourceEdit(edit); emit sourceEditFinished();
+    if (sourceSelection) *sourceSelection = hasSourceSelection() ? qMakePair(m_selectionAnchor, m_selectionCaret)
+        : qMakePair(inlineCursorSourcePosition(), inlineCursorSourcePosition());
+    return true;
+}
+QTextCursor MarkdownDocumentView::cursorForSourceRange(int anchor, int caret) const {
+    QTextCursor cursor(document()); cursor.setPosition(m_sourceMap.displayPosition(qBound(0, anchor, int(m_source.size()))));
+    cursor.setPosition(m_sourceMap.displayPosition(qBound(0, caret, int(m_source.size()))), QTextCursor::KeepAnchor);
+    return cursor;
+}
+void MarkdownDocumentView::collapseSourceSelection() {
+    const int caret = hasSourceSelection() ? m_selectionCaret : inlineCursorSourcePosition();
+    restoreSourceCursor(caret, caret);
 }
 QVariant MarkdownDocumentView::inputMethodQuery(Qt::InputMethodQuery query) const {
     if (query == Qt::ImCursorRectangle) return cursorRect().translated(viewport()->pos());

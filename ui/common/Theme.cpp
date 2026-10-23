@@ -71,9 +71,9 @@ void applyTreeMdTheme(QApplication &application) {
         QListWidget#quickDocumentResults::item { padding: 8px; border-radius: 5px; }
         QListWidget#quickDocumentResults::item:hover { background: #292d2a; }
         QListWidget#quickDocumentResults::item:selected { background: #304339; color: #eeeeee; }
-        QFrame#documentModeFrame { background: #111613; border: 1px solid #506258; border-radius: 9px; }
-        QFrame#documentModeFrame QToolButton { padding: 7px 16px; border-radius: 6px; color: #aab6ae; }
-        QFrame#documentModeFrame QToolButton:checked { background: #3a5848; border-color: #749781; color: #ffffff; font-weight: 600; }
+        QFrame#documentModeFrame, QFrame#documentFindModeFrame { background: #111613; border: 1px solid #506258; border-radius: 9px; }
+        QFrame#documentModeFrame QToolButton, QFrame#documentFindModeFrame QToolButton { padding: 7px 16px; border-radius: 6px; color: #aab6ae; }
+        QFrame#documentModeFrame QToolButton:checked, QFrame#documentFindModeFrame QToolButton:checked { background: #3a5848; border-color: #749781; color: #ffffff; font-weight: 600; }
         QToolBar::separator { background: #3a3a3a; width: 1px; margin: 8px; }
         QWidget#documentSidebar { background: #171717; }
         QLabel#brand { font-size: 21px; font-weight: 600; color: #b4d1c3; padding: 4px 0 15px; }

@@ -16,6 +16,7 @@ class QAction;
 class QPushButton;
 class QSplitter;
 class QStackedWidget;
+class DocumentFindDialog;
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -50,11 +51,13 @@ private:
     void movePath(const QString &path, bool directory, const QString &destinationDirectory);
     void moveDocuments(const QStringList &paths, const QString &destinationDirectory);
     void openFileManager(const QString &path);
+    void openDocumentLink(const QUrl &url);
     void finishRemoval(bool currentRemoved);
     void refreshDocuments();
     void refreshView();
     void refreshOutline();
     void refreshGraph();
+    void showDuplicateDocuments();
     void reloadCurrent();
     void renderDocument(bool force = false);
     void undoRedo(bool redo);
@@ -72,6 +75,7 @@ private:
     MarkdownManager *m_manager;
     MarkdownEditor *m_editor;
     MarkdownDocumentView *m_document;
+    DocumentFindDialog *m_finder = nullptr;
     QStackedWidget *m_views;
     DocumentSidebar *m_documents;
     OutlineSidebar *m_outline;
@@ -85,6 +89,7 @@ private:
     QAction *m_outlineAction;
     QAction *m_documentAction, *m_sourceAction;
     QString m_current;
+    QString m_duplicateNoticeSignature;
     bool m_loading = false, m_busy = false;
     struct RenderedEditCaret { int before, after; };
     QMap<int, RenderedEditCaret> m_renderedEditCarets;

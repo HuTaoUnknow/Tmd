@@ -1,0 +1,163 @@
+{
+  "task": "Reorganize Markdown learning into four tutorials",
+  "verifiedAt": "2026-10-20T11:41:12+08:00",
+  "scope": "Tutorial content, tutorial relations, README and distribution guidance; no C++ changes in this task",
+  "targets": [
+    {
+      "library": "examples",
+      "documents": [
+        {
+          "name": "md语法基础.md",
+          "sha256": "77A3D6CEA88A8DA488598A9E7B9A21056FFD38E22DB9F546E2DC0532A65727B4",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "md语法详解与正文对照.md",
+          "sha256": "91D239A9AC7CEFFAF9CF80ED0F0DC7C775D89619B1DBB9AA9CCFB8D9DD4A4CC1",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "tmd输入指南.md",
+          "sha256": "3222842AAFE8D24DDF05C731C5FE9F79D637EB60BDF02DC5AF54705DE885C70B",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "tmd知识树构建.md",
+          "sha256": "5C94D784474F00EE36A2ADC77D61796D1EC76DFF5A407FD8B426E494F7A68944",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        }
+      ],
+      "tutorialRelations": 3,
+      "preservedOtherRelations": 0
+    },
+    {
+      "library": "debug",
+      "documents": [
+        {
+          "name": "md语法基础.md",
+          "sha256": "77A3D6CEA88A8DA488598A9E7B9A21056FFD38E22DB9F546E2DC0532A65727B4",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "md语法详解与正文对照.md",
+          "sha256": "6518C50B15D46EE7D54B0D0E55E2C7022C3BE88501BDE65D409FE086F5045266",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "tmd输入指南.md",
+          "sha256": "3222842AAFE8D24DDF05C731C5FE9F79D637EB60BDF02DC5AF54705DE885C70B",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "tmd知识树构建.md",
+          "sha256": "5C94D784474F00EE36A2ADC77D61796D1EC76DFF5A407FD8B426E494F7A68944",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        }
+      ],
+      "tutorialRelations": 3,
+      "preservedOtherRelations": 11
+    },
+    {
+      "library": "installed",
+      "documents": [
+        {
+          "name": "md语法基础.md",
+          "sha256": "77A3D6CEA88A8DA488598A9E7B9A21056FFD38E22DB9F546E2DC0532A65727B4",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "md语法详解与正文对照.md",
+          "sha256": "5CA52E5307C916B4596BD5768D8C77E71C4F2D7817D6883523788CEF739ED91E",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "tmd输入指南.md",
+          "sha256": "3222842AAFE8D24DDF05C731C5FE9F79D637EB60BDF02DC5AF54705DE885C70B",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        },
+        {
+          "name": "tmd知识树构建.md",
+          "sha256": "5C94D784474F00EE36A2ADC77D61796D1EC76DFF5A407FD8B426E494F7A68944",
+          "matchesStagedContent": true,
+          "balancedFences": true,
+          "imagesReadable": true,
+          "localNavigationValid": true
+        }
+      ],
+      "tutorialRelations": 3,
+      "preservedOtherRelations": 14
+    }
+  ],
+  "backupRoot": "build/markdown-learning-update/backups/20261020-113742",
+  "syntaxCoverage": {
+    "categories": [
+      "前缀描述",
+      "前后声明",
+      "其他"
+    ],
+    "detailedItems": 21,
+    "guideUsesSameOrder": true,
+    "balancedFencedExamples": 46
+  },
+  "build": {
+    "configuration": "Debug",
+    "path": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug",
+    "command": "cmake --build build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug --parallel 4",
+    "exitCode": 0
+  },
+  "tests": {
+    "ctestGroup": "tmd_library_initialization",
+    "ctestPassed": 1,
+    "qtTestRecordsPassed": 5,
+    "failed": 0,
+    "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_initialization.txt"
+  },
+  "runtime": {
+    "imageBundledExports": 12,
+    "allSuccessful": true,
+    "actualImagesCopiedPerLibrary": 1,
+    "documentsLoaded": 4,
+    "platform": "offscreen",
+    "screenshotsVisuallyInspected": 5,
+    "knowledgeTreeImage": "docs/images/knowledge-tree.png",
+    "details": "build/markdown-learning-update/runtime-verification.json"
+  },
+  "limitations": [
+    "Screenshots inspect the initial viewport of each document; content/fence/section/link/image checks cover the complete source.",
+    "Installed and Debug image references use their existing absolute paths; public examples use the portable relative image path."
+  ],
+  "privateLibrariesPublished": false
+}

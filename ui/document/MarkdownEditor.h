@@ -22,16 +22,19 @@ signals:
     void zoomRequested(int percent);
     void imageFilesInserted(const QList<QUrl> &files);
     void clipboardImageInserted(const QImage &image);
+    void anchorClicked(const QUrl &url);
 protected:
     bool canInsertFromMimeData(const QMimeData *source) const override;
     void insertFromMimeData(const QMimeData *source) override;
     void dropEvent(QDropEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
 private:
     bool m_hostedLinks = false;
     int m_zoomPercent = 100, m_wheelRemainder = 0;
     class MarkdownFenceCompleter *m_fenceCompleter;
     class MarkdownViewport *m_viewport;
     class CodeSyntaxHighlighter *m_highlighter;
+    class MarkdownSelectionController *m_selectionController;
 };

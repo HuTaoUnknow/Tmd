@@ -22,6 +22,18 @@ class MarkdownCoreTests : public QObject {
     Q_OBJECT
     QTemporaryDir m_settingsDirectory;
 private slots:
+    void boundedReplacementKeepsHiddenContainers() {
+        for (const QString source : {QString("**cat**"), QString("*cat*"), QString("`cat`"), QString("# cat"),
+                                     QString("> cat"), QString("```cpp\ncat\n```"), QString("[cat](https://example.com)")}) {
+            MarkdownSourceMap map; map.rebuild(source, "cat"); int caret = -1;
+            auto expected = source; expected.replace("cat", "dog");
+            QCOMPARE(map.replacedText(0, 3, "dog", &caret), expected);
+            QCOMPARE(caret, expected.indexOf("dog") + 3);
+        }
+        MarkdownSourceMap selectAll; selectAll.rebuild("**cat**", "cat");
+        QCOMPARE(selectAll.edited(0, 3, "dog", nullptr), QString("dog"));
+        QCOMPARE(selectAll.replacedText(0, 3, "", nullptr), QString());
+    }
     void saveAllModifiedPreservesConflicts() {
         QTemporaryDir directory; QVERIFY(directory.isValid()); MarkdownManager manager(directory.path());
         QVERIFY(manager.createDocument("A.md", "# A")); QVERIFY(manager.createDocument("B.md", "# B")); QVERIFY(manager.createDocument("C.md", "# C"));

@@ -14,6 +14,7 @@ bool escaped(const QString &source, int position) {
 MarkdownAnalysis MarkdownAnalysis::scan(const QString &source, bool indentedCode) {
     static const QRegularExpression prefix("^((?: {0,3}(?:> +|(?:[-+*]|[0-9]+[.)]) +))* {0,3})");
     static const QRegularExpression quotes("^(?: {0,3}> +)*");
+    static const QRegularExpression structuralQuotes("^(?: {0,3}> )*");
     static const QRegularExpression list("[-+*]|[0-9]+[.)]");
     static const QRegularExpression listStart("^( *)([-+*]|[0-9]{1,9}[.)])( +)");
     static const QRegularExpression fence("^(`{3,}|~{3,})(.*)$");
@@ -34,6 +35,9 @@ MarkdownAnalysis MarkdownAnalysis::scan(const QString &source, bool indentedCode
         const QString line = source.mid(start, end - start);
         QString container = prefix.match(line).captured(1);
         const int quoteEnd = quotes.match(line).capturedLength();
+        const int listQuoteEnd = structuralQuotes.match(line).capturedLength();
+        int nestingIndent = 0;
+        while (listQuoteEnd + nestingIndent < line.size() && line[listQuoteEnd + nestingIndent] == ' ') ++nestingIndent;
         const int quoteDepth = container.count('>');
         int indent = 0;
         while (quoteEnd + indent < line.size() && line[quoteEnd + indent] == ' ') ++indent;
@@ -109,14 +113,17 @@ MarkdownAnalysis MarkdownAnalysis::scan(const QString &source, bool indentedCode
         if (!classified.code && !classified.html) {
             if (listMarker && rawList.hasMatch()) {
                 classified.listMarkerStart = start + quoteEnd + indent;
-                while (!listParents.isEmpty() && listParents.back().first >= indent) listParents.removeLast();
-                listParents.append({indent, indent + int(rawList.captured(2).size() + rawList.captured(3).size())});
+                // Only the first space after > belongs to its prefix. Spaces
+                // after it still express list nesting inside the quote.
+                while (!listParents.isEmpty() && listParents.back().first >= nestingIndent) listParents.removeLast();
+                listParents.append({nestingIndent, nestingIndent + int(rawList.captured(2).size() + rawList.captured(3).size())});
+                classified.listDepth = listParents.size();
                 listBlankLines = 0;
             } else if (line.trimmed().isEmpty()) {
                 if (++listBlankLines >= 2) listParents.clear();
             } else {
                 listBlankLines = 0;
-                if (!listParents.isEmpty() && indent < listParents.front().second) listParents.clear();
+                if (!listParents.isEmpty() && nestingIndent < listParents.front().second) listParents.clear();
             }
         }
         result.lines.append(classified);

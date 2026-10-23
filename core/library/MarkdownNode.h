@@ -14,6 +14,8 @@ public:
     QString content() const { return m_content; }
     bool isModified() const { return m_content != m_savedContent; }
     bool hasExternalChange() const { return m_externalChange; }
+    QStringList missingReferences() const { return m_missingReferences; }
+    bool hasMissingReferences() const { return !m_missingReferences.isEmpty(); }
     QStringList relatedPaths(NodeRelationType type) const;
 private:
     friend class MarkdownManager;
@@ -22,6 +24,7 @@ private:
     QString m_fileIdentity;
     QString m_content;
     QString m_savedContent;
+    QStringList m_missingReferences;
     mutable QString m_outlineSource;
     mutable MarkdownOutline m_outline;
     mutable bool m_outlineReady = false;

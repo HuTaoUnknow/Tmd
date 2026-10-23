@@ -357,9 +357,9 @@ int MarkdownSourceMap::displayPosition(int position) const {
     if (distance > 0 && !m_spans.isEmpty() && position >= m_source.size()) return m_spans.size();
     return result;
 }
-MarkdownSourceMap::EditPlan MarkdownSourceMap::planEdit(int position, int removed, const QString &inserted) const {
+MarkdownSourceMap::EditPlan MarkdownSourceMap::planEdit(int position, int removed, const QString &inserted, bool wholeDocumentSelection) const {
     const bool singlePrefixedBody = !m_display.contains('\n') && std::any_of(m_blockMarkers.cbegin(), m_blockMarkers.cend(), [](const auto &marker) { return marker.prefix; });
-    if (position == 0 && removed >= m_display.size() && removed > 0 && !singlePrefixedBody) {
+    if (wholeDocumentSelection && position == 0 && removed >= m_display.size() && removed > 0 && !singlePrefixedBody) {
         const auto &analysis = snapshot().analysis();
         const bool singleFencedBody = analysis.fences.size() == 1 && analysis.fences[0].closed()
             && m_source.left(analysis.fences[0].start).trimmed().isEmpty()
@@ -400,6 +400,11 @@ MarkdownSourceMap::EditPlan MarkdownSourceMap::planEdit(int position, int remove
 }
 QString MarkdownSourceMap::edited(int position, int removed, const QString &inserted, int *cursorPosition) const {
     const auto plan = planEdit(position, removed, inserted);
+    if (cursorPosition) *cursorPosition = plan.insertion + inserted.size();
+    return plan.source;
+}
+QString MarkdownSourceMap::replacedText(int position, int removed, const QString &inserted, int *cursorPosition) const {
+    const auto plan = planEdit(position, removed, inserted, false);
     if (cursorPosition) *cursorPosition = plan.insertion + inserted.size();
     return plan.source;
 }

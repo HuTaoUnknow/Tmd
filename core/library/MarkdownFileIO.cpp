@@ -86,7 +86,7 @@ QString MarkdownFileIO::normalizedPath(const QString &path) {
 QString MarkdownFileIO::fileIdentity(const QString &path) {
 #ifdef Q_OS_WIN
     const HANDLE handle = CreateFileW(reinterpret_cast<LPCWSTR>(path.utf16()), FILE_READ_ATTRIBUTES,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
     if (handle == INVALID_HANDLE_VALUE) return {};
     BY_HANDLE_FILE_INFORMATION info{};
     const bool ok = GetFileInformationByHandle(handle, &info);

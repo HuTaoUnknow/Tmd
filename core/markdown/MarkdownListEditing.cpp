@@ -1,26 +1,14 @@
 #include "core/markdown/MarkdownListEditing.h"
+#include "core/markdown/MarkdownListSyntax.h"
 #include "core/markdown/MarkdownAnalysis.h"
 #include "core/markdown/MarkdownSyntax.h"
-#include <QRegularExpression>
 #include <QMap>
 #include <QSet>
 
 namespace {
-struct Item {
-    int start = -1, end = 0, indentStart = 0, indent = 0, body = 0;
-    QString quote, marker, spaces, task;
-    bool valid() const { return start >= 0; }
-};
+using Item = MarkdownListSyntax::Item;
 Item itemAt(const QString &source, const MarkdownAnalysis &analysis, int caret) {
-    static const QRegularExpression prefix("^((?: {0,3}> +)*)( *)([-+*]|[0-9]{1,9}[.)])( +)(\\[[ xX]\\] +)?");
-    for (const auto &line : analysis.lines) {
-        if (caret < line.start || caret > line.end || line.code || line.html || line.comment) continue;
-        const auto match = prefix.match(source.mid(line.start, line.end - line.start));
-        if (!match.hasMatch() || line.listMarkerStart < 0) return {};
-        return {line.start, line.end, line.start + int(match.captured(1).size()), int(match.captured(2).size()),
-            line.start + int(match.capturedLength()), match.captured(1), match.captured(3), match.captured(4), match.captured(5)};
-    }
-    return {};
+    return MarkdownListSyntax::itemAt(source, analysis, caret);
 }
 void replace(MarkdownEdit &edit, int start, int count, const QString &text) {
     auto translate = [&](int p) { return p < start ? p : p + text.size() - qMin(count, p - start); };

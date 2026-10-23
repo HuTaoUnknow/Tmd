@@ -109,7 +109,7 @@ void FileWatcher::rebuild() {
     while (it.hasNext()) {
         const QString path = it.next();
         const QFileInfo info(path);
-        if (!info.isSymLink() && (info.isDir() || info.suffix().compare("md", Qt::CaseInsensitive) == 0 || info.fileName() == ".tree-md-relations.json")) wanted.insert(path);
+        if (!info.isSymLink()) wanted.insert(path);
     }
     const QStringList watched = m_watcher.files() + m_watcher.directories();
     const QSet<QString> current(watched.cbegin(), watched.cend());

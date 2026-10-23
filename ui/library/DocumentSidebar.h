@@ -24,6 +24,7 @@ public:
     void setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directories = {});
     void updateTitle(const QString &path, const QString &title);
     void updateModified(const QString &path, bool modified);
+    void updateStatus(const QString &path, bool modified, const QStringList &missing);
     void selectPath(const QString &path);
     void selectDirectory(const QString &path);
     DisplayMode displayMode() const { return isHidden() ? DisplayMode::Hidden : m_mode; }

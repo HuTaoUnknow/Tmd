@@ -3,7 +3,12 @@
 #include "ui/library/OutlineSidebar.h"
 #include "ui/document/MarkdownEditor.h"
 #include "ui/document/MarkdownDocumentView.h"
+#include "ui/document/DocumentFindDialog.h"
+#include "core/library/DocumentLinkResolver.h"
 #include "ui/document/QtTextEditAdapter.h"
+#include "core/library/LibraryReferences.h"
+#include <QDialog>
+#include <QListWidget>
 #include <QScopedValueRollback>
 #include "ui/settings/MarkdownSettingsDialog.h"
 #include "ui/settings/ImageSettingsDialog.h"
@@ -148,6 +153,15 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     graphLayout->addWidget(graphToolbar); graphLayout->addWidget(m_graph, 1);
     vertical->addWidget(m_relationPanel); vertical->setSizes({600, 300}); vertical->setStretchFactor(0, 2); vertical->setStretchFactor(1, 1);
     m_relationPanel->hide(); layout->addWidget(vertical); setCentralWidget(central); m_editor->setEnabled(false); m_document->setEnabled(false);
+    auto *finder = new DocumentFindDialog(this);
+    m_finder = finder;
+    finder->setEditor(m_document);
+    connect(m_views, &QStackedWidget::currentChanged, finder, [this, finder] {
+        finder->setEditor(qobject_cast<QTextEdit *>(m_views->currentWidget()));
+    });
+    auto *findAction = new QAction(QStringLiteral("查找"), this); findAction->setObjectName("documentFindAction");
+    findAction->setShortcut(QKeySequence::Find); addAction(findAction);
+    connect(findAction, &QAction::triggered, finder, &DocumentFindDialog::openSearch);
     connect(m_documents, &DocumentSidebar::documentActivated, this, [this](const QString &path) { openDocument(path); }, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::createDocumentRequested, this, &MainWindow::createDocumentInDirectory, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::renameDocumentRequested, this, [this](const QString &path) { renameDocument(path); }, Qt::QueuedConnection);
@@ -198,11 +212,8 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
         if (!m_syncingDocument && !m_restoringHistory)
             for (auto it = m_renderedEditCarets.upperBound(m_editor->document()->availableUndoSteps()); it != m_renderedEditCarets.end();) it = m_renderedEditCarets.erase(it);
     });
-    connect(m_document, &QTextBrowser::anchorClicked, this, [this](const QUrl &url) {
-        if (url.toString().startsWith('#')) { m_document->scrollToAnchor(url.fragment()); return; }
-        if (url.isLocalFile() && QFileInfo(url.toLocalFile()).suffix().compare("md", Qt::CaseInsensitive) == 0) openDocument(url.toLocalFile());
-        else if (MarkdownImages::isRemote(url.toString())) QDesktopServices::openUrl(url);
-    });
+    connect(m_document, &QTextBrowser::anchorClicked, this, &MainWindow::openDocumentLink);
+    connect(m_editor, &MarkdownEditor::anchorClicked, this, &MainWindow::openDocumentLink);
     for (const auto &shortcut : {QKeySequence::Undo, QKeySequence::Redo}) {
         auto *a = new QAction(this); a->setShortcut(shortcut); addAction(a);
         connect(a, &QAction::triggered, this, [this, shortcut] { undoRedo(shortcut == QKeySequence::Redo); });
@@ -211,10 +222,23 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_manager, &MarkdownManager::documentsChanged, this, [this] { if (!m_busy) refreshView(); });
     connect(m_manager, &MarkdownManager::documentChanged, this, [this](const QString &path) {
         const auto *node = m_manager->loadNode(path); if (!node) return;
-        m_documents->updateModified(path, node->isModified());
+        m_documents->updateStatus(path, node->isModified(), node->missingReferences());
         if (path == m_current) {
             m_editor->document()->setModified(node->isModified());
             setWindowTitle(m_current + (node->isModified() ? " *" : "") + " — Tmd");
+        }
+    });
+    connect(m_manager,&MarkdownManager::referencesRewritten,this,[this](const QString &path,const QString &before,const QString &after) {
+        if (path!=m_current || m_editor->source()!=before) return;
+        const QScopedValueRollback<bool> loading(m_loading,true);
+        auto cursor=m_editor->textCursor();
+        const auto position=[&](int p) { return LibraryReferences::mapPosition(before,after,p); };
+        MarkdownEdit edit{after,position(cursor.anchor()),position(cursor.position()),true,true};
+        if (tmd::QtTextEditAdapter::apply(cursor,before,edit)) {
+            m_editor->setTextCursor(cursor);
+            if (const auto *node=m_manager->loadNode(path)) m_editor->document()->setModified(node->isModified());
+            m_finder->resetSearch(); renderDocument(true);
+            if (m_documentAction->isChecked()) m_document->restoreSourceCursor(cursor.anchor(),cursor.position());
         }
     });
     connect(m_manager, &MarkdownManager::relationsChanged, this, [this] { if (!m_busy) refreshGraph(); });
@@ -279,6 +303,7 @@ void MainWindow::applyMarkdownSettings() {
     const auto &settings = MarkdownSettingsStore::current();
     m_editor->setHostedLinkInput(settings.imageMode == 2); m_document->setHostedLinkInput(settings.imageMode == 2);
     m_editor->refreshAppearance(); m_document->refreshAppearance();
+    m_manager->enableWatching();
 }
 void MainWindow::sizeRelationPanel() {
     if (!m_relationAction->isChecked()) return;
@@ -336,11 +361,26 @@ bool MainWindow::openDocument(const QString &path) {
     if (!m_current.isEmpty() && !m_manager->loadNode(m_current) && !mayLeaveDocument()) { m_documents->selectPath(m_current); return false; }
     auto *node = m_manager->loadNode(path);
     if (!node) { showError(QStringLiteral("文档不存在，请刷新列表。")); return false; }
+    m_finder->resetSearch();
     m_current = node->relativePath(); m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(node->content()); m_loading = false;
     m_editor->document()->setModified(node->isModified());
     m_editor->setEnabled(true); m_document->setEnabled(true); m_parseTimer->stop(); m_documents->selectPath(m_current);
     refreshOutline(); refreshView(); m_views->currentWidget()->setFocus();
     return true;
+}
+void MainWindow::openDocumentLink(const QUrl &url) {
+    const auto target = DocumentLinkResolver::resolve(m_manager->rootPath(), m_current, url);
+    using Kind = DocumentLinkResolver::Kind;
+    if (target.kind == Kind::Anchor) m_document->scrollToAnchor(target.fragment);
+    else if (target.kind == Kind::Document) {
+        if (!m_manager->loadNode(target.path)) {
+            QString error;
+            if (!m_manager->scan(&error)) { showError(error); return; }
+        }
+        if (openDocument(target.path) && !target.fragment.isEmpty()) m_document->scrollToAnchor(target.fragment);
+    } else if (target.kind == Kind::External) {
+        if (!QDesktopServices::openUrl(target.url)) statusBar()->showMessage(QStringLiteral("无法打开链接：%1").arg(target.url.toDisplayString()), 5000);
+    } else if (!target.error.isEmpty()) statusBar()->showMessage(target.error, 5000);
 }
 bool MainWindow::saveCurrent() {
     if (m_current.isEmpty() || !m_manager->loadNode(m_current)) return saveAs();
@@ -363,6 +403,7 @@ bool MainWindow::saveAs() {
     const bool success = m_manager->copyDocument(m_current, path, m_editor->source(), &error); m_busy = false;
     if (!success) { showError(error); return false; }
     m_current = m_manager->loadNode(path)->relativePath();
+    m_finder->resetSearch();
     m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(m_manager->loadNode(path)->content()); m_loading = false;
     m_editor->document()->setModified(false); m_editor->setEnabled(true); m_document->setEnabled(true); refreshView(); refreshOutline(); refreshGraph();
     return true;
@@ -536,6 +577,7 @@ void MainWindow::openFileManager(const QString &path) {
 }
 void MainWindow::finishRemoval(bool currentRemoved) {
     if (currentRemoved) {
+        m_finder->resetSearch();
         m_parseTimer->stop(); m_current.clear(); m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource({}); m_loading = false;
         m_editor->setEnabled(false); m_document->setEnabled(false);
     }
@@ -547,9 +589,11 @@ void MainWindow::refreshView() {
     m_documents->setDocuments(m_manager->allNodes(), m_manager->directories()); m_documents->selectPath(m_current);
     const auto *node = m_manager->loadNode(m_current);
     if (node && !node->isModified() && node->content() != m_editor->source()) {
+        m_finder->resetSearch();
         const int position = m_editor->textCursor().position();
         m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(node->content()); m_loading = false; m_editor->goToPosition(position); refreshOutline();
     }
+    if (node) m_editor->document()->setModified(node->isModified());
     m_title->setText(node ? node->title() : m_current.isEmpty() ? QStringLiteral("你的知识，从一个节点开始") : m_current);
     setWindowTitle(m_current.isEmpty() ? "Tmd" : m_current + ((node ? node->isModified() : m_editor->document()->isModified()) ? " *" : "") + " — Tmd");
     QString notice;
@@ -559,6 +603,33 @@ void MainWindow::refreshView() {
     m_notice->setText(notice.trimmed()); m_notice->setVisible(!notice.trimmed().isEmpty());
     m_reload->setVisible(node && node->hasExternalChange());
     refreshGraph(); if (m_documentAction->isChecked()) renderDocument();
+    showDuplicateDocuments();
+}
+void MainWindow::showDuplicateDocuments() {
+    const auto conflicts=m_manager->duplicateDocuments();
+    auto *dialog=findChild<QDialog *>("duplicateDocumentsDialog");
+    if (conflicts.isEmpty()) {
+        m_duplicateNoticeSignature.clear(); if (dialog) dialog->close(); return;
+    }
+    QStringList paths;
+    for (const auto &group : conflicts) paths.append(group);
+    const QString signature=paths.join('\n');
+    if (!dialog && signature==m_duplicateNoticeSignature) return;
+    m_duplicateNoticeSignature=signature;
+    if (!dialog) {
+        dialog=new QDialog(this); dialog->setObjectName("duplicateDocumentsDialog"); dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setWindowTitle(QStringLiteral("MD 文件重名：请修改文件名")); dialog->resize(620,340);
+        auto *layout=new QVBoxLayout(dialog);
+        auto *label=new QLabel(QStringLiteral("整个 md_data 中的 MD 文件名必须唯一（不区分大小写）。\n请选择重名文件并修改文件名；只换文件夹不能消除重名。"),dialog);
+        label->setWordWrap(true); layout->addWidget(label);
+        auto *list=new QListWidget(dialog); list->setObjectName("duplicateDocumentList"); layout->addWidget(list);
+        auto *rename=new QPushButton(QStringLiteral("重命名选中文档"),dialog); rename->setObjectName("renameDuplicateDocumentButton"); layout->addWidget(rename);
+        connect(rename,&QPushButton::clicked,this,[this,list] { if (auto *item=list->currentItem()) renameDocument(item->text()); });
+        connect(list,&QListWidget::itemDoubleClicked,this,[this](QListWidgetItem *item) { renameDocument(item->text()); });
+    }
+    auto *list=dialog->findChild<QListWidget *>("duplicateDocumentList");
+    list->clear(); list->addItems(paths); if (list->count()) list->setCurrentRow(0);
+    dialog->show();
 }
 void MainWindow::refreshOutline() {
     const auto *node = m_manager->loadNode(m_current);
@@ -572,6 +643,7 @@ void MainWindow::reloadCurrent() {
     const auto *node = m_manager->loadNode(m_current); if (!node) return;
     if (node->isModified() && QMessageBox::question(this, QStringLiteral("重新加载"), QStringLiteral("放弃当前编辑，读取外部修改后的文档？"), QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) != QMessageBox::Yes) return;
     QString error; if (!m_manager->reloadDocument(m_current, &error)) { showError(error); return; }
+    m_finder->resetSearch();
     m_loading = true; m_renderedEditCarets.clear(); m_editor->setSource(m_manager->loadNode(m_current)->content()); m_loading = false;
     refreshView(); refreshOutline();
 }

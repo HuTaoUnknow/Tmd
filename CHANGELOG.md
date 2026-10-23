@@ -2,6 +2,22 @@
 
 ## 未发布 / Unreleased
 
+### 中文
+
+- 增加文档查找与替换、圆角匹配高亮、方向键切换，以及保留当前替换结果选区。
+- 列表按层级显示空心圆、小圆点与字母编号，同时保留数字 Markdown 原文。
+- 支持 Ctrl+单击访问本库文档、外部文件及网页，选区符号包裹确认，以及代码区分级全选。
+- 记录知识库与图片文件结构，移动后自动修正相关引用；缺失目标显示红点，并检查全库 MD 文件重名。
+- 更新四篇 Markdown/Tmd 教程及公开知识树示例，增加相关回归检查，现共十八组。
+
+### English
+
+- Add document find/replace, rounded match highlights, arrow-key navigation and retained replacement selections.
+- Render nested list markers as hollow dots, small dots and letters while keeping numeric Markdown source.
+- Support Ctrl+click document/file/web navigation, confirmed selection wrapping and progressive code selection.
+- Track library/image files, repair references after moves, show missing-target status dots and enforce globally unique Markdown filenames.
+- Refresh the four Markdown/Tmd tutorials and public knowledge-tree example, with eighteen regression groups.
+
 ## v1.1.1 — 2026-10-18
 
 ### 中文

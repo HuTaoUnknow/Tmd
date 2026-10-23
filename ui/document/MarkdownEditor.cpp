@@ -5,6 +5,8 @@
 #include "ui/document/MarkdownFenceCompleter.h"
 #include "ui/document/MarkdownViewport.h"
 #include "ui/document/CodeSyntaxHighlighter.h"
+#include "ui/document/MarkdownSelectionController.h"
+#include "core/markdown/MarkdownSpelling.h"
 #include "core/settings/MarkdownSettings.h"
 #include "core/markdown/MarkdownParser.h"
 #include "application/editing/EditCommandRouter.h"
@@ -17,6 +19,7 @@
 #include <QKeyEvent>
 #include <QTextBlock>
 #include <QTextLayout>
+#include <QMouseEvent>
 
 MarkdownEditor::MarkdownEditor(QWidget *parent) : QTextEdit(parent) {
     setObjectName("markdownEditor"); setAcceptRichText(false);
@@ -33,8 +36,26 @@ MarkdownEditor::MarkdownEditor(QWidget *parent) : QTextEdit(parent) {
             cursor.setPosition(caret);
             setTextCursor(cursor);
         });
+    m_selectionController = new MarkdownSelectionController(this,
+        [this] { return MarkdownSelectionController::Context{source(), textCursor().anchor(), textCursor().position()}; },
+        [this](const MarkdownEdit &edit) {
+            auto cursor = textCursor(); QString error;
+            if (!tmd::QtTextEditAdapter::apply(cursor, source(), edit, &error)) { emit editRejected(error); return; }
+            setTextCursor(cursor); ensureCursorVisible();
+        });
 }
-void MarkdownEditor::setSource(const QString &source) { m_fenceCompleter->reset(); setPlainText(source); document()->setModified(false); }
+void MarkdownEditor::setSource(const QString &source) { m_selectionController->reset(); m_fenceCompleter->reset(); setPlainText(source); document()->setModified(false); }
+void MarkdownEditor::mousePressEvent(QMouseEvent *event) {
+    if (event->button() == Qt::LeftButton && event->modifiers().testFlag(Qt::ControlModifier)) {
+        const auto text = source(); const int position = cursorForPosition(event->position().toPoint()).position();
+        for (const auto &region : MarkdownSpelling::regions(text)) if (region.kind == MarkdownSpelling::Kind::Link
+            && position >= region.start && position <= region.end) {
+            const auto target = MarkdownSpelling::target(text, region);
+            if (!target.isEmpty()) { emit anchorClicked(QUrl(target)); event->accept(); return; }
+        }
+    }
+    QTextEdit::mousePressEvent(event);
+}
 int MarkdownEditor::viewportSourcePosition() const { return m_viewport->anchorPosition(); }
 void MarkdownEditor::alignSourcePosition(int position) { m_viewport->alignPosition(position); }
 void MarkdownEditor::refreshAppearance() {

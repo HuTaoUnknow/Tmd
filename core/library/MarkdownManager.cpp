@@ -2,6 +2,7 @@
 #include "core/library/MarkdownFileIO.h"
 #include "core/library/LibraryPathPolicy.h"
 #include "core/library/FileWatcher.h"
+#include "core/library/LibraryScanLock.h"
 #include "core/images/ImageStorage.h"
 #include <QDir>
 #include <QDirIterator>
@@ -41,7 +42,7 @@ QList<MarkdownNode *> MarkdownManager::allNodes() const {
 QString MarkdownManager::safeDirectoryPath(const QString &path, QString *error) const { return LibraryPathPolicy(m_root).directory(path, error); }
 QStringList MarkdownManager::directories() const {
     QStringList result;
-    QDirIterator iterator(m_root, QDir::Dirs | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDirIterator::Subdirectories);
+    QDirIterator iterator(m_root, QDir::Dirs | QDir::Hidden | QDir::NoDotAndDotDot | QDir::NoSymLinks, QDirIterator::Subdirectories);
     while (iterator.hasNext()) {
         const QString path = iterator.next();
         if (!safeDirectoryPath(path).isEmpty()) result.append(QDir(m_root).relativeFilePath(path));
@@ -49,7 +50,9 @@ QStringList MarkdownManager::directories() const {
     result.sort(); return result;
 }
 bool MarkdownManager::scan(QString *error) {
-    const auto restoreWatches = qScopeGuard([this] { if (m_watcher) m_watcher->rebuild(); });
+    const LibraryScanLock transaction(m_root);
+    if (!transaction.locked()) return fail(error,transaction.error());
+    const auto restoreWatches = qScopeGuard([this] { if (m_watcher) m_watcher->rebuild(); if (m_photoWatcher) m_photoWatcher->rebuild(); });
     if (!QFileInfo(m_root).isDir()) return fail(error, QStringLiteral("知识库目录不存在。"));
     QStringList previousPaths;
     for (const auto &entry : m_nodes) previousPaths.append(entry.second->relativePath());
@@ -67,11 +70,56 @@ bool MarkdownManager::scan(QString *error) {
             normalized[s].insert(t, target.value());
         }
     m_warnings.clear();
+    // Another window may already have completed this move and repaired the URLs.
+    m_fileIndexError.clear();
+    m_fileIndexWritable=m_fileIndex.load(QDir(m_root).filePath(".tree-md-files.json"),&m_fileIndexError);
+    m_fileIndexLoaded=true;
+    for (auto file=m_fileIndex.entries.begin();file!=m_fileIndex.entries.end();++file)
+        for (const auto &deleted : m_pendingDeletedPaths)
+            if (file.key()==deleted || file.key().startsWith(deleted+'/')) file->digest.clear();
+    if (!m_fileIndexError.isEmpty()) m_warnings.append(m_fileIndexError);
+    const auto inventory=LibraryFileIndex::capture({m_root,ImageStorage(m_root).photoRoot()},m_fileIndex.entries);
+    auto fileMoves=LibraryFileIndex::moves(m_fileIndex.entries,inventory);
+    const auto structuralMoves=fileMoves;
+    for (auto move=structuralMoves.cbegin();move!=structuralMoves.cend();++move) {
+        if (!m_fileIndex.entries.value(move.key()).directory) continue;
+        for (auto file=m_fileIndex.entries.cbegin();file!=m_fileIndex.entries.cend();++file)
+            if (file.key().startsWith(move.key()+'/')) {
+                const QString target=move.value()+file->path.mid(move.key().size());
+                const auto found=inventory.constFind(LibraryFileIndex::key(target));
+                if (found!=inventory.cend() && found->directory==file->directory) fileMoves.insert(file.key(),found->path);
+            }
+    }
+    for (auto move=m_pendingReferenceMoves.cbegin();move!=m_pendingReferenceMoves.cend();++move) {
+        fileMoves.insert(move.key(),move.value());
+        for (auto file=m_fileIndex.entries.cbegin();file!=m_fileIndex.entries.cend();++file)
+            if (file.key().startsWith(move.key()+'/')) {
+                const QString target=move.value()+file->path.mid(move.key().size());
+                if (QFileInfo::exists(target)) fileMoves.insert(file.key(),target);
+            }
+    }
     QMap<QString, QStringList> identities;
     for (const auto &entry : m_nodes) if (!entry.second->m_fileIdentity.isEmpty()) identities[entry.second->m_fileIdentity].append(entry.first);
     QMap<QString, QString> renamedKeys, renamedPaths;
+    for (auto move=fileMoves.cbegin();move!=fileMoves.cend();++move) {
+        if (QFileInfo(move.value()).suffix().compare("md",Qt::CaseInsensitive)!=0 || !QFileInfo(move.value()).isFile()) continue;
+        const auto from=keyFor(move.key()), to=keyFor(move.value());
+        if (from.isEmpty() || to.isEmpty() || from==to) continue;
+        renamedKeys.insert(from,to);
+        const auto old=m_fileIndex.entries.value(move.key());
+        renamedPaths.insert(QDir(m_root).relativeFilePath(old.path.isEmpty() ? move.key() : old.path),QDir(m_root).relativeFilePath(move.value()));
+    }
+    for (const auto &entry : m_nodes) {
+        const auto *node=entry.second.get(); if (QFileInfo::exists(node->filePath())) continue;
+        const QString target=m_fileIndex.redirects.value(LibraryFileIndex::key(node->filePath()));
+        const QString next=target.isEmpty() ? QString() : keyFor(target);
+        if (!next.isEmpty() && QFileInfo(target).isFile()) {
+            renamedKeys.insert(entry.first,next); renamedPaths.insert(node->relativePath(),QDir(m_root).relativeFilePath(target));
+        }
+    }
+    QMap<QString,QString> bufferOrigins;
     std::map<QString, std::unique_ptr<MarkdownNode>> discovered;
-    QDirIterator files(m_root, QDir::Files | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
+    QDirIterator files(m_root, QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot, QDirIterator::Subdirectories);
     while (files.hasNext()) {
         const QString filePath = files.next();
         if (QFileInfo(filePath).suffix().compare("md", Qt::CaseInsensitive) != 0) continue;
@@ -80,12 +128,14 @@ bool MarkdownManager::scan(QString *error) {
         QString content, readError;
         const QString key = keyFor(absolute);
         auto previous = m_nodes.find(key);
+        if (previous==m_nodes.end() && renamedKeys.values().contains(key)) previous=m_nodes.find(renamedKeys.key(key));
         const QString identity = MarkdownFileIO::fileIdentity(absolute);
         if (previous == m_nodes.end() && !identity.isEmpty() && identities.value(identity).size() == 1) {
             const QString oldKey = identities.value(identity).front();
             auto old = m_nodes.find(oldKey);
             if (old != m_nodes.end() && !MarkdownFileIO::exists(old->second->filePath())) {
                 previous = old; renamedKeys.insert(oldKey, key);
+                fileMoves.insert(LibraryFileIndex::key(old->second->filePath()),absolute);
                 renamedPaths.insert(old->second->relativePath(), QDir(m_root).relativeFilePath(absolute));
             }
         }
@@ -96,6 +146,7 @@ bool MarkdownManager::scan(QString *error) {
         }
         auto node = previous != m_nodes.end() ? std::make_unique<MarkdownNode>(*previous->second) : std::make_unique<MarkdownNode>();
         if (node->isModified()) {
+            bufferOrigins.insert(LibraryFileIndex::key(absolute),node->filePath());
             node->m_externalChange = content != node->m_savedContent;
         } else {
             node->m_content = content;
@@ -128,6 +179,9 @@ bool MarkdownManager::scan(QString *error) {
     }
     if (error) error->clear();
     for (auto renamed = renamedPaths.cbegin(); renamed != renamedPaths.cend(); ++renamed) emit documentRenamed(renamed.key(), renamed.value());
+    maintainReferences(fileMoves,inventory,bufferOrigins);
+    m_pendingReferenceMoves.clear();
+    m_pendingDeletedPaths.clear();
     QStringList currentPaths;
     for (const auto &entry : m_nodes) currentPaths.append(entry.second->relativePath());
     if (previousPaths != currentPaths || previousRelations != m_relations) ++m_graphRevision;
@@ -138,16 +192,33 @@ void MarkdownManager::updateContent(const QString &path, const QString &content)
     if (auto *node = loadNode(path)) {
         if (node->m_content == content) return;
         const QString previousTitle = node->title(); node->m_content = content;
+        updateReferenceStatus(node);
         const QString title = node->title();
         emit documentChanged(node->relativePath());
         if (title != previousTitle) emit documentTitleChanged(node->relativePath(), title);
     }
 }
 void MarkdownManager::enableWatching() {
-    if (m_watcher) return;
-    m_watcher = new FileWatcher(m_root, this);
-    connect(m_watcher, &FileWatcher::changed, this, [this] {
-        QString error;
-        if (!scan(&error)) emit refreshFailed(error);
+    if (!m_watcher) {
+        m_watcher = new FileWatcher(m_root, this);
+        connect(m_watcher, &FileWatcher::changed, this, [this] {
+            QString error;
+            if (!scan(&error)) emit refreshFailed(error);
+        });
+    }
+    const QString photoRoot=ImageStorage(m_root).photoRoot();
+    const auto photoKey=LibraryFileIndex::key(photoRoot), rootKey=LibraryFileIndex::key(m_root);
+    if (photoKey==rootKey || photoKey.startsWith(rootKey+'/')) {
+        // The recursive library watch already covers these images; a descendant
+        // root handle would unnecessarily complicate moving its parent folder.
+        if (m_photoWatcher) { m_photoWatcher->suspend(); m_photoWatcher->deleteLater(); m_photoWatcher=nullptr; }
+        m_photoWatchRoot=photoRoot; return;
+    }
+    if (m_photoWatcher && m_photoWatchRoot==photoRoot) return;
+    if (m_photoWatcher) { m_photoWatcher->suspend(); m_photoWatcher->deleteLater(); }
+    m_photoWatchRoot=photoRoot;
+    m_photoWatcher=new FileWatcher(photoRoot,this);
+    connect(m_photoWatcher,&FileWatcher::changed,this,[this] {
+        QString error; if (!scan(&error)) emit refreshFailed(error);
     });
 }

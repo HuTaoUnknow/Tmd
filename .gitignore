@@ -9,3 +9,5 @@ CMakeUserPresets.json
 /package/
 *.user
 *.log
+.tree-md-files.json
+.tree-md-files.lock

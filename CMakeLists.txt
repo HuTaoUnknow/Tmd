@@ -12,7 +12,9 @@ add_library(tree_md_core STATIC
     core/markdown/MarkdownBlockSyntax.cpp
     core/markdown/MarkdownSyntax.cpp
     core/markdown/MarkdownCodeEditing.cpp
+    core/markdown/MarkdownSelectionEditing.cpp
     core/markdown/MarkdownListEditing.cpp
+    core/markdown/MarkdownListSyntax.cpp
     core/markdown/MarkdownTableEditing.cpp
     core/markdown/MarkdownParagraphEditing.cpp
     core/markdown/MarkdownImport.cpp
@@ -23,10 +25,16 @@ add_library(tree_md_core STATIC
     core/markdown/MarkdownCodeBlocks.cpp
     core/markdown/MarkdownParser.cpp
     core/markdown/MarkdownImages.cpp
+    core/markdown/MarkdownReferences.cpp
     core/library/MarkdownManager.cpp
     core/library/MarkdownDocumentOperations.cpp
     core/library/MarkdownPathMoves.cpp
     core/library/LibraryPathPolicy.cpp
+    core/library/DocumentLinkResolver.cpp
+    core/library/LibraryFileIndex.cpp
+    core/library/LibraryScanLock.cpp
+    core/library/LibraryReferences.cpp
+    core/library/MarkdownReferenceMaintenance.cpp
     core/library/LibraryImport.cpp
     core/knowledge/MarkdownManagerRelations.cpp
     core/library/MarkdownNode.cpp
@@ -62,7 +70,11 @@ target_link_libraries(tree_md_application PUBLIC tree_md_core)
 target_include_directories(tree_md_application PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(tree_md_ui STATIC
     ui/document/QtTextEditAdapter.cpp
+    ui/document/MarkdownSelectionController.cpp
     ui/document/InlineMarkupDecoration.cpp
+    ui/document/ListMarkerDecoration.cpp
+    ui/document/DocumentFindDialog.cpp
+    ui/document/SearchHighlightOverlay.cpp
     ui/document/MarkdownDocumentView.cpp
     ui/document/MarkdownEditor.cpp
     ui/document/MarkdownViewport.cpp
@@ -127,6 +139,12 @@ if(BUILD_TESTING)
     target_link_libraries(tmd_editing_list_tests PRIVATE tree_md_ui Qt6::Test)
     add_executable(tmd_editing_integration_tests tests/EditingIntegrationAuditTests.cpp)
     target_link_libraries(tmd_editing_integration_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_document_find_tests tests/DocumentFindTests.cpp)
+    target_link_libraries(tmd_document_find_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_selection_link_tests tests/SelectionLinkTests.cpp)
+    target_link_libraries(tmd_selection_link_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_reference_tests tests/ReferenceMaintenanceTests.cpp)
+    target_link_libraries(tmd_reference_tests PRIVATE tree_md_ui Qt6::Test)
     add_executable(tmd_library_tests tests/DefaultLibraryTests.cpp)
     add_executable(tmd_editing_policy_tests tests/EditingPolicyTests.cpp)
     target_link_libraries(tmd_editing_policy_tests PRIVATE tree_md_ui Qt6::Test)

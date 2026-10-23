@@ -21,6 +21,9 @@ public:
     QStringList visibleBlockMarkers() const;
     int inlineCursorSourcePosition() const { return m_sourceMap.sourcePosition(textCursor().position()); }
     void restoreSourceCursor(int anchor, int caret);
+    bool replaceDisplayText(int position, int length, const QString &replacement, QPair<int, int> *sourceSelection = nullptr);
+    QTextCursor cursorForSourceRange(int anchor, int caret) const;
+    void collapseSourceSelection();
     QRect cursorRect() const;
     QRect cursorRect(const QTextCursor &cursor) const;
     QString markdownSource() const { return m_source; }
@@ -104,7 +107,9 @@ private:
     class QTimer *m_markupTimer;
     class MarkdownFenceCompleter *m_fenceCompleter;
     class InlineMarkupDecoration *m_inlineDecorations;
+    class ListMarkerDecoration *m_listDecoration;
     class MarkdownViewport *m_viewport;
     class CodeBlockDecoration *m_codeDecoration;
     class CodeSyntaxHighlighter *m_highlighter;
+    class MarkdownSelectionController *m_selectionController = nullptr;
 };

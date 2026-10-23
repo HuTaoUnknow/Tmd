@@ -27,9 +27,9 @@ cmake --build build-release --parallel 4
 .\scripts\Build-Release.ps1 -QtDirectory "D:\Qt\6.11.1\mingw_64" -InnoCompiler "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 ```
 
-脚本依次构建 Release、部署测试运行依赖、串行运行十五组回归检查、部署程序依赖、创建便携 ZIP、编译安装包并生成 SHA256 校验文件。默认输出到 `dist/`。`-BuildDirectory` 和 `-OutputDirectory` 可指定其他位置。各组 QtTest 明细保存到构建目录中同名 `.txt` 文件；六组编辑检查（含语法规则及模块化编辑回归）可使用 `ctest -R 'tmd_(editing|modular_editing)' --output-on-failure` 单独运行。
+脚本依次构建 Release、部署测试运行依赖、串行运行十八组回归检查（含当前文档查找与替换、选区及链接交互）、部署程序依赖、创建便携 ZIP、编译安装包并生成 SHA256 校验文件。默认输出到 `dist/`。`-BuildDirectory` 和 `-OutputDirectory` 可指定其他位置。各组 QtTest 明细保存到构建目录中同名 `.txt` 文件；六组编辑检查（含语法规则及模块化编辑回归）可使用 `ctest -R 'tmd_(editing|modular_editing)' --output-on-failure` 单独运行，查找与替换可使用 `ctest -R '^tmd_document_find$' --output-on-failure` 单独运行。
 
-`-SkipBuild` 用于已有构建；`-SkipTests` 仅适合已经验证的同一构建。发布包始终使用 `examples/` 中的五篇公开示例，不打包开发者的本地知识库。
+`-SkipBuild` 用于已有构建；`-SkipTests` 仅适合已经验证的同一构建。发布包始终使用 `examples/` 中的四篇公开示例，不打包开发者的本地知识库。
 
 每版介绍保存在 `docs/releases/vX.Y.Z.md`，打包时复制为根目录的 `RELEASE-NOTES.md`。便携包附带 `Start-Tmd.cmd`，从其所在目录启动程序，可传递与 EXE 相同的命令行参数。
 
@@ -47,7 +47,7 @@ Use C++17, CMake 3.21+, Ninja, Qt 6.11.1 for MinGW 64-bit and a matching MinGW t
 
 Open `CMakeLists.txt` in Qt Creator, select the Qt MinGW 64-bit kit, and build the `tree_md` target. Development startup seeds a new local library from `examples/`; existing libraries are preserved. Local `md_data` and `md_photo` are ignored by Git.
 
-From a configured development terminal, use the commands above or run `scripts/Build-Release.ps1` with your Qt and ISCC paths. The script builds Release, deploys test runtimes, runs fifteen regression groups serially, deploys application runtimes, creates the portable ZIP, compiles Setup and writes SHA256 checksums to `dist/`. Per-group QtTest details are saved as matching `.txt` files in the build directory. Run `ctest -R 'tmd_(editing|modular_editing)' --output-on-failure` for the six editing groups, including syntax policy and modular editing checks. Set `TEMP` and `TMP` to a writable build-local directory in restricted environments. Localhost HTTP and Windows Recycle Bin tests require the corresponding operating-system permissions.
+From a configured development terminal, use the commands above or run `scripts/Build-Release.ps1` with your Qt and ISCC paths. The script builds Release, deploys test runtimes, runs eighteen regression groups serially (including document find/replace, selections, and links), deploys application runtimes, creates the portable ZIP, compiles Setup and writes SHA256 checksums to `dist/`. Per-group QtTest details are saved as matching `.txt` files in the build directory. Run `ctest -R 'tmd_(editing|modular_editing)' --output-on-failure` for the six editing groups, including syntax policy and modular editing checks, or `ctest -R '^tmd_document_find$' --output-on-failure` for find and replace. Set `TEMP` and `TMP` to a writable build-local directory in restricted environments. Localhost HTTP and Windows Recycle Bin tests require the corresponding operating-system permissions.
 
 `-BuildDirectory` and `-OutputDirectory` customize locations. `-SkipBuild` reuses a build; `-SkipTests` is intended only for an already verified identical build. Packages contain the reviewed starter files from `examples/`, never the developer's working library.
 

@@ -29,15 +29,16 @@ public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override {
         QStyleOptionViewItem row(option); initStyleOption(&row, index);
         const bool modified = index.data(DocumentTreeBuilder::ModifiedRole).toBool();
+        const bool missing = !index.data(DocumentTreeBuilder::MissingReferencesRole).toStringList().isEmpty();
         const auto *widget = row.widget; auto *style = widget ? widget->style() : QApplication::style();
-        if (modified) {
+        if (modified || missing) {
             const QRect text = style->subElementRect(QStyle::SE_ItemViewItemText, &row, widget);
             row.text = row.fontMetrics.elidedText(row.text, row.textElideMode, qMax(0, text.width() - 20));
         }
         style->drawControl(QStyle::CE_ItemViewItem, &row, painter, widget);
-        if (modified) {
+        if (modified || missing) {
             painter->save(); painter->setRenderHint(QPainter::Antialiasing);
-            painter->setPen(Qt::NoPen); painter->setBrush(QColor("#d5d5d2"));
+            painter->setPen(Qt::NoPen); painter->setBrush(QColor(missing ? "#ef6464" : "#d5d5d2"));
             painter->drawEllipse(QPointF(option.rect.right() - 9, option.rect.center().y()), 3.5, 3.5); painter->restore();
         }
     }
@@ -46,7 +47,7 @@ public:
         initStyleOption(&option, index); option.rect = view->visualRect(index);
         if (option.rect.isEmpty()) return {};
         QRect rect = view->style()->subElementRect(QStyle::SE_ItemViewItemText, &option, view);
-        if (index.data(DocumentTreeBuilder::ModifiedRole).toBool()) rect.setRight(rect.right() - 20);
+        if (index.data(DocumentTreeBuilder::ModifiedRole).toBool() || !index.data(DocumentTreeBuilder::MissingReferencesRole).toStringList().isEmpty()) rect.setRight(rect.right() - 20);
         const QString visible = option.fontMetrics.elidedText(option.text, view->textElideMode(), rect.width());
         rect.setWidth(qMin(rect.width(), option.fontMetrics.horizontalAdvance(visible)));
         return rect;

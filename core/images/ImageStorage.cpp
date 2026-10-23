@@ -101,6 +101,8 @@ bool ImageStorage::prepareRelocation(const QString &source, const QString &relat
         if (MarkdownImages::isRemote(image.source) || MarkdownImages::isData(image.source) || replacements.contains(image.source)) continue;
         QString path = MarkdownImages::localPath(image.source, source);
         if (path.isEmpty()) continue;
+        // A missing reference is reported by the library; it must not prevent moving the document.
+        if (!QFileInfo::exists(path)) continue;
         QString reference;
         const QString normalized = MarkdownFileIO::normalizedPath(path), root = MarkdownFileIO::normalizedPath(m_photoRoot);
         if (QFileInfo(normalized).absolutePath().compare(root, Qt::CaseInsensitive) != 0) {

@@ -9,12 +9,19 @@ The installed edition keeps your library under **Documents/Tmd**:
 ```text
 Tmd/
 ├─ md_data/                   Markdown documents and relationships
-│  ├─ markdown学习/           Five starter documents
+│  ├─ markdown学习/           Four starter documents
+│  ├─ .tree-md-files.json      Local file inventory and move history
 │  └─ .tree-md-relations.json  Relationship metadata
 └─ md_photo/                  Local document images
 ```
 
 The portable edition uses the same folders beside `tree_md.exe`. Image paths are relative to each Markdown document. Back up both folders, including the hidden relationship file.
+
+Markdown filenames must be unique throughout `md_data`, including different subfolders, with case-insensitive comparison. Create, import, Save As and rename reject duplicates. Conflicts introduced outside Tmd appear in a rename window; existing files are preserved.
+
+Tmd records the document and image folder structures and automatically updates local references after identifiable moves or renames. It updates links in both moved and stationary documents, without confirmation. A missing local link or image target replaces the unsaved white dot with a red dot, even for saved documents. Hover for details. Restoring the target or fixing the reference clears red; pending text still shows white. Web links and network images are not marked missing based on temporary network availability. Code examples are unchanged, and automatic URL repairs do not save pending text. Ambiguous destinations remain unresolved rather than being guessed.
+
+Deliberate deletion leaves references missing. A newly created file with the same contents does not impersonate the deleted target; restoring the original file triggers another check.
 
 The application UI is currently in Simplified Chinese. This guide includes the labels needed to navigate it.
 
@@ -46,6 +53,16 @@ How can I connect my notes into a learning route?
 ```
 
 The rendered view is editable. Use Source for precise changes to table syntax, image paths or code fences. Both views share undo history. Switching documents keeps unsaved edits in memory; a gray-white dot at the right of each file row marks pending changes. `Ctrl+S` saves only the current document. Closing Tmd prompts once to save all pending documents, exit without saving, or cancel; a failed save keeps the window open and preserves the affected edits.
+
+Press `Ctrl+F` to open a small, nonmodal Find window for the current document. Matches have rounded highlights, with a stronger color for the current result and a position/total counter. While an input has focus, use Up / Down or the arrow buttons to move between results, wrapping at either end. Find mode also supports Enter / Shift+Enter. Esc or the rounded close button clears highlights. Search is literal and case insensitive, including ordinary spaces. Document view searches displayed text; Source view also searches Markdown syntax. Queries remain when switching views or documents, and results update after edits. Highlights do not change Markdown or add undo entries.
+
+The Find / Replace buttons use the same segmented style as Document / Source. Tab switches between them. In Replace mode, Enter replaces only the current match and keeps the replacement selected. Repeated Enter stays on that same range. Up / Down, the arrow buttons, or changing the search query starts another search and releases the selection; closing also releases it. An empty replacement deletes the match. Each replacement can be undone in one step. Document view retains the surrounding Markdown structure, including headings, bold text, and code fences.
+
+Ctrl+click a Markdown link in either view to follow it. MD files within the current `md_data` library open in Tmd. Other files, including MD files outside the library, use the system default application; web links use the default browser. Relative paths resolve from the current document, with support for library-root paths and a `md_data/` prefix. A regular click edits the link.
+
+After selecting body text, type symmetric Markdown delimiters such as asterisks, underscores, tildes or backticks. The source and selection remain intact while a small preview shows the pending wrapper. Enter confirms, for example `**body**`, without adding a newline. Backspace corrects pending delimiters; Esc cancels. Combined delimiters close in reverse nesting order. Confirmation is a single undoable edit.
+
+Within fenced code, successive Ctrl+A presses select the current logical line, the code body, then the entire document. The first two stages exclude the fences, including for single-line and empty blocks. Moving the caret or another operation restarts the sequence. Outside code, Ctrl+A selects the whole document normally.
 
 In Document view, a space after a valid heading, list, numbered-list or quote prefix immediately activates its preview. Additional spaces and text belong to the editable body, including at the end of a line. Backspace at the start of an indented list item first removes one indentation level, even if the item is empty. For an unindented empty item, Backspace removes the activation space and reveals the original prefix, including the complete `- [ ]` or `- [x]` task marker; another space activates the preview again. Arrow keys can still enter a hidden prefix to edit it character by character.
 
@@ -137,6 +154,7 @@ Both views use language-specific syntax colors, including HTML/XML tags and attr
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |
 | Ctrl+P | Quick search |
+| Ctrl+F | Find; Up / Down changes result, Tab switches Find/Replace, Replace-mode Enter replaces the current match, Esc closes |
 | Ctrl+Shift+D / Ctrl+Shift+M | Document / Source |
 | Ctrl+Shift+O / Ctrl+Shift+K | Outline / Knowledge tree |
 | Ctrl+Z / Ctrl+Y | Undo / Redo |

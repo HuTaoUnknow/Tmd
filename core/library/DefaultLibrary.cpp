@@ -19,6 +19,7 @@ bool copyTree(const QString &source, const QString &destination, QString *error)
     QDirIterator iterator(source, QDir::Files | QDir::Hidden | QDir::NoSymLinks, QDirIterator::Subdirectories);
     while (iterator.hasNext()) {
         const QString file = iterator.next();
+        if (QFileInfo(file).fileName()==".tree-md-files.json" || QFileInfo(file).fileName()==".tree-md-files.lock") continue;
         const QString target = QDir(destination).filePath(QDir(source).relativeFilePath(file));
         if (QFileInfo::exists(target)) continue;
         if (!QDir().mkpath(QFileInfo(target).absolutePath()) || !QFile::copy(file, target))

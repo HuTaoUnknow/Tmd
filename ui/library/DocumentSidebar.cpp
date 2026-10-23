@@ -97,6 +97,8 @@ void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes, const QSt
         auto *item = builder.document(node->relativePath(), title);
         item->setData(0, DocumentTreeBuilder::ModifiedRole, node->isModified());
         if (node->isModified()) item->setToolTip(0, item->toolTip(0) + QStringLiteral("\n未保存"));
+        item->setData(0,DocumentTreeBuilder::MissingReferencesRole,node->missingReferences());
+        if (node->hasMissingReferences()) item->setToolTip(0,item->toolTip(0)+'\n'+node->missingReferences().join('\n'));
     }
     QTreeWidgetItemIterator items(m_tree);
     while (*items) { (*items)->setFlags((*items)->flags() | Qt::ItemIsDragEnabled); ++items; }
@@ -110,6 +112,7 @@ void DocumentSidebar::updateTitle(const QString &path, const QString &title) {
     filter(); if (m_quickPopup && m_quickPopup->isVisible()) refreshQuickResults();
 }
 void DocumentSidebar::updateModified(const QString &path, bool modified) { DocumentTreeBuilder::updateModified(m_tree, path, modified); }
+void DocumentSidebar::updateStatus(const QString &path, bool modified, const QStringList &missing) { DocumentTreeBuilder::updateStatus(m_tree,path,modified,missing); }
 void DocumentSidebar::selectPath(const QString &path) {
     m_current = path;
     const QSignalBlocker blocker(m_tree);

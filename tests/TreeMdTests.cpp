@@ -732,8 +732,8 @@ void TreeMdTests::imageImportUsesFlatAbsoluteDirectoryAndDeduplicates() {
     QString original; QVERIFY(MarkdownFileIO::readFile(source, original)); QCOMPARE(original, content);
     const QString imagePath = MarkdownImages::localPath(images[0].source, manager.loadNode("notes/deep/doc.md")->filePath());
     QCOMPARE(QFileInfo(imagePath).absolutePath(), storage.photoRoot());
-    QVERIFY2(manager.importDocument(source, "other/doc.md", &error), qPrintable(error));
-    QCOMPARE(MarkdownImages::parse(manager.loadNode("other/doc.md")->content())[0].source, images[0].source);
+    QVERIFY2(manager.importDocument(source, "other/doc-copy.md", &error), qPrintable(error));
+    QCOMPARE(MarkdownImages::parse(manager.loadNode("other/doc-copy.md")->content())[0].source, images[0].source);
     QCOMPARE(assetCount(storage.photoRoot()), 1);
     QCOMPARE(QDir(storage.photoRoot()).entryList(QDir::Dirs | QDir::NoDotAndDotDot).size(), 0);
     QFile image(imagePath); QVERIFY(image.open(QIODevice::ReadOnly)); QCOMPARE(image.readAll(), bytes);
@@ -3254,7 +3254,10 @@ void TreeMdTests::directoryMoveReportsLocksAndRetries() {
 }
 void TreeMdTests::movePathsRejectConflictsAndDirtyDocuments() {
     QTemporaryDir directory; MarkdownManager manager(directory.path());
-    QVERIFY(manager.createDocument("source/A.md", "# source")); QVERIFY(manager.createDocument("target/A.md", "# target"));
+    QVERIFY(manager.createDocument("source/A.md", "# source"));
+    // The app rejects global duplicate names; simulate one introduced externally to test move conflicts.
+    QVERIFY(QDir().mkpath(directory.filePath("target")));
+    QVERIFY(MarkdownFileIO::writeFile(directory.filePath("target/A.md"), "# target")); QVERIFY(manager.scan());
     QVERIFY(manager.createDirectory("source/child")); QString error;
     QVERIFY(!manager.movePath("source/A.md", "target", &error)); QVERIFY(!error.isEmpty());
     QVERIFY(!manager.movePath("source", "source/child", &error)); QVERIFY(QFileInfo(directory.filePath("source/A.md")).isFile());
@@ -3390,7 +3393,9 @@ void TreeMdTests::batchMoveDocumentsPreservesImagesAndRollsBack() {
     QCOMPARE(manager.loadNode("target/A.md")->relatedPaths(NodeRelationType::Next), QStringList{"target/B.md"});
     const auto images = MarkdownImages::parse(manager.loadNode("target/A.md")->content()); QCOMPARE(images.size(), 1);
     QVERIFY(QFileInfo::exists(MarkdownImages::localPath(images.front().source, QDir(root).filePath("target/A.md"))));
-    QVERIFY(manager.createDocument("third/A.md", "# Conflict")); QVERIFY(manager.createDocument("third/C.md", "# C"));
+    QVERIFY(QDir().mkpath(QDir(root).filePath("third")));
+    QVERIFY(MarkdownFileIO::writeFile(QDir(root).filePath("third/A.md"), "# Conflict")); QVERIFY(manager.scan());
+    QVERIFY(manager.createDocument("third/C.md", "# C"));
     QVERIFY(!manager.moveDocuments({"third/C.md", "third/A.md"}, "target", &error)); QVERIFY(manager.loadNode("third/C.md")); QVERIFY(!manager.loadNode("target/C.md"));
     manager.updateContent("third/C.md", "# Unsaved"); QVERIFY(!manager.moveDocuments({"target/B.md", "third/C.md"}, {}, &error)); QVERIFY(manager.loadNode("target/B.md"));
     QVERIFY(manager.reloadDocument("third/C.md"));

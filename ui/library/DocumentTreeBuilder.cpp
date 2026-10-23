@@ -3,6 +3,15 @@
 #include <QTreeWidgetItemIterator>
 #include <QBrush>
 #include <functional>
+namespace {
+void tooltip(QTreeWidgetItem *item, const QString &path) {
+    QString text=item->data(0,Qt::UserRole+1).toString()+'\n'+path;
+    if (item->data(0,DocumentTreeBuilder::ModifiedRole).toBool()) text+=QStringLiteral("\n未保存");
+    const auto missing=item->data(0,DocumentTreeBuilder::MissingReferencesRole).toStringList();
+    if (!missing.isEmpty()) text+='\n'+missing.join('\n');
+    item->setToolTip(0,text);
+}
+}
 QTreeWidgetItem *DocumentTreeBuilder::directory(const QString &path) {
     QString prefix; QTreeWidgetItem *parent = nullptr;
     for (const auto &part : path.split('/', Qt::SkipEmptyParts)) {
@@ -32,7 +41,7 @@ void DocumentTreeBuilder::updateTitle(QTreeWidget *tree, const QString &path, co
     while (*iterator) {
         auto *item = *iterator;
         if (item->data(0, Qt::UserRole).toString() == path) {
-            item->setData(0, Qt::UserRole + 1, title); item->setToolTip(0, title + '\n' + path + (item->data(0, ModifiedRole).toBool() ? QStringLiteral("\n未保存") : QString())); return;
+            item->setData(0, Qt::UserRole + 1, title); tooltip(item,path); return;
         }
         ++iterator;
     }
@@ -43,7 +52,17 @@ void DocumentTreeBuilder::updateModified(QTreeWidget *tree, const QString &path,
         auto *item = *iterator;
         if (item->data(0, Qt::UserRole).toString() == path) {
             item->setData(0, ModifiedRole, modified);
-            item->setToolTip(0, item->data(0, Qt::UserRole + 1).toString() + '\n' + path + (modified ? QStringLiteral("\n未保存") : QString())); return;
+            tooltip(item,path); return;
+        }
+        ++iterator;
+    }
+}
+void DocumentTreeBuilder::updateStatus(QTreeWidget *tree, const QString &path, bool modified, const QStringList &missing) {
+    QTreeWidgetItemIterator iterator(tree);
+    while (*iterator) {
+        auto *item=*iterator;
+        if (item->data(0,Qt::UserRole).toString()==path) {
+            item->setData(0,ModifiedRole,modified); item->setData(0,MissingReferencesRole,missing); tooltip(item,path); return;
         }
         ++iterator;
     }

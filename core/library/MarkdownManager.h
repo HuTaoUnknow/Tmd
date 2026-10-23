@@ -1,6 +1,7 @@
 #pragma once
 #include "core/library/MarkdownNode.h"
 #include "core/knowledge/MarkdownRelation.h"
+#include "core/library/LibraryFileIndex.h"
 #include <QObject>
 #include <QSet>
 #include <memory>
@@ -52,6 +53,8 @@ public:
     bool removeRelation(const QString &source, const QString &target, QString *error = nullptr);
     bool removeNodeRelations(const QString &path, QString *error = nullptr);
     QStringList warnings() const { return m_warnings; }
+    QMap<QString,QStringList> duplicateDocuments() const;
+    bool validateDocumentName(const QString &path, QString *error = nullptr, const QString &except = {}) const;
 signals:
     void documentsChanged();
     void relationsChanged();
@@ -59,6 +62,7 @@ signals:
     void documentTitleChanged(const QString &path, const QString &title);
     void documentRenamed(const QString &oldPath, const QString &newPath);
     void refreshFailed(const QString &message);
+    void referencesRewritten(const QString &path, const QString &before, const QString &after);
 private:
     QString safePath(const QString &path, QString *error = nullptr) const;
     QString safeDirectoryPath(const QString &path, QString *error = nullptr) const;
@@ -68,6 +72,10 @@ private:
     QString relationPath() const;
     bool persistRelations(const RelationStore &store, QString *error);
     void applyRelations();
+    void maintainReferences(const QMap<QString,QString> &moves, const LibraryFileIndex::Entries &inventory,
+                            const QMap<QString,QString> &bufferOrigins);
+    void updateReferenceStatus(MarkdownNode *node);
+    void rememberSavedFile(MarkdownNode *node);
     bool m_batchImport = false;
     quint64 m_graphRevision = 0;
     RelationStore m_relations;
@@ -76,4 +84,11 @@ private:
     std::map<QString, std::unique_ptr<MarkdownNode>> m_nodes;
     QStringList m_warnings;
     FileWatcher *m_watcher = nullptr;
+    FileWatcher *m_photoWatcher = nullptr;
+    QString m_photoWatchRoot;
+    LibraryFileIndex m_fileIndex;
+    bool m_fileIndexLoaded = false, m_fileIndexWritable = true;
+    QString m_fileIndexError;
+    QMap<QString,QString> m_pendingReferenceMoves;
+    QSet<QString> m_pendingDeletedPaths;
 };

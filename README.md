@@ -47,12 +47,11 @@ Tmd 是一个 Windows 桌面 Markdown 知识库。每篇真实的 `.md` 文档�
 ### 内置示例
 
 ```text
-md语法基础 → tmd作用及其意义 → 个人知识树示例
-    ├─ md语法详解
-    └─ md语法详解示例对照
+md语法基础 → tmd输入指南 → tmd知识树构建
+    └─ md语法详解与正文对照
 ```
 
-个人知识树示例通过一个学习任务应用，描述从 Java、数据库和后端接口，到 HTML/CSS、JavaScript、前后端联调与组件化的学习过程。
+四篇教程从基础写法开始，详解按前缀、前后声明和其他三类对照原文与正文效果，输入指南按同样顺序介绍实际操作，知识树构建以这四篇教程演示关系连接。
 
 ![内置学习路线 / Included learning route](docs/images/knowledge-tree.png)
 

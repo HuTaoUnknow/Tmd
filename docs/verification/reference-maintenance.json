@@ -1,0 +1,214 @@
+{
+  "task": "Local reference integrity, move tracking and globally unique Markdown filenames",
+  "verifiedAt": "2026-10-20T17:57:34+08:00",
+  "configuration": "Debug",
+  "executable": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tree_md.exe",
+  "executableSHA256": "0D44A0C1F3DE69C43D2E4C23AEF1244D6CF20DFB324A1AE1C6C369D2127A89E3",
+  "build": {
+    "exitCode": 0,
+    "command": "cmake --build build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug --parallel 4",
+    "qt": "6.11.1",
+    "compiler": "MinGW GCC 13.1.0"
+  },
+  "behavior": {
+    "referenceStatus": "Missing local link/image targets use the existing status dot in red; otherwise pending text uses white.",
+    "recovery": "Re-evaluated on source edits, scans, target restoration and watched file changes.",
+    "inventory": "md_data/.tree-md-files.json records the document library and configured image directory; the first scan establishes the baseline.",
+    "moves": "Known internal moves, file identities or unique complete content matches update incoming and outgoing URLs, including reference definitions and other file extensions.",
+    "unknownDestinations": "Missing or ambiguous targets keep their existing references; deliberate trash deletion cannot be replaced by an unrelated same-content file.",
+    "sourceProtection": "Only URL spans are patched. Code/literal examples stay unchanged. Disk content, saved baseline and pending text are handled separately.",
+    "concurrentWindows": "A per-library recursive transaction lock and fresh inventory reads prevent repeated rewrites; pending text in another manager is retained.",
+    "duplicateNames": "Case-insensitive Unicode NFC filenames must be unique across the entire md_data; create/import/copy/rename reject conflicts, and external conflicts prompt for rename without deleting files.",
+    "internet": "No network availability probing for web links or network images.",
+    "distribution": "Runtime inventory/lock files are ignored by Git and excluded from seed copying and release packaging."
+  },
+  "modules": [
+    "core/markdown/MarkdownReferences.cpp",
+    "core/library/LibraryFileIndex.cpp",
+    "core/library/LibraryReferences.cpp",
+    "core/library/LibraryScanLock.cpp",
+    "core/library/MarkdownReferenceMaintenance.cpp"
+  ],
+  "tests": {
+    "registeredGroups": 18,
+    "allLatestGroupLogsPassed": true,
+    "passedQtTestRecords": 934.0,
+    "failed": 0,
+    "skipped": 0,
+    "groups": [
+      {
+        "name": "tmd_markdown_core",
+        "passed": 63,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_markdown_core.txt",
+        "verifiedAt": "2026-10-20T17:51:31+08:00"
+      },
+      {
+        "name": "tmd_incremental_refresh",
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_incremental_refresh.txt",
+        "verifiedAt": "2026-10-20T17:51:32+08:00"
+      },
+      {
+        "name": "tmd_reference_maintenance",
+        "passed": 29,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_reference_maintenance.txt",
+        "verifiedAt": "2026-10-20T17:51:37+08:00"
+      },
+      {
+        "name": "tmd_selection_links",
+        "passed": 60,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_selection_links.txt",
+        "verifiedAt": "2026-10-20T17:51:41+08:00"
+      },
+      {
+        "name": "tmd_document_find",
+        "passed": 27,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_find.txt",
+        "verifiedAt": "2026-10-20T17:51:46+08:00"
+      },
+      {
+        "name": "tmd_editing_headings_audit",
+        "passed": 241,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_headings_audit.txt",
+        "verifiedAt": "2026-10-20T17:02:56+08:00"
+      },
+      {
+        "name": "tmd_editing_code_audit",
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_code_audit.txt",
+        "verifiedAt": "2026-10-20T17:03:26+08:00"
+      },
+      {
+        "name": "tmd_editing_list_audit",
+        "passed": 130,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_list_audit.txt",
+        "verifiedAt": "2026-10-20T17:04:22+08:00"
+      },
+      {
+        "name": "tmd_editing_integration_audit",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_integration_audit.txt",
+        "verifiedAt": "2026-10-20T17:05:10+08:00"
+      },
+      {
+        "name": "tmd_library_regressions",
+        "passed": 22,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_regressions.txt",
+        "verifiedAt": "2026-10-20T17:52:03+08:00"
+      },
+      {
+        "name": "tmd_images_regressions",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_images_regressions.txt",
+        "verifiedAt": "2026-10-20T17:52:05+08:00"
+      },
+      {
+        "name": "tmd_document_regressions",
+        "passed": 81,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_regressions.txt",
+        "verifiedAt": "2026-10-20T17:08:52+08:00"
+      },
+      {
+        "name": "tmd_knowledge_regressions",
+        "passed": 25,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_knowledge_regressions.txt",
+        "verifiedAt": "2026-10-20T17:54:12+08:00"
+      },
+      {
+        "name": "tmd_workspace_regressions",
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_workspace_regressions.txt",
+        "verifiedAt": "2026-10-20T17:54:24+08:00"
+      },
+      {
+        "name": "tmd_settings_regressions",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_settings_regressions.txt",
+        "verifiedAt": "2026-10-20T17:14:39+08:00"
+      },
+      {
+        "name": "tmd_modular_editing",
+        "passed": 24,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_modular_editing.txt",
+        "verifiedAt": "2026-10-20T17:14:39+08:00"
+      },
+      {
+        "name": "tmd_editing_policy",
+        "passed": 93,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt",
+        "verifiedAt": "2026-10-20T17:14:40+08:00"
+      },
+      {
+        "name": "tmd_library_initialization",
+        "passed": 5,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_initialization.txt",
+        "verifiedAt": "2026-10-20T17:54:24+08:00"
+      }
+    ],
+    "newGroup": "tmd_reference_maintenance",
+    "finalRetestGroups": 10,
+    "finalRetestLog": "build/reference-maintenance-verification/final-ctest.txt",
+    "notes": "A broad run covered the existing groups. Ten affected groups were re-run on the final build after the concurrency and cursor fixes; the other eight groups cover unchanged editing rules. Windows Recycle Bin and localhost HTTP tests required execution outside the restricted sandbox, against isolated temporary libraries. First-pass diagnostics remain under build/reference-maintenance-verification/first-pass/."
+  },
+  "visualCheck": {
+    "platform": "Qt offscreen",
+    "screenshot": "build/reference-maintenance-preview/missing-reference-red-dot.png",
+    "redDotInspected": true
+  },
+  "additionalChecks": [
+    "git diff --check",
+    "PowerShell AST parsing of scripts/Build-Release.ps1",
+    "scripts/Start-Debug.ps1 -CheckOnly"
+  ],
+  "initialInventory": {
+    "created": true,
+    "path": "md_data/.tree-md-files.json",
+    "markdownFiles": 27,
+    "markdownContentsUnchanged": true,
+    "relationsUnchanged": true,
+    "entries": 63,
+    "createdAt": "2026-10-20T17:56:19+08:00"
+  },
+  "scope": {
+    "qtTestsUsedPersonalKnowledge": false,
+    "githubPublished": false,
+    "installerBuilt": false,
+    "normalApplicationOpened": false
+  }
+}

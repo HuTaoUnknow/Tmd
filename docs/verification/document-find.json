@@ -1,0 +1,55 @@
+{
+  "recordedAt": "2026-10-19T20:09:24.1671147+08:00",
+  "feature": "Ctrl+F document/source find tool window",
+  "finalDebugSha256": "8A5614FCB23B942DB5AE7A1CBD8FD76E3379808763988367A915D3C1EBECF98D",
+  "build": "Initial all-target Debug build passed; final tree_md and tmd_document_find_tests rebuilt after local Ctrl+F handling fix",
+  "relatedRegressionStage": {
+    "scope": "Five complete related groups before the final local Ctrl+F handling change",
+    "report": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/document-find-regressions.xml",
+    "passed": 5,
+    "failed": 0,
+    "seconds": 187.88,
+    "checks": [
+      {
+        "name": "tmd_document_find",
+        "passed": 12,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "tmd_editing_integration_audit",
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "tmd_document_regressions",
+        "passed": 81,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "tmd_workspace_regressions",
+        "passed": 26,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "name": "tmd_settings_regressions",
+        "passed": 6,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  "finalFocusedStage": {
+    "scope": "Complete find suite after the final shortcut fix; includes init/cleanup, both views and repeated Ctrl+F inside the tool window",
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/find-final-focused.txt"
+  },
+  "visualVerification": "Inspected document-find-main-window.png and document-find-dialog.png; active/all-match colors remain readable and preserve syntax fonts",
+  "desktopLauncher": "Existing Tmd Debug shortcut and scripts/Start-Debug.ps1 -CheckOnly verified",
+  "dataIsolation": "Only temporary libraries and isolated settings were used"
+}

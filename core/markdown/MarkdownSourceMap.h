@@ -44,6 +44,9 @@ public:
     InlineCode inlineCodeAt(int displayPosition) const;
     void setBoundary(int displayPosition, int sourcePosition) { m_boundaries.insert(displayPosition, sourcePosition); }
     QString edited(int position, int removed, const QString &inserted, int *cursorPosition) const;
+    // Text search replaces visible characters, even when they cover the whole
+    // view; hidden Markdown containers are not an implicit Select All.
+    QString replacedText(int position, int removed, const QString &inserted, int *cursorPosition) const;
     QString applyEdit(int position, int removed, const QString &sourceInsertion, const QString &displayInsertion, int *cursorPosition);
 private:
     struct Container { int start, end, contentStart, contentEnd; bool inlineCode = false; };
@@ -63,5 +66,5 @@ private:
     void indexInlineCodes();
     QMap<int, int> m_boundaries;
     struct EditPlan { QVector<Span> ranges; int insertion; QString source; };
-    EditPlan planEdit(int position, int removed, const QString &inserted) const;
+    EditPlan planEdit(int position, int removed, const QString &inserted, bool wholeDocumentSelection = true) const;
 };

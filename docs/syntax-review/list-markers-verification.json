@@ -1,0 +1,175 @@
+{
+  "recordedAt": "2026-10-19T11:30:18.0634066+08:00",
+  "rule": "N58",
+  "debugBuild": "all Debug targets built successfully",
+  "debugSha256": "B3D464B01E156FD17100319D3F7440D56623ED8FB9891B86D76AEEA8ECAB6913",
+  "ctestReport": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/list-markers-regression.xml",
+  "ctestPassed": 15,
+  "ctestFailed": 0,
+  "ctestSeconds": 506.44,
+  "ctestReportSeconds": 506.0,
+  "qtTestPassed": 817.0,
+  "focused": {
+    "passed": 24,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "new marker scenarios, including initialization and cleanup",
+    "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/list-markers-focused.txt"
+  },
+  "checks": [
+    {
+      "name": "tmd_markdown_core",
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 745,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_markdown_core.txt"
+    },
+    {
+      "name": "tmd_incremental_refresh",
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 178,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_incremental_refresh.txt"
+    },
+    {
+      "name": "tmd_editing_headings_audit",
+      "passed": 241,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 85768,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_headings_audit.txt"
+    },
+    {
+      "name": "tmd_editing_code_audit",
+      "passed": 72,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 28652,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_code_audit.txt"
+    },
+    {
+      "name": "tmd_editing_list_audit",
+      "passed": 130,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 55972,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_list_audit.txt"
+    },
+    {
+      "name": "tmd_editing_integration_audit",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 45194,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_integration_audit.txt"
+    },
+    {
+      "name": "tmd_library_regressions",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 10333,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_regressions.txt"
+    },
+    {
+      "name": "tmd_images_regressions",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 1613,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_images_regressions.txt"
+    },
+    {
+      "name": "tmd_document_regressions",
+      "passed": 81,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 136041,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_regressions.txt"
+    },
+    {
+      "name": "tmd_knowledge_regressions",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 121960,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_knowledge_regressions.txt"
+    },
+    {
+      "name": "tmd_workspace_regressions",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 8744,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_workspace_regressions.txt"
+    },
+    {
+      "name": "tmd_settings_regressions",
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 811,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_settings_regressions.txt"
+    },
+    {
+      "name": "tmd_modular_editing",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 70,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_modular_editing.txt"
+    },
+    {
+      "name": "tmd_editing_policy",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 517,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt"
+    },
+    {
+      "name": "tmd_library_initialization",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "blacklisted": 0,
+      "scope": "complete group, including initialization and cleanup",
+      "milliseconds": 76,
+      "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_initialization.txt"
+    }
+  ],
+  "visualPreview": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/list-marker-preview.png",
+  "visualVerification": "QtTest measured rendered dot pixels; manually inspected the generated image",
+  "desktopLauncher": "existing Tmd Debug shortcut resolves to scripts/Start-Debug.ps1; CheckOnly passed",
+  "dataIsolation": "temporary libraries and settings; no edits to the local knowledge libraries"
+}

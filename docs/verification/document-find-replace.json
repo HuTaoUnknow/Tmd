@@ -1,0 +1,140 @@
+{
+  "recordedAt": "2026-10-19T21:13:15.1626701+08:00",
+  "feature": "Rounded document find highlights and Find/Replace modes",
+  "finalDebugSha256": "C12670070DA43CEF61F3F00C1C9D52713377CBCC950EF12F6B7092128DC1D520",
+  "build": "All-target Debug build succeeded. tree_md and tmd_document_find_tests rebuilt after final overlay position, background and delimiter-caret fixes.",
+  "finalFocusedStage": {
+    "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\find-replace-final-focused.txt",
+    "passed": 27,
+    "failed": 0,
+    "skipped": 0
+  },
+  "broadRegressionStage": {
+    "scope": "All 16 registered groups, before final overlay-only drawing fixes; editing/core behavior is unchanged by those fixes.",
+    "report": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\find-replace-regressions.xml",
+    "passed": 12,
+    "environmentBlocked": 4,
+    "seconds": 684.42,
+    "checks": [
+      {
+        "name": "tmd_markdown_core",
+        "result": "passed",
+        "seconds": 1.16278
+      },
+      {
+        "name": "tmd_incremental_refresh",
+        "result": "passed",
+        "seconds": 0.537288
+      },
+      {
+        "name": "tmd_document_find",
+        "result": "passed",
+        "seconds": 4.67557
+      },
+      {
+        "name": "tmd_editing_headings_audit",
+        "result": "passed",
+        "seconds": 85.2911
+      },
+      {
+        "name": "tmd_editing_code_audit",
+        "result": "passed",
+        "seconds": 29.2951
+      },
+      {
+        "name": "tmd_editing_list_audit",
+        "result": "passed",
+        "seconds": 56.1105
+      },
+      {
+        "name": "tmd_editing_integration_audit",
+        "result": "passed",
+        "seconds": 45.1787
+      },
+      {
+        "name": "tmd_library_regressions",
+        "result": "environment-blocked",
+        "seconds": 9.38455
+      },
+      {
+        "name": "tmd_images_regressions",
+        "result": "environment-blocked",
+        "seconds": 53.2631
+      },
+      {
+        "name": "tmd_document_regressions",
+        "result": "passed",
+        "seconds": 132.473
+      },
+      {
+        "name": "tmd_knowledge_regressions",
+        "result": "environment-blocked",
+        "seconds": 110.898
+      },
+      {
+        "name": "tmd_workspace_regressions",
+        "result": "environment-blocked",
+        "seconds": 153.583
+      },
+      {
+        "name": "tmd_settings_regressions",
+        "result": "passed",
+        "seconds": 1.05003
+      },
+      {
+        "name": "tmd_modular_editing",
+        "result": "passed",
+        "seconds": 0.406548
+      },
+      {
+        "name": "tmd_editing_policy",
+        "result": "passed",
+        "seconds": 0.91029
+      },
+      {
+        "name": "tmd_library_initialization",
+        "result": "passed",
+        "seconds": 0.157702
+      }
+    ],
+    "limitation": "Sandbox denied Windows Recycle Bin and localhost HTTP. Workspace test stalled in a recycle-error dialog; only the verified sandbox workspace test process was stopped after its complete OS-capable rerun had passed. This initial run is not recorded as an all-pass CTest run."
+  },
+  "environmentRechecks": {
+    "scope": "Isolated temporary libraries/settings outside the restricted sandbox; no actual user library accessed.",
+    "completeLibraryAndImagesReport": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\find-replace-os-regressions.xml",
+    "library": {
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_library_regressions.txt",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0
+    },
+    "images": {
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tmd_images_regressions.txt",
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0
+    },
+    "completeWorkspacePlusFailedKnowledgeCase": {
+      "log": "build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\find-replace-workspace-os.txt",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0
+    },
+    "knowledge": "The other 24 QtTest records passed in the broad run; knowledgeTreeDirectorySearchAndReindex passed in the OS-capable rerun.",
+    "result": "All environment-blocked cases and interrupted workspace cases passed on recheck."
+  },
+  "visualVerification": [
+    "Inspected rounded replacement selection, table, fenced code and wrapped-line captures; glyphs remain readable at native positions.",
+    "Frameless dialog has a transparent rounded corner and themed body; close button has rounded border and stroke caps.",
+    "Pixel assertions cover corners, visible glyphs and the rendered Markdown delimiter caret."
+  ],
+  "captures": [
+    "find-replace-dialog.png",
+    "find-replace-rounded-selection.png",
+    "find-replace-code.png",
+    "find-replace-table.png",
+    "find-replace-wrapped.png"
+  ],
+  "desktopLauncher": "Existing Tmd Debug.lnk targets scripts/Start-Debug.ps1; CheckOnly passed. No normal Debug app launched.",
+  "preserved": "Existing worktree changes, actual md_data and md_photo, installed Tmd, Git remote and version number retained."
+}
