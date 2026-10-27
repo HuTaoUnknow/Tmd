@@ -17,7 +17,7 @@ struct MarkdownSettings {
     QStringList fonts{"Open Sans", "Microsoft YaHei", "DejaVu Sans Mono"};
     std::array<quint16, NumberCount> numbers{120, 105, 225, 180, 165, 150, 135, 120, 160, 140,
         8, 24, 14, 4, 40, 20, 16, 14, 36, 10, 450};
-    std::array<QRgb, ColorCount> colors{0xff212121, 0xffe7e7e7, 0xfff8f8f8, 0xff363636, 0xff303030,
+    std::array<QRgb, ColorCount> colors{0xff161616, 0xffe7e7e7, 0xfff8f8f8, 0xff363636, 0xff4e4f00,
         0xff27312b, 0xff9ed3b5, 0xff46554d, 0xff344239, 0xff2b332e, 0xff242b27};
     quint16 flags = 255;
     quint8 imageMode = 1;
