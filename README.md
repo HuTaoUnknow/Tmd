@@ -46,6 +46,8 @@ Tmd 是一个 Windows 桌面 Markdown 知识库。每篇真实的 `.md` 文档�
 
 ### 内置示例
 
+先阅读目录首位的 [Tmd 项目介绍](examples/md_data/markdown学习/00-Tmd项目介绍.md)，了解项目用途、源码目录、模块职责以及知识库文件的保存方式，再进入下面四篇教程。
+
 ```text
 md语法基础 → tmd输入指南 → tmd知识树构建
     └─ md语法详解与正文对照
