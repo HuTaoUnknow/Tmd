@@ -17,11 +17,22 @@
 #include <QDir>
 #include <QtTest>
 #include <QUrl>
+#include <QElapsedTimer>
 
 class MarkdownCoreTests : public QObject {
     Q_OBJECT
     QTemporaryDir m_settingsDirectory;
 private slots:
+    void sourceMapRecoversLongUnmatchedRunsWithoutRescanning() {
+        const QString source="head"+QString(30000,'a')+"tail";
+        const QString display="head"+QString(30000,QChar(0xfffd))+"tail";
+        MarkdownSourceMap map; QElapsedTimer elapsed; elapsed.start(); map.rebuild(source,display);
+        QVERIFY2(elapsed.elapsed()<3000,"Long unsupported display runs must not block the editor");
+        QCOMPARE(map.sourcePosition(4),4); QCOMPARE(map.sourcePosition(30004),30004);
+        int caret=-1;
+        QCOMPARE(map.replacedText(0,4,"HEAD",&caret),QString("HEAD")+source.mid(4)); QCOMPARE(caret,4);
+        QCOMPARE(map.replacedText(30004,4,"TAIL",&caret),source.left(30004)+"TAIL");
+    }
     void boundedReplacementKeepsHiddenContainers() {
         for (const QString source : {QString("**cat**"), QString("*cat*"), QString("`cat`"), QString("# cat"),
                                      QString("> cat"), QString("```cpp\ncat\n```"), QString("[cat](https://example.com)")}) {

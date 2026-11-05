@@ -16,6 +16,7 @@ struct Reader {
     int inputLength = 0, base = 0, lastOffset = 0;
     QVector<int> utf8Offsets;
     QVector<char> claimed;
+    QStringList hiddenTokens;
     struct Span { MD_SPANTYPE type; int first = -1, last = -1; };
     QVector<Span> spans;
     int headingLevel = 0, headingFirst = -1, headingLast = -1, imageDepth = 0;
@@ -29,7 +30,9 @@ struct Reader {
         return base + utf8Offsets.value(index);
     }
     QString text(const MD_CHAR *p, MD_SIZE n) const {
-        return QString::fromUtf8(p, n);
+        QString result = QString::fromUtf8(p, n);
+        for (const auto &token : hiddenTokens) result.remove(token);
+        return result;
     }
     static int enterBlock(MD_BLOCKTYPE type, void *detail, void *data) {
         auto &r = *static_cast<Reader *>(data);
@@ -132,6 +135,7 @@ struct Reader {
         if (r.headingLevel && type != MD_TEXT_HTML) {
             QString value = type == MD_TEXT_BR || type == MD_TEXT_SOFTBR ? QString(" ") : r.text(text, size);
             if (type == MD_TEXT_ENTITY) value = QTextDocumentFragment::fromHtml(value).toPlainText();
+            for (const auto &token : r.hiddenTokens) value.remove(token);
             if (type == MD_TEXT_NULLCHAR) value = QChar::ReplacementCharacter;
             r.headingText += value;
         }
@@ -158,6 +162,7 @@ MarkdownSyntax::Result MarkdownSyntax::scan(const QString &source, const Markdow
     r.markers = analysis ? MarkdownParser::headingMarkers(source, *analysis) : MarkdownParser::headingMarkers(source);
     r.lastOffset = r.base = r.result.frontMatterEnd = frontMatterEnd(source);
     const auto prepared = MarkdownBlockSyntax::prepare(source, analysis);
+    r.hiddenTokens = prepared.hiddenTokens;
     const QString body = prepared.text.mid(r.base);
     const QByteArray utf8 = body.toUtf8(); r.input = utf8.constData(); r.inputLength = utf8.size();
     r.utf8Offsets.resize(utf8.size() + 1);

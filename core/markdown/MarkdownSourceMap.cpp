@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <climits>
 #include <QSet>
+#include <QHash>
 
 namespace {
 // Myers alignment keeps repeated words anchored in document order. Markdown
@@ -157,17 +158,31 @@ void MarkdownSourceMap::rebuild(const QString &source, const QString &display, c
     for (int i = 0; i < matches.size(); ++i) m_spans[i] = matches[i] < 0 ? Span{} : candidates[matches[i]];
     // A soft source newline is displayed as a space. Other unmatched literal
     // punctuation can also be recovered between its adjacent exact matches.
-    for (int i = 0; i < m_spans.size(); ++i) if (m_spans[i].start < 0 && display[i].unicode() != 0xfdd0 && display[i].unicode() != 0xfdd1) {
-        int before = i - 1, after = i + 1;
-        while (before >= 0 && m_spans[before].end < 0) --before;
+    for (int i = 0; i < m_spans.size();) {
+        if (m_spans[i].start >= 0) { ++i; continue; }
+        int after = i + 1;
         while (after < m_spans.size() && m_spans[after].start < 0) ++after;
-        const int begin = before < 0 ? 0 : m_spans[before].end, end = after == m_spans.size() ? source.size() : m_spans[after].start;
-        int found = source.indexOf(display[i], begin);
-        if (display[i] == ' ') {
-            const int newline = source.indexOf('\n', begin);
-            if (newline >= begin && newline < end && (found < 0 || found >= end || newline < found)) found = newline;
+        int begin = i == 0 ? 0 : m_spans[i - 1].end;
+        const int end = after == m_spans.size() ? source.size() : m_spans[after].start;
+        // Recover a whole gap at once. Long unmatched table/layout runs used
+        // to rescan both their neighbours and the source for every character.
+        QHash<QChar, QVector<int>> positions;
+        for (int p = begin; p < end; ++p) positions[source[p]].append(p);
+        const auto next = [&](QChar character) {
+            const auto entry = positions.constFind(character);
+            if (entry == positions.cend()) return -1;
+            const auto found = std::lower_bound(entry->cbegin(), entry->cend(), begin);
+            return found == entry->cend() ? -1 : *found;
+        };
+        for (; i < after; ++i) {
+            if (display[i].unicode() == 0xfdd0 || display[i].unicode() == 0xfdd1) continue;
+            int found = next(display[i]);
+            if (display[i] == ' ') {
+                const int newline = next('\n');
+                if (newline >= 0 && (found < 0 || newline < found)) found = newline;
+            }
+            if (found >= 0) { m_spans[i] = {found, found + 1}; begin = found + 1; }
         }
-        if (found >= begin && found < end) m_spans[i] = {found, found + 1};
     }
     // Keep link/image transactions, but take formatting delimiters from the
     // semantic parser so unmatched punctuation never becomes an edit container.

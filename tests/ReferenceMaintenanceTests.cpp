@@ -167,6 +167,28 @@ private slots:
         QVERIFY(lib.document("two/a.MD","outside-created duplicate")); QVERIFY(manager.scan()); QCOMPARE(manager.duplicateDocuments().size(),1); QCOMPARE(manager.allNodes().size(),3);
         QVERIFY(manager.renameDocument("two/a.MD","two/Unique.md",&error)); QVERIFY(manager.duplicateDocuments().isEmpty());
     }
+    void folderAndOtherFileNamesDoNotConflictWithMarkdownNames() {
+        Library lib;
+        QVERIFY(lib.document("one/notes.md","# Shared title"));
+        QVERIFY(lib.document("two/different.md","# Shared title"));
+        for(const auto &parent : {QString("one"),QString("two")}) {
+            QVERIFY(QDir().mkpath(lib.path(parent+"/attachments")));
+            QVERIFY(put(lib.path(parent+"/readme.txt"),"text"));
+            QVERIFY(put(lib.path(parent+"/diagram.svg"),"image fixture"));
+            QVERIFY(put(lib.path(parent+"/notes.md.bak"),"backup"));
+        }
+        // Even a directory ending in .md must not be treated as an MD file.
+        QVERIFY(QDir().mkpath(lib.path("folders/notes.md")));
+        MainWindow window(lib.root());window.show();QCoreApplication::processEvents();
+        auto *manager=window.findChild<MarkdownManager *>();QVERIFY(manager);
+        QVERIFY(manager->duplicateDocuments().isEmpty());QCOMPARE(manager->allNodes().size(),2);
+        QVERIFY(!window.findChild<QDialog *>("duplicateDocumentsDialog"));
+        QString error;
+        QVERIFY(!manager->createDocument("three/NOTES.MD","# Different heading",&error));
+        QVERIFY(error.contains(QStringLiteral("同名 MD")));
+        QVERIFY(QFileInfo(lib.path("one/readme.txt")).isFile());
+        QVERIFY(QFileInfo(lib.path("two/attachments")).isDir());
+    }
     void watcherSeesImageRemovalAndMoves() {
         Library lib; QVERIFY(lib.document("a.md","![p](../md_photo/p.png) [b](b.md)")); QVERIFY(lib.document("b.md","watch target unique")); QVERIFY(lib.image("p.png"));
         MarkdownManager manager(lib.root()); QVERIFY(manager.scan()); manager.enableWatching();

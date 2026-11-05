@@ -1,0 +1,196 @@
+{
+  "task": "Fix unresponsive loading of Markdown dropped onto Tmd Debug",
+  "verifiedAt": "2026-10-26T20:46:54.8495266+08:00",
+  "configuration": "Debug",
+  "executable": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tree_md.exe",
+  "executableSHA256": "8FF299A6DB41A5530E115A41C13308ADF2F27EFCD90CA8F269C2FC23E37E8959",
+  "build": "All Debug application and test targets built successfully.",
+  "diagnosis": {
+    "systemEvidence": "Windows recorded AppHangB1 for the current Debug binary. A library copy had already been created before the hang.",
+    "launcher": "The existing desktop Debug shortcut forwards paths correctly. Verified full launch forwarding with an isolated argument-probe executable under Windows PowerShell, including Chinese, spaces, ampersands and multiple files.",
+    "firstBottleneck": "A debugger sample stopped in MarkdownSourceMap::rebuild while repeatedly searching the same unmatched display run for neighbouring anchors.",
+    "secondBottleneck": "Dense-table samples stopped in repeated Qt table layout from applyMarkdownStyles and InlineMarkupDecoration::addSpacing."
+  },
+  "changes": [
+    "Recover each unmatched source-map gap once; index source character positions inside the bounded gap and preserve the existing recovery order.",
+    "Batch paragraph/table formatting using a Qt edit block.",
+    "Batch clearing and applying inline marker spacing to avoid reformatting every table for each code span."
+  ],
+  "realDocumentReproduction": {
+    "method": "Isolated byte copy of the affected document; offscreen executable startup, rendering and automatic screenshot. User originals are not edited.",
+    "inputBytes": 49537,
+    "inputLines": 284,
+    "tableLines": 199,
+    "beforeSeconds": 25.454097,
+    "afterRuns": [
+      {
+        "run": 1,
+        "exitCode": 0,
+        "elapsedSeconds": 2.9643684,
+        "screenshot": true
+      },
+      {
+        "run": 2,
+        "exitCode": 0,
+        "elapsedSeconds": 2.3341032,
+        "screenshot": true
+      },
+      {
+        "run": 3,
+        "exitCode": 0,
+        "elapsedSeconds": 2.2125333,
+        "screenshot": true
+      }
+    ],
+    "measurementBoundary": "Before measures process start to screenshot creation; after measures launch to exit after the screenshot. Automatic capture has a 700 ms timer. These are local functional timings, not a hardware-independent benchmark.",
+    "visualReview": "build/debug-launcher-investigation/document-repro/final-3.png"
+  },
+  "newTests": {
+    "core": "sourceMapRecoversLongUnmatchedRunsWithoutRescanning: 30,000 unsupported display characters between exact matches, bounded runtime and preserved source replacements.",
+    "dense": "denseTablesOpenPromptlyAndKeepCellEditsInPlace: four 50-row, five-column tables; opening under five seconds, edits at first/middle/last cells, exact source and disk-save checks.",
+    "denseOpenMilliseconds": 2290
+  },
+  "tests": {
+    "registeredGroups": 19,
+    "allLatestGroupLogsPassed": true,
+    "passedQtTestRecords": 950,
+    "failed": 0,
+    "skipped": 0,
+    "groups": [
+      {
+        "name": "tmd_markdown_core",
+        "passedQtTestRecords": 64,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_markdown_core.txt"
+      },
+      {
+        "name": "tmd_incremental_refresh",
+        "passedQtTestRecords": 3,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_incremental_refresh.txt"
+      },
+      {
+        "name": "tmd_external_documents",
+        "passedQtTestRecords": 15,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_external_documents.txt"
+      },
+      {
+        "name": "tmd_reference_maintenance",
+        "passedQtTestRecords": 29,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_reference_maintenance.txt"
+      },
+      {
+        "name": "tmd_selection_links",
+        "passedQtTestRecords": 60,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_selection_links.txt"
+      },
+      {
+        "name": "tmd_document_find",
+        "passedQtTestRecords": 27,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_find.txt"
+      },
+      {
+        "name": "tmd_editing_headings_audit",
+        "passedQtTestRecords": 241,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_headings_audit.txt"
+      },
+      {
+        "name": "tmd_editing_code_audit",
+        "passedQtTestRecords": 72,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_code_audit.txt"
+      },
+      {
+        "name": "tmd_editing_list_audit",
+        "passedQtTestRecords": 130,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_list_audit.txt"
+      },
+      {
+        "name": "tmd_editing_integration_audit",
+        "passedQtTestRecords": 15,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_integration_audit.txt"
+      },
+      {
+        "name": "tmd_library_regressions",
+        "passedQtTestRecords": 22,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_regressions.txt"
+      },
+      {
+        "name": "tmd_images_regressions",
+        "passedQtTestRecords": 12,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_images_regressions.txt"
+      },
+      {
+        "name": "tmd_document_regressions",
+        "passedQtTestRecords": 81,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_regressions.txt"
+      },
+      {
+        "name": "tmd_knowledge_regressions",
+        "passedQtTestRecords": 25,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_knowledge_regressions.txt"
+      },
+      {
+        "name": "tmd_workspace_regressions",
+        "passedQtTestRecords": 26,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_workspace_regressions.txt"
+      },
+      {
+        "name": "tmd_settings_regressions",
+        "passedQtTestRecords": 6,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_settings_regressions.txt"
+      },
+      {
+        "name": "tmd_modular_editing",
+        "passedQtTestRecords": 24,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_modular_editing.txt"
+      },
+      {
+        "name": "tmd_editing_policy",
+        "passedQtTestRecords": 93,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt"
+      },
+      {
+        "name": "tmd_library_initialization",
+        "passedQtTestRecords": 5,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_initialization.txt"
+      }
+    ]
+  },
+  "deployment": "Current Debug executable updated. Existing desktop Tmd Debug shortcut remains applicable; no release, installed-edition update or GitHub synchronization performed."
+}

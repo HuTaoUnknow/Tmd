@@ -1,5 +1,16 @@
 # Each slot belongs to exactly one group; use tree_md_tests directly for an
 # all-in-one manual run. Offscreen groups deliberately run serially by default.
+add_test(NAME tmd_application_instance COMMAND tmd_application_instance_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_application_instance.txt,txt")
+set_tests_properties(tmd_application_instance PROPERTIES TIMEOUT 60)
+add_test(NAME tmd_document_presentation COMMAND tmd_document_presentation_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_document_presentation.txt,txt")
+set_tests_properties(tmd_document_presentation PROPERTIES TIMEOUT 180
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
+add_test(NAME tmd_file_association COMMAND tmd_file_association_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_file_association.txt,txt")
+set_tests_properties(tmd_file_association PROPERTIES TIMEOUT 60
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
+add_test(NAME tmd_external_documents COMMAND tmd_external_document_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_external_documents.txt,txt")
+set_tests_properties(tmd_external_documents PROPERTIES TIMEOUT 180
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")
 add_test(NAME tmd_reference_maintenance COMMAND tmd_reference_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_reference_maintenance.txt,txt")
 set_tests_properties(tmd_reference_maintenance PROPERTIES TIMEOUT 180
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_QPA_FONTDIR=C:/Windows/Fonts")

@@ -30,6 +30,6 @@
 
 ## 本机验证方式
 
-使用上述完整路径调用 CMake / CTest，并为当前进程设置 Qt 与 MinGW 的 `bin` 路径，以及 Qt 的 `plugins/platforms` 路径。Debug 构建命令为 `cmake --build build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug --parallel 4`，回归命令为 `ctest --test-dir build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug --output-on-failure -j 1`，目前登记了十五组测试（含四组编辑交互审查、一组语法规则回归及一组模块化编辑回归），各组 QtTest 明细保存到构建目录中同名 `.txt` 文件。
+使用上述完整路径调用 CMake / CTest，并为当前进程设置 Qt 与 MinGW 的 `bin` 路径，以及 Qt 的 `plugins/platforms` 路径。Debug 构建命令为 `cmake --build build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug --parallel 4`，回归命令为 `ctest --test-dir build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug --output-on-failure -j 1`，目前登记了二十二组测试（含四组编辑交互审查、语法规则、模块化编辑、启动协调、默认打开方式登记及文档外观回归），各组 QtTest 明细保存到构建目录中同名 `.txt` 文件。
 
 受限执行环境中，默认临时目录曾使 Qt 测试无法创建子目录。运行测试前将当前进程的 `TEMP` 和 `TMP` 指向构建目录内新建的可写临时目录。测试使用临时知识库与隔离配置。若 CTest 未捕获到 QtTest 输出，对相应测试程序传入 `-o <日志路径>,txt` 获取明细。记录实际通过、失败或环境限制，不把历史日志视为本次验证结果。

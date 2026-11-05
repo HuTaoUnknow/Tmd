@@ -1153,10 +1153,14 @@ void TreeMdTests::fileMenuLayoutAndModeSwitch() {
     QVERIFY(spring->width() > 500); QCOMPARE(toolbar->actions().size(), 6);
     auto *frame = window.findChild<QFrame *>("documentModeFrame"); QVERIFY(frame);
     QCOMPARE(frame->findChildren<QToolButton *>().size(), 2);
-    const QStringList names = {"newAction", "importAction", "saveAction", "renameAction", "deleteAction", "refreshAction"};
+    const QStringList names = {"newAction", "openAction", "importAction", "saveAction", "renameAction", "deleteAction", "refreshAction"};
     for (const auto &name : names) { auto *a = window.findChild<QAction *>(name); QVERIFY(a); QVERIFY(menu->actions().contains(a)); QVERIFY(!toolbar->actions().contains(a)); }
-    QCOMPARE(menu->actions()[4]->isSeparator(), true);
     auto *copy = window.findChild<QMenu *>("saveCopyMenu"); auto *imageMode = window.findChild<QAction *>("imageSettingsAction"); QVERIFY(copy); QVERIFY(imageMode); QCOMPARE(copy->actions().size(), 2);
+    const auto actions=menu->actions(); const int separator=actions.indexOf(copy->menuAction())+1;
+    QVERIFY(separator>0 && separator+1<actions.size()); QVERIFY(actions[separator]->isSeparator());
+    QCOMPARE(actions[separator+1],window.findChild<QAction *>("renameAction"));
+    auto *open=window.findChild<QAction *>("openAction"); QCOMPARE(open->shortcut(),QKeySequence(QKeySequence::Open));
+    QCOMPARE(actions[1],open);
     QVERIFY(imageMode->text().contains(QStringLiteral("图片保存方式"))); QCOMPARE(MarkdownSettingsStore::current().imageMode, quint8(1)); QVERIFY(!imageMode->menu());
     QVERIFY(!window.findChild<QAction *>("insertImageAction")); QVERIFY(!window.findChild<QWidget *>("imagePreview")); QVERIFY(!window.findChild<QWidget *>("sourceView"));
     QVERIFY(view->isVisible()); QVERIFY(!editor->isVisible()); QCOMPARE(editor->source(), source);
@@ -2634,6 +2638,8 @@ void TreeMdTests::settingsMenuAndAppearanceApply() {
     QVERIFY(file); QVERIFY(settings); auto *image = window.findChild<QAction *>("imageSettingsAction"); QVERIFY(image);
     QVERIFY(settings->actions().contains(image)); QVERIFY(!file->actions().contains(image));
     auto *about = window.findChild<QAction *>("aboutAction"); QVERIFY(settings->actions().contains(about)); QVERIFY(!file->actions().contains(about));
+    auto *defaultApp = window.findChild<QAction *>("defaultAppAction"); QVERIFY(defaultApp); QVERIFY(settings->actions().contains(defaultApp));
+    QCOMPARE(defaultApp->text(), QStringLiteral("设为默认打开方式")); QVERIFY(!file->actions().contains(defaultApp));
     QVERIFY(window.findChild<QToolButton *>("fileButton")->styleSheet().contains("image: none"));
     QVERIFY(window.findChild<QToolButton *>("settingsButton")->styleSheet().contains("image: none"));
     window.findChild<QAction *>("markdownSettingsAction")->trigger(); auto *dialog = window.findChild<MarkdownSettingsDialog *>(); QVERIFY(dialog);

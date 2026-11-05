@@ -9,6 +9,8 @@ class DocumentTreeBuilder {
 public:
     static constexpr int ModifiedRole = Qt::UserRole + 3;
     static constexpr int MissingReferencesRole = Qt::UserRole + 4;
+    static constexpr int ExternalDocumentRole = Qt::UserRole + 5;
+    static constexpr int ExternalGroupRole = Qt::UserRole + 6;
     explicit DocumentTreeBuilder(QTreeWidget *tree) : m_tree(tree) {}
     QTreeWidgetItem *directory(const QString &path);
     QTreeWidgetItem *document(const QString &path, const QString &title);

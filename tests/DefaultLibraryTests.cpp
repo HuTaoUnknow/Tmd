@@ -22,12 +22,14 @@ void DefaultLibraryTests::firstLaunchAndDeletedExamplesStayDeleted() {
     QVERIFY(MarkdownFileIO::writeFile(QDir(examples).filePath(relative), QStringLiteral("# 入门\n自己的例子\n")));
     QVERIFY(MarkdownFileIO::writeFile(QDir(examples).filePath("md_data/.tree-md-relations.json"), "{\"version\":2,\"relations\":[]}"));
     QVERIFY(MarkdownFileIO::writeFile(QDir(examples).filePath("md_data/.tree-md-files.json"), "local developer inventory"));
+    QVERIFY(MarkdownFileIO::writeFile(QDir(examples).filePath("md_data/.tree-md-external.json"), "private external file paths"));
     QVERIFY(MarkdownFileIO::writeFile(QDir(examples).filePath(QStringLiteral("md_photo/markdown学习/photo.png")), "image fixture"));
     QString error; QVERIFY2(DefaultLibrary::initialize(library, examples, &error), qPrintable(error));
     QString content; QVERIFY(MarkdownFileIO::readFile(QDir(library).filePath(relative), content));
     QCOMPARE(content, QStringLiteral("# 入门\n自己的例子\n"));
     QVERIFY(QFileInfo::exists(QDir(library).filePath("md_data/.tree-md-relations.json")));
     QVERIFY(!QFileInfo::exists(QDir(library).filePath("md_data/.tree-md-files.json")));
+    QVERIFY(!QFileInfo::exists(QDir(library).filePath("md_data/.tree-md-external.json")));
     QVERIFY(QFileInfo::exists(QDir(library).filePath(QStringLiteral("md_photo/markdown学习/photo.png"))));
     QVERIFY(QFile::remove(QDir(library).filePath(relative)));
     QVERIFY2(DefaultLibrary::initialize(library, examples, &error), qPrintable(error));

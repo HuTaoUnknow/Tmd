@@ -37,6 +37,7 @@
 #include <QTextLayout>
 #include <QTextFragment>
 #include <QTextTable>
+#include "ui/document/MarkdownTableStyle.h"
 #include <QTextList>
 #include <QTextBoundaryFinder>
 #include "ui/document/CodeSyntaxHighlighter.h"
@@ -216,7 +217,8 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
         bodyTokens.append({token, start}); renderedRows[i] = '\n' + renderedRows[i] + token + '\n';
     }
     renderSource = renderedRows.join('\n');
-    renderSource = MarkdownBlockSyntax::prepare(renderSource).text;
+    const auto preparedRender = MarkdownBlockSyntax::prepare(renderSource);
+    renderSource = preparedRender.text;
     const auto renderHeadings = MarkdownParser::headingMarkers(renderSource);
     QString emptyHeadingPrefix = QChar(0xe000) + QStringLiteral("tmd-heading:");
     while (renderSource.contains(emptyHeadingPrefix)) emptyHeadingPrefix += ':';
@@ -290,6 +292,10 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
     }
     for (auto it = tableBreaks.crbegin(); it != tableBreaks.crend(); ++it) renderSource.replace(it->start, it->length, it->token);
     document()->setMarkdown(renderSource, MarkdownSyntax::renderFeatures());
+    for (const auto &token : preparedRender.hiddenTokens) {
+        auto cursor = document()->find(token);
+        while (!cursor.isNull()) { cursor.removeSelectedText(); cursor = document()->find(token, cursor); }
+    }
     QVector<QPair<QTextCursor, int>> bodyCursors;
     for (const auto &entry : bodyTokens) {
         auto cursor = document()->find(entry.first);
@@ -513,6 +519,9 @@ void MarkdownDocumentView::setMarkdownSource(const QString &path, const QString 
 }
 void MarkdownDocumentView::applyMarkdownStyles() {
     m_inlineDecorations->clear();
+    // Formatting every cell separately forces a full table layout after each
+    // change. Commit the style pass once, including changes from other cursors.
+    QTextCursor styling(document()); styling.beginEditBlock();
     const auto &settings = MarkdownSettingsStore::current();
     document()->setIndentWidth(settings.number(MarkdownSettings::ListIndent));
     const QFont body = MarkdownTypography::bodyFont(m_zoomPercent), fixed = MarkdownTypography::codeFont(m_zoomPercent);
@@ -568,14 +577,8 @@ void MarkdownDocumentView::applyMarkdownStyles() {
         }
     }
     m_highlighter->refresh();
-    for (auto *frame : document()->rootFrame()->childFrames()) if (auto *table = qobject_cast<QTextTable *>(frame)) {
-        auto format = table->format(); format.setBorder(1); format.setBorderBrush(settings.color(MarkdownSettings::TableBorder)); format.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);
-        format.setCellPadding(settings.number(MarkdownSettings::TablePadding)); format.setCellSpacing(0); format.setHeaderRowCount(1); format.setWidth(QTextLength(QTextLength::PercentageLength, 100)); table->setFormat(format);
-        for (int row = 0; row < table->rows(); ++row) for (int col = 0; col < table->columns(); ++col) {
-            auto cell = table->cellAt(row, col); auto cellFormat = cell.format(); cellFormat.setBackground(settings.color(row == 0 ? MarkdownSettings::TableHeader : settings.enabled(MarkdownSettings::StripedTables) && row % 2 ? MarkdownSettings::TableOdd : MarkdownSettings::TableEven)); cell.setFormat(cellFormat);
-            if (row == 0) { QTextCursor header = cell.firstCursorPosition(); header.setPosition(cell.lastCursorPosition().position(), QTextCursor::KeepAnchor); QTextCharFormat bold; bold.setFontWeight(QFont::Bold); header.mergeCharFormat(bold); }
-        }
-    }
+    MarkdownTableStyle::apply(document(), settings);
+    styling.endEditBlock();
 }
 void MarkdownDocumentView::refreshAppearance() {
     const auto &settings = MarkdownSettingsStore::current(); const bool modified = document()->isModified();

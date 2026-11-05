@@ -22,10 +22,12 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(const QString &dataPath, QWidget *parent = nullptr);
     bool openDocument(const QString &path);
+    bool openFile(const QString &path);
     void setRelationsVisible(bool visible);
     void setSourceMode(bool sourceMode);
     void openKnowledgeTree();
 protected:
+    bool eventFilter(QObject *object, QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
 private:
@@ -41,6 +43,8 @@ private:
     void createDocumentInDirectory(const QString &parentPath);
     void createDocumentAtPath(const QString &path);
     void importDocument();
+    bool backupExternal(const QString &path);
+    void forgetExternal(const QString &path);
     void renameDocument();
     void renameDocument(const QString &path);
     void deleteDocument();
@@ -69,6 +73,7 @@ private:
     void showError(const QString &error);
     void openMarkdownSettings();
     void openImageSettings();
+    void openDefaultAppSettings();
     ImageInsertJob *prepareImageInsertion();
     void applyMarkdownSettings();
     QString askDocumentPath(const QString &title, const QString &initial = {});

@@ -1,0 +1,75 @@
+{
+  "date": "2026-10-27",
+  "scope": [
+    "Tmd Debug repeated launch and file forwarding",
+    "Chinese punctuation next to paired strong emphasis",
+    "Light horizontal table presentation"
+  ],
+  "debugExecutable": "D:\\PC\\Project\\Qt\\tree_md\\build\\Desktop_Qt_6_11_1_MinGW_64_bit_Debug\\tree_md.exe",
+  "debugSha256": "D3DB042DEEB0133B06E354DBEEE13AAF3034D052974BDB6FA5DA2212AB565F73",
+  "build": "Debug full build passed",
+  "fullRegression": {
+    "groups": 21,
+    "qtTestPasses": 962.0,
+    "failures": 0,
+    "seconds": 423.17,
+    "logs": "build/instance-qa/full-regression/"
+  },
+  "finalChecks": [
+    {
+      "name": "tmd_markdown_core",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_application_instance",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_document_presentation",
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_external_documents",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_selection_links",
+      "passed": 60,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_document_find",
+      "passed": 27,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_modular_editing",
+      "passed": 24,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "tmd_editing_policy",
+      "passed": 93,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "presentationPreview": "build/instance-qa/table-and-bold.png",
+  "notes": [
+    "Normal Windows permissions were used for local named-pipe tests; the restricted environment rejects pipe creation.",
+    "One presentation assertion was corrected to include matching text in the new fixture heading, then the presentation test passed.",
+    "User Markdown files and the installed non-Debug program were not updated.",
+    "No application launch, GitHub synchronization or release was performed."
+  ]
+}

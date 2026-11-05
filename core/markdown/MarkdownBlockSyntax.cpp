@@ -2,6 +2,7 @@
 #include "core/markdown/MarkdownAnalysis.h"
 #include "core/markdown/MarkdownListEditing.h"
 #include "core/markdown/MarkdownSyntax.h"
+#include "core/markdown/MarkdownInlineSyntax.h"
 #include <QRegularExpression>
 #include <QSet>
 #include <QMap>
@@ -152,8 +153,15 @@ MarkdownBlockSyntax::Prepared MarkdownBlockSyntax::prepare(const QString &source
                 && !separators.contains(line.start)) separators.insert(line.start, quotes + '\n');
         } else if (!separators.contains(line.start)) separators.insert(line.start, "\n");
     }
+    const auto strongBoundaries = MarkdownInlineSyntax::strongBoundaryPositions(source, analysis ? *analysis : scanned);
     Prepared result; result.text.reserve(source.size() + escapes.size()); result.positions.reserve(source.size() + escapes.size() + 1);
+    QChar inlineToken(0xe800);
+    while (source.contains(inlineToken) && inlineToken.unicode() < 0xf8ff) inlineToken = QChar(inlineToken.unicode() + 1);
+    const QString inlineEntity = QString("&#x%1;").arg(int(inlineToken.unicode()), 0, 16);
+    const bool tokenAvailable = !source.contains(inlineToken);
+    if (tokenAvailable && !strongBoundaries.isEmpty()) result.hiddenTokens.append(QString(inlineToken));
     for (int p = 0; p < source.size(); ++p) {
+        if (tokenAvailable && strongBoundaries.contains(p)) for (const auto character : inlineEntity) { result.positions.append(p); result.synthetic.append(1); result.text += character; }
         if (separators.contains(p)) for (const auto character : separators.value(p)) { result.positions.append(p); result.synthetic.append(1); result.text += character; }
         if (escapes.contains(p)) { result.positions.append(p); result.synthetic.append(1); result.text += '\\'; }
         result.positions.append(p); result.synthetic.append(0); result.text += source[p];

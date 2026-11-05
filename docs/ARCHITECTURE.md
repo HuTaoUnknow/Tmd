@@ -14,7 +14,7 @@
 | `core/knowledge` | 关系角色、双向及同级规则、持久化、范围索引、稳定拓扑 |
 | `core/images` | 图片读取、复制和路径改写、插入、上传、携图导出 |
 | `core/settings` | 设置数据与范围、十六进制配置编解码、持久化缓存、共享知识树缩放 |
-| `core/platform` | Windows 本机凭据保护、系统文件管理器定位 |
+| `core/platform` | Windows 本机凭据保护、系统文件管理器定位、启动协调、.md 默认打开方式登记 |
 | `ui/document` | 文档与原文视图、排版、高亮、语言补全、图片输入事件 |
 | `ui/library` | 文件侧栏、快速搜索、目录列表构建和过滤、正文目录 |
 | `ui/knowledge` | 几何布局、连线路由、卡片绘制、画布和完善知识树窗口 |
@@ -47,6 +47,7 @@
 - `MarkdownCodeBlocks` 提供成对围栏的语言信息、去除 Markdown 容器缩进后的原始代码及行位置，供复制与原文高亮共用。`LanguageCatalog` 统一语言别名与显示名称。`CodeSyntax` 在核心按语言进行有状态分词，参考 [Prism 标准分类](https://prismjs.com/tokens.html) 和 [highlight.js 状态模型](https://highlightjs.readthedocs.io/en/stable/language-guide.html)，区分关键字、类型、函数、字符串、注释、数字、HTML/XML 标签属性等；支持跨行注释、字符串及 HTML 内嵌 JavaScript/CSS，并提供深浅背景配色。未知语言及纯文本不套用其他语言的规则。
 - `CodeSyntaxHighlighter` 仅把核心分词结果映射为 Qt 文本格式，文档与原文视图共用；按代码块身份隔离跨行状态，防止相邻代码块串色。`CodeBlockDecoration` 在文档模式预留标题空间，绘制左上语言标签与右上复制按钮，不插入可编辑文本；复制只取核心解析的当前代码正文，保持光标、选区与 Markdown 原文。
 - `LibraryPathPolicy` 共用文件及目录的库内路径校验，检查最近存在的父目录，防止目录链接让路径越过知识库。
+- `ExternalDocuments` 独立持有用户选择直接打开的库外 MD、未保存状态、磁盘冲突和缺失状态；复用 `MarkdownFileIO` 原子读写及 `FileWatcher` 非递归监视，不把库外路径放进 `allNodes` 或关系索引。`.tree-md-external.json` 只持久化路径，借助 `LibraryScanLock` 按增删合并多窗口记录，损坏记录保持原样。`MarkdownExternalDocuments` 是管理器的访问及备份交易适配，根目录副本采用全库唯一命名，复用图片迁移与链接重定位。`ui/ExternalDocumentOpening.cpp` 统一启动参数、窗口拖放与 Ctrl+O 的备份询问，侧栏用独立分组呈现地址与状态；用户未选择备份时不复制正文。
 - `MarkdownManager::copyDocument` 统一另存为及图片迁移交易。`importDirectory` 保留逐文档错误和部分成功，完成整批后统一扫描，避免每导入一篇就重新读取全部文档。
 - `ImageInsertJob` 负责本地、剪贴板、远程与图床图片的处理，开始时捕获目标文档和图片保存配置。主窗口负责进度、错误展示和编辑光标，不再包含图片文件复制和上传后的链接管理逻辑。
 - 本地图片默认平铺保存到知识库旁的 `md_photo`，按内容去重，插入、导入及文档迁移均写入绝对引用。图片目录配置只决定保存位置，不再复制文档的目录层级。`MarkdownExportJob` 在携图导出时复制资源并改为相对引用。
@@ -63,6 +64,8 @@
 每个文档按内容缓存目录和标题。知识树使用集合路径及关系的修订号判断是否需要重建；正文与标题变化保留卡片和连线，标题仅更新文字和提示。切换中心仍使用完整关联树计算稳定布局，再显示五层范围。
 
 `MarkdownSourceMap` 在重建或增量编辑后一次性索引行内代码的显示范围，光标查询使用二分搜索；普通插入无需遍历全部格式容器进行删除判断。文件监听的路径集合在一次扫描结束时统一恢复，包括扫描失败时。
+
+原文位置的未匹配区间按连续缺口一次恢复，在缺口内建立字符位置索引，不为每个字符重复搜索前后边界和整段原文。`MarkdownDocumentView::applyMarkdownStyles` 和 `InlineMarkupDecoration` 用 Qt 编辑批次合并段落格式及行内占位样式，结束时统一排版，避免含大量表格或行内代码的文档逐次重排整表。格式批次仍保留原有未保存状态及源码编辑交易。
 
 Windows 文件监听使用共享删除权限的 `ReadDirectoryChangesW` 递归监听知识库根目录，并单独监听其父目录，通过 `QWinEventNotifier` 接入 Qt 事件循环；不为每个子目录持有会阻止移动的通知句柄。暂停时先取消异步请求再释放资源，多个实例可以同时监听并移动子目录。其他平台继续使用 `QFileSystemWatcher`。Windows 目录迁移由 `MarkdownDirectoryMove` 负责，先尝试原子移动并短暂重试。Windows 即使允许子目录共享删除，也可能拒绝整体改名其祖先目录；遇到这类错误 5 时，在同卷临时目录暂存目录项，移动空的原目录后再放回内容，保留目录身份、权限和文件身份。深层占用按目录层级处理，明确禁止覆盖、跨卷复制和递归删除；失败时回退，无法完整回退则保留暂存文件并报告恢复位置，图片清理也随之停止。真正拒绝共享删除的占用仍报告具体路径。
 
@@ -113,6 +116,12 @@ ATX 标题第一个井号之前的 Backspace 由 `MarkdownParagraphEditing` 判�
 外部解析源码归 `third_party/md4c`，版本及来源记录于该目录的 README；适配逻辑归 core，视觉边界归 ui。
 
 ## 配置与平台实现
+
+`ApplicationInstance` 在 `core/platform/` 用进程锁和仅当前用户可访问的本地 socket 协调普通界面启动。同一可执行文件、用户和知识库共享一个所有者；后续启动传递文件及视图请求后退出。`main.cpp` 负责激活已有窗口，并在模态对话框结束后顺序打开转交的文档。启动中不响应时也不会创建竞争窗口；导入、导出和短时截图验证保持独立运行。
+
+`FileAssociation` 在 `core/platform/` 生成 `.md` 的打开命令并写入当前用户注册表：`Classes\Tmd.Markdown`、`Classes\.md\OpenWithProgids`、`Classes\Applications\tree_md.exe`、`Tmd\Capabilities` 及 `RegisteredApplications\Tmd`。安装版与便携版直接启动 `tree_md.exe "%1"`；位于 `build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug` 且无 `tmd-installation.ini` 的 Debug 程序改由 `scripts/Start-Debug.ps1` 启动，以提供 Qt 运行库路径。文档路径作为普通位置参数进入 `ApplicationInstance` 与库外文档流程。程序不写入受 Windows 保护的 `UserChoice`，最终选择由 `ui/settings/DefaultAppDialog` 打开的系统“默认应用”或“打开方式”完成；测试使用独立的 `HKCU\Software\TmdAssociationTest-*` 根并在结束时删除。
+
+`MarkdownInlineSyntax` 在核心识别中文标点两侧的成对粗体边界；`MarkdownBlockSyntax::Prepared` 提供带原文位置的导入标记，核心语义扫描和 Qt 导入共用这些边界，界面导入后移除临时标记。`MarkdownTableStyle` 在 `ui/document/` 集中处理表格横线、单元格留白和表头字体；旧版默认绿色网格使用普通页面底色，自定义表格配色保留。
 
 `MarkdownSettings.cpp` 定义设置范围和描述，`MarkdownSettingsCodec.cpp` 负责验证、版本兼容和十六进制编码，`MarkdownSettingsStore.cpp` 负责文件读写及缓存。便携导出依旧不带本机图床 Token，Windows 凭据保护归 `LocalCredentials`，原有配置格式保持兼容。
 

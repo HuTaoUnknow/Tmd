@@ -10,7 +10,7 @@ NodeRelationType KnowledgeIndex::inverse(NodeRelationType type) {
 KnowledgeIndexResult KnowledgeIndex::build(const MarkdownManager &manager, const QString &root, int maxDepth, bool showParent, bool showChild) {
     KnowledgeIndexResult result;
     const auto *current = manager.loadNode(root);
-    if (!current) return result;
+    if (!current || current->isExternalDocument()) return result;
     result.root = current->relativePath();
     struct Neighbour { QString path; NodeRelationType type; };
     QMap<QString, QList<Neighbour>> adjacent;

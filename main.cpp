@@ -6,6 +6,7 @@
 #include "core/images/ImageStorage.h"
 #include "core/library/MarkdownFileIO.h"
 #include "core/library/DefaultLibrary.h"
+#include "core/platform/ApplicationInstance.h"
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
@@ -17,13 +18,49 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QAction>
+#include <QQueue>
+#include <memory>
 #include <algorithm>
+#include <QDateTime>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QtCore/qscopeguard.h>
+
+namespace {
+QString diagnosticLogPath;
+QtMessageHandler previousMessageHandler = nullptr;
+QMutex diagnosticLogMutex;
+void writeDiagnosticMessage(QtMsgType type, const QMessageLogContext &context, const QString &message) {
+    {
+        const QMutexLocker<QMutex> lock(&diagnosticLogMutex);
+        QFile log(diagnosticLogPath);
+        if (log.open(QIODevice::WriteOnly | QIODevice::Append)) {
+            const auto line = QDateTime::currentDateTime().toString(Qt::ISODateWithMs)
+                + QStringLiteral(" [%1] ").arg(int(type)) + message + '\n';
+            log.write(line.toUtf8());
+        }
+    }
+    if (previousMessageHandler) previousMessageHandler(type, context, message);
+}
+}
 int main(int argc, char *argv[]) {
+    // The Debug launcher provides a per-process log file. Write from the app,
+    // so diagnostics survive after the short-lived PowerShell launcher exits.
+    diagnosticLogPath = qEnvironmentVariable("TMD_DIAGNOSTIC_LOG");
+    if (QDir::isAbsolutePath(diagnosticLogPath)) {
+        previousMessageHandler = qInstallMessageHandler(writeDiagnosticMessage);
+        qInfo() << "Tmd startup" << TREE_MD_VERSION;
+    }
+    const auto resetDiagnosticHandler = qScopeGuard([] {
+        if (QDir::isAbsolutePath(diagnosticLogPath)) qInstallMessageHandler(previousMessageHandler);
+    });
     QApplication application(argc, argv);
     applyTreeMdTheme(application);
     application.setApplicationName("Tree MD"); application.setApplicationDisplayName("Tmd");
     application.setOrganizationName("TreeMD"); application.setApplicationVersion(TREE_MD_VERSION);
     QCommandLineParser parser; parser.addHelpOption(); parser.addVersionOption();
+    parser.addPositionalArgument("documents", "Open MD files dropped onto the executable or shortcut", "[documents...]");
+    parser.setOptionsAfterPositionalArgumentsMode(QCommandLineParser::ParseAsPositionalArguments);
     parser.addOption({"data-dir", "Markdown data directory", "path"});
     parser.addOption({"library-root", "Initialize or open a library containing md_data and md_photo", "path"});
     parser.addOption({"smoke-test", "Start, render, and exit automatically"});
@@ -98,7 +135,63 @@ int main(int argc, char *argv[]) {
         QTimer::singleShot(0, &application, [&] { job.start(node->content(), node->filePath(), parser.value("export-to"), parser.isSet("with-images")); });
         return application.exec();
     }
+    // Import/export and short-lived capture processes intentionally remain
+    // independent. Normal Debug shortcut launches share an existing owner.
+    std::unique_ptr<ApplicationInstance> instance;
+    if (!parser.isSet("smoke-test") && !parser.isSet("screenshot")) {
+        QJsonArray files;
+        for (const auto &argument : parser.positionalArguments()) {
+            const QUrl url(argument);
+            files.append(MarkdownFileIO::normalizedPath(url.isLocalFile() ? url.toLocalFile() : argument));
+        }
+        QJsonObject request{{"files", files}, {"document", parser.value("open-document")}};
+        for (const auto &flag : {"source-view", "relations", "knowledge-tree", "settings", "image-settings"})
+            request.insert(flag, parser.isSet(flag));
+        instance = std::make_unique<ApplicationInstance>(ApplicationInstance::identity(application.applicationFilePath(), dataPath));
+        QString error; const auto result = instance->start(request, &error);
+        if (result == ApplicationInstance::Result::Forwarded) return 0;
+        if (result == ApplicationInstance::Result::Failed) { QMessageBox::warning(nullptr, QStringLiteral("Tmd"), error); return 2; }
+    }
+    if (!diagnosticLogPath.isEmpty()) qInfo() << "Constructing main window";
     MainWindow window(dataPath); window.show();
+    if (!diagnosticLogPath.isEmpty()) qInfo() << "Main window ready";
+    QQueue<QJsonObject> pendingLaunches;
+    QTimer launchTimer; launchTimer.setSingleShot(true);
+    auto activate = [&window] {
+        if (window.isMinimized()) window.setWindowState(window.windowState() & ~Qt::WindowMinimized);
+        window.raise(); window.activateWindow();
+        if (auto *modal = QApplication::activeModalWidget()) { modal->raise(); modal->activateWindow(); }
+    };
+    bool openingLaunch = false;
+    QObject::connect(&launchTimer, &QTimer::timeout, &window, [&] {
+        if (openingLaunch) return;
+        activate();
+        if (QApplication::activeModalWidget()) { launchTimer.start(100); return; }
+        openingLaunch = true;
+        while (!pendingLaunches.isEmpty()) {
+            const auto request = pendingLaunches.dequeue();
+            for (const auto &file : request.value("files").toArray()) if (file.isString()) window.openFile(file.toString());
+            if (!request.value("document").toString().isEmpty()) window.openDocument(request.value("document").toString());
+            if (request.value("source-view").toBool()) window.setSourceMode(true);
+            if (request.value("relations").toBool()) window.setRelationsVisible(true);
+            if (request.value("knowledge-tree").toBool()) window.openKnowledgeTree();
+            for (const auto &action : {qMakePair("settings", "markdownSettingsAction"), qMakePair("image-settings", "imageSettingsAction")})
+                if (request.value(action.first).toBool()) window.findChild<QAction *>(action.second)->trigger();
+            if (QApplication::activeModalWidget()) break;
+        }
+        openingLaunch = false;
+        if (!pendingLaunches.isEmpty()) launchTimer.start(100);
+    });
+    if (instance) {
+        auto receive = [&] {
+            for (const auto &request : instance->takeRequests()) pendingLaunches.enqueue(request);
+            if (!pendingLaunches.isEmpty()) { activate(); if (!openingLaunch) launchTimer.start(0); }
+        };
+        QObject::connect(instance.get(), &ApplicationInstance::requestsAvailable, &window, receive);
+        receive();
+    }
+    const auto documents = parser.positionalArguments();
+    if (!documents.isEmpty()) QTimer::singleShot(0, &window, [&window, documents] { for (const auto &path : documents) window.openFile(path); });
     if (parser.isSet("open-document")) window.openDocument(parser.value("open-document"));
     if (parser.isSet("source-view")) window.setSourceMode(true);
     if (parser.isSet("relations")) window.setRelationsVisible(true);

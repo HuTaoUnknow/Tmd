@@ -4,19 +4,37 @@
 
 ### 中文
 
+### English
+
+## v1.2.0 — 2026-11-05
+
+### 中文
+
+- 设置中增加“设为默认打开方式”：在当前用户注册表（HKCU）登记 Tmd 为 .md 的可选程序，再打开 Windows“默认应用”或“打开方式”由用户确认；Debug 版经 `scripts/Start-Debug.ps1` 启动，安装版直接启动程序，双击的 MD 交给已有窗口并沿用库外文档备份询问；可移除登记，安装版卸载时一并清理。
+- Debug 普通启动复用同一程序和知识库的已有窗口，重复启动的 MD 文件交给该窗口打开；增加并发启动和异常退出恢复检查。
+- 修复中文标点紧接粗体结束符与后文时不加粗的问题，保留 Markdown 原文、空格和编辑位置。
+- 表格改为较轻的横向分隔、普通页面底色和加粗表头，保留自定义配色及现有按键编辑。
+- 修复打开多表格 MD 时的长时间无响应：按连续缺口恢复原文位置，并批量应用段落及行内样式，减少重复查找与整表重排。
+- 支持拖放到程序、快捷方式或窗口以及 Ctrl+O 打开库外 MD，可选择根目录备份或直接编辑原件；外部文档独立显示地址，缺失标红，保留未保存与冲突保护。
 - 增加文档查找与替换、圆角匹配高亮、方向键切换，以及保留当前替换结果选区。
 - 列表按层级显示空心圆、小圆点与字母编号，同时保留数字 Markdown 原文。
 - 支持 Ctrl+单击访问本库文档、外部文件及网页，选区符号包裹确认，以及代码区分级全选。
 - 记录知识库与图片文件结构，移动后自动修正相关引用；缺失目标显示红点，并检查全库 MD 文件重名。
-- 更新四篇 Markdown/Tmd 教程及公开知识树示例，增加相关回归检查，现共十八组。
+- 更新四篇 Markdown/Tmd 教程及公开知识树示例，增加相关回归检查，现共二十二组。
 
 ### English
 
+- Add Settings → Set as default app: register Tmd for .md under HKCU, then open Windows Default Apps or the Open with picker for the user's confirmation. Debug builds start through `scripts/Start-Debug.ps1`, installed builds start the executable directly, and double-clicked files reach the running window with the external-document backup prompt. The registration can be removed and is cleaned up on uninstall.
+- Reuse the existing GUI owner for repeated launches of the same executable and library, forwarding document requests with concurrent-start and crash-recovery coverage.
+- Render paired strong emphasis next to Chinese punctuation and following text without changing Markdown source, whitespace or edit positions.
+- Use light horizontal table rules, neutral default backgrounds and bold headers while retaining custom colors and keyboard editing.
+- Fix stalls opening table-heavy Markdown by recovering source-map gaps in batches and grouping paragraph/inline formatting to avoid repeated table layouts.
+- Open external Markdown through executable/shortcut drops, window drops or Ctrl+O, with optional root-level backups, a separate path-aware sidebar group, missing-file status and protected saves.
 - Add document find/replace, rounded match highlights, arrow-key navigation and retained replacement selections.
 - Render nested list markers as hollow dots, small dots and letters while keeping numeric Markdown source.
 - Support Ctrl+click document/file/web navigation, confirmed selection wrapping and progressive code selection.
 - Track library/image files, repair references after moves, show missing-target status dots and enforce globally unique Markdown filenames.
-- Refresh the four Markdown/Tmd tutorials and public knowledge-tree example, with eighteen regression groups.
+- Refresh the four Markdown/Tmd tutorials and public knowledge-tree example, with twenty-two regression groups.
 
 ## v1.1.1 — 2026-10-18
 

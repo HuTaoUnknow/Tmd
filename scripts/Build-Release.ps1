@@ -61,7 +61,7 @@ foreach ($folder in @('docs','licenses','examples')) { Copy-Item -LiteralPath (J
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'examples\md_data') -Destination $portableRoot -Recurse
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'examples\md_photo') -Destination $portableRoot -Recurse
 # File identities and local absolute paths are per-library runtime state, never public examples.
-foreach ($inventory in @(Get-ChildItem -LiteralPath $portableRoot -Recurse -File -Force -Filter '.tree-md-files.*' | Where-Object Name -In @('.tree-md-files.json','.tree-md-files.lock'))) {
+foreach ($inventory in @(Get-ChildItem -LiteralPath $portableRoot -Recurse -File -Force -Filter '.tree-md-*' | Where-Object Name -In @('.tree-md-files.json','.tree-md-files.lock','.tree-md-external.json'))) {
     $inventoryPath = [IO.Path]::GetFullPath($inventory.FullName)
     if (!$inventoryPath.StartsWith([IO.Path]::GetFullPath($portableRoot) + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Unexpected inventory cleanup target.' }
     Remove-Item -LiteralPath $inventoryPath

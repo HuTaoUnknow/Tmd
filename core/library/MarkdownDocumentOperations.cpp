@@ -1,4 +1,6 @@
 #include "core/library/MarkdownManager.h"
+#include "core/library/ExternalDocuments.h"
+#include "core/library/LibraryReferences.h"
 #include "core/markdown/MarkdownImport.h"
 #include "core/library/MarkdownFileIO.h"
 #include "core/library/FileWatcher.h"
@@ -24,6 +26,7 @@ bool MarkdownManager::createDirectory(const QString &path, QString *error) {
 QStringList MarkdownManager::modifiedDocuments() const {
     QStringList paths;
     for (const auto *node : allNodes()) if (node->isModified()) paths.append(node->relativePath());
+    for (const auto *node : externalNodes()) if (node->isModified()) paths.append(node->relativePath());
     std::sort(paths.begin(), paths.end()); return paths;
 }
 DocumentSaveResult MarkdownManager::saveAllModified() {
@@ -36,6 +39,7 @@ DocumentSaveResult MarkdownManager::saveAllModified() {
     return result;
 }
 bool MarkdownManager::saveDocument(const QString &path, QString *error, bool overwriteExternal) {
+    if (m_external->find(path)) return m_external->save(path, error, overwriteExternal);
     const LibraryScanLock transaction(m_root); if (!transaction.locked()) return fail(error,transaction.error());
     auto *node = loadNode(path);
     if (!node) return fail(error, QStringLiteral("文档已被移除，请另存为新文档。"));
@@ -55,6 +59,7 @@ bool MarkdownManager::saveDocument(const QString &path, QString *error, bool ove
     return true;
 }
 bool MarkdownManager::reloadDocument(const QString &path, QString *error) {
+    if (m_external->find(path)) return m_external->reload(path, error);
     auto *node = loadNode(path);
     if (!node) return fail(error, QStringLiteral("文档不存在。"));
     QString content;
@@ -209,8 +214,10 @@ bool MarkdownManager::copyDocument(const QString &source, const QString &targetP
     if (!validateDocumentName(targetPath,error)) return false;
     QString rewritten = content; QStringList created; ImageStorage storage(m_root);
     if (!source.isEmpty()) {
-        const QString original = safePath(source, error);
+        const auto *node = m_external->find(source);
+        const QString original = node ? node->filePath() : safePath(source, error);
         if (original.isEmpty() || !storage.prepareRelocation(original, targetPath, content, rewritten, created, error)) return false;
+        if (node) rewritten = LibraryReferences::rewrite(rewritten, m_root, original, QDir(m_root).filePath(targetPath), {}, {});
     }
     if (!createDocument(targetPath, rewritten, error)) {
         if (!QFileInfo::exists(target)) storage.rollback(created);

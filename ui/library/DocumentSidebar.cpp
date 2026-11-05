@@ -85,7 +85,7 @@ DocumentSidebar::DocumentSidebar(QWidget *parent) : QWidget(parent), m_pages(new
 }
 void DocumentSidebar::setLibraryRoot(const QString &root) { static_cast<DocumentFileTree *>(m_tree)->setLibraryRoot(root); }
 void DocumentSidebar::remapDirectoryState(const QString &from, const QString &to) { static_cast<DocumentFileTree *>(m_tree)->remapDirectoryState(from, to); }
-void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directoryPaths) {
+void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directoryPaths, const QList<MarkdownNode *> &external) {
     const QSignalBlocker blocker(m_tree);
     static_cast<DocumentFileTree *>(m_tree)->finishTransientExpansion();
     m_tree->clear();
@@ -100,8 +100,29 @@ void DocumentSidebar::setDocuments(const QList<MarkdownNode *> &nodes, const QSt
         item->setData(0,DocumentTreeBuilder::MissingReferencesRole,node->missingReferences());
         if (node->hasMissingReferences()) item->setToolTip(0,item->toolTip(0)+'\n'+node->missingReferences().join('\n'));
     }
+    if (!external.isEmpty()) {
+        auto *group = new QTreeWidgetItem(m_tree); group->setText(0, QStringLiteral("外部文档"));
+        group->setData(0, DocumentTreeBuilder::ExternalGroupRole, true);
+        group->setData(0, Qt::UserRole + 2, "@external-documents");
+        group->setFlags(Qt::ItemIsEnabled); group->setExpanded(true);
+        for (const auto *node : external) {
+            const auto path = node->filePath();
+            auto *item = new QTreeWidgetItem(group);
+            item->setText(0, QFileInfo(path).fileName() + " — " + path);
+            item->setData(0, Qt::UserRole, path); item->setData(0, Qt::UserRole + 1, node->title());
+            item->setData(0, DocumentTreeBuilder::ExternalDocumentRole, true);
+            item->setForeground(0, QBrush(QColor("#bed5e6")));
+            m_entries.append({path, node->title()});
+            DocumentTreeBuilder::updateStatus(m_tree, path, node->isModified(), node->missingReferences());
+        }
+    }
     QTreeWidgetItemIterator items(m_tree);
-    while (*items) { (*items)->setFlags((*items)->flags() | Qt::ItemIsDragEnabled); ++items; }
+    while (*items) {
+        if (!(*items)->data(0, DocumentTreeBuilder::ExternalDocumentRole).toBool() && !(*items)->data(0, DocumentTreeBuilder::ExternalGroupRole).toBool())
+            (*items)->setFlags((*items)->flags() | Qt::ItemIsDragEnabled);
+        else (*items)->setFlags((*items)->flags() & ~Qt::ItemIsDragEnabled);
+        ++items;
+    }
     static_cast<DocumentFileTree *>(m_tree)->restoreDirectoryStates();
     filter();
     if (m_quickPopup && m_quickPopup->isVisible()) refreshQuickResults();
@@ -144,12 +165,20 @@ void DocumentSidebar::selectDirectory(const QString &path) {
 }
 void DocumentSidebar::showContextMenu(const QPoint &position) {
     auto *item = m_tree->itemAt(position);
+    if (item && item->data(0, DocumentTreeBuilder::ExternalGroupRole).toBool()) return;
     const QString document = item ? item->data(0, Qt::UserRole).toString() : QString();
     const QString directory = item ? item->data(0, Qt::UserRole + 2).toString() : QString();
     if (item) m_tree->setCurrentItem(item);
     else { m_tree->setCurrentItem(nullptr); m_tree->clearSelection(); }
     auto *menu = new QMenu(this); menu->setObjectName("documentContextMenu");
     connect(menu, &QMenu::aboutToHide, menu, &QObject::deleteLater);
+    if (item && item->data(0, DocumentTreeBuilder::ExternalDocumentRole).toBool()) {
+        auto *backup = menu->addAction(QStringLiteral("备份到知识库")); backup->setObjectName("contextBackupExternal");
+        auto *forget = menu->addAction(QStringLiteral("移除记录")); forget->setObjectName("contextForgetExternal");
+        connect(backup, &QAction::triggered, this, [this, document] { emit backupExternalRequested(document); });
+        connect(forget, &QAction::triggered, this, [this, document] { emit forgetExternalRequested(document); });
+        menu->popup(m_tree->viewport()->mapToGlobal(position)); return;
+    }
     QString parentPath = directory;
     if (!document.isEmpty()) {
         const int separator = document.lastIndexOf('/');

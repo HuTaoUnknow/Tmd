@@ -25,6 +25,7 @@ bool InlineMarkupDecoration::eventFilter(QObject *object, QEvent *event) {
     return QObject::eventFilter(object, event);
 }
 void InlineMarkupDecoration::clear() {
+    QTextCursor styling(m_view->document()); styling.beginEditBlock();
     for (auto it = m_originalFormats.cbegin(); it != m_originalFormats.cend(); ++it) {
         if (it.key() < 0 || it.key() >= m_view->document()->characterCount() - 1) continue;
         QTextCursor cursor(m_view->document()); cursor.setPosition(it.key()); cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor); cursor.setCharFormat(it.value());
@@ -32,6 +33,7 @@ void InlineMarkupDecoration::clear() {
     for (const auto &entry : m_originalMargins) if (entry.first.isValid()) {
         QTextCursor cursor(entry.first); auto format = cursor.blockFormat(); format.setLeftMargin(entry.second); cursor.setBlockFormat(format);
     }
+    styling.endEditBlock();
     m_originalFormats.clear(); m_originalMargins.clear(); m_slots.clear(); m_signature.clear();
     m_caretTimer->stop(); m_customCaret = false; m_caretSource = m_caretPosition = -1; m_view->setCursorWidth(m_cursorWidth);
 }
@@ -87,6 +89,9 @@ void InlineMarkupDecoration::refresh(const MarkdownSourceMap &mapping) {
     }
     signature += QString::number(m_view->font().pointSizeF());
     if (signature == m_signature) { updateCaret(mapping); m_view->viewport()->update(); return; }
+    // Inline padding is another formatting pass: group it to avoid laying
+    // out every table again for each code span or visible syntax marker.
+    QTextCursor styling(m_view->document()); styling.beginEditBlock();
     clear(); m_signature = signature;
     for (auto it = groups.begin(); it != groups.end(); ++it) {
         auto &slot = it.value();
@@ -98,6 +103,7 @@ void InlineMarkupDecoration::refresh(const MarkdownSourceMap &mapping) {
         } else if (slot.position > 0) addSpacing(slot.position - 1, slot.gap);
         m_slots.append(slot);
     }
+    styling.endEditBlock();
     updateCaret(mapping); m_view->viewport()->update();
 }
 void InlineMarkupDecoration::setSourceSelection(int anchor, int caret, bool frozen) {

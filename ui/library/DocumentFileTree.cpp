@@ -31,16 +31,34 @@ public:
         const bool modified = index.data(DocumentTreeBuilder::ModifiedRole).toBool();
         const bool missing = !index.data(DocumentTreeBuilder::MissingReferencesRole).toStringList().isEmpty();
         const auto *widget = row.widget; auto *style = widget ? widget->style() : QApplication::style();
-        if (modified || missing) {
-            const QRect text = style->subElementRect(QStyle::SE_ItemViewItemText, &row, widget);
-            row.text = row.fontMetrics.elidedText(row.text, row.textElideMode, qMax(0, text.width() - 20));
+        if (index.data(DocumentTreeBuilder::ExternalDocumentRole).toBool()) {
+            const QString path = index.data(Qt::UserRole).toString();
+            row.text.clear(); style->drawControl(QStyle::CE_ItemViewItem, &row, painter, widget);
+            QRect area = option.rect.adjusted(4, 3, modified || missing ? -22 : -4, -3);
+            painter->save(); painter->setFont(row.font);
+            painter->setPen(missing ? QColor("#ef6464") : row.palette.color(row.state.testFlag(QStyle::State_Selected) ? QPalette::HighlightedText : QPalette::Text));
+            painter->drawText(area, Qt::AlignTop | Qt::AlignLeft, row.fontMetrics.elidedText(QFileInfo(path).fileName(), Qt::ElideRight, area.width()));
+            QFont small(row.font); small.setPointSizeF(qMax(7.0, small.pointSizeF() - 1)); painter->setFont(small);
+            painter->setOpacity(0.75); area.setTop(area.top() + row.fontMetrics.height() + 2);
+            painter->drawText(area, Qt::AlignTop | Qt::AlignLeft, QFontMetrics(small).elidedText(QDir::toNativeSeparators(path), Qt::ElideMiddle, area.width()));
+            painter->restore();
+        } else {
+            if (modified || missing) {
+                const QRect text = style->subElementRect(QStyle::SE_ItemViewItemText, &row, widget);
+                row.text = row.fontMetrics.elidedText(row.text, row.textElideMode, qMax(0, text.width() - 20));
+            }
+            style->drawControl(QStyle::CE_ItemViewItem, &row, painter, widget);
         }
-        style->drawControl(QStyle::CE_ItemViewItem, &row, painter, widget);
         if (modified || missing) {
             painter->save(); painter->setRenderHint(QPainter::Antialiasing);
             painter->setPen(Qt::NoPen); painter->setBrush(QColor(missing ? "#ef6464" : "#d5d5d2"));
             painter->drawEllipse(QPointF(option.rect.right() - 9, option.rect.center().y()), 3.5, 3.5); painter->restore();
         }
+    }
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override {
+        auto result = QStyledItemDelegate::sizeHint(option, index);
+        if (index.data(DocumentTreeBuilder::ExternalDocumentRole).toBool()) result.setHeight(option.fontMetrics.height() * 2 + 10);
+        return result;
     }
     QRect textRect(const QTreeWidget *view, const QModelIndex &index) const {
         QStyleOptionViewItem option; option.initFrom(view); option.widget = view;
@@ -184,6 +202,7 @@ QMimeData *DocumentFileTree::mimeData(const QList<QTreeWidgetItem *> &items) con
     if (items.isEmpty()) return mime;
     QJsonArray entries;
     for (auto *item : items) {
+        if (item->data(0,DocumentTreeBuilder::ExternalDocumentRole).toBool() || item->data(0,DocumentTreeBuilder::ExternalGroupRole).toBool()) return mime;
         const QString document = item->data(0, Qt::UserRole).toString(), directory = item->data(0, Qt::UserRole + 2).toString();
         if (document.isEmpty() && (directory.isEmpty() || items.size() != 1)) return mime;
         entries.append(QJsonObject{{"path", document.isEmpty() ? directory : document}, {"directory", document.isEmpty()}});
@@ -214,6 +233,7 @@ DocumentFileTree::Target DocumentFileTree::target(const QMimeData *mime, const Q
     result.directory = entries.size() == 1 && entries.at(0).toObject().value("directory").toBool();
     auto *item = itemAt(position);
     if (item && !item->data(0, Qt::UserRole).toString().isEmpty()) item = item->parent();
+    if (item && item->data(0,DocumentTreeBuilder::ExternalGroupRole).toBool()) return {};
     result.directoryPath = item ? item->data(0, Qt::UserRole + 2).toString() : QString();
     if (item) result.index = indexFromItem(item);
 #ifdef Q_OS_WIN

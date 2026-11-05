@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(tree_md VERSION 1.1.1 LANGUAGES CXX C)
+project(tree_md VERSION 1.2.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
@@ -11,6 +11,7 @@ add_library(tree_md_core STATIC
     core/markdown/analysis/MarkdownSnapshot.cpp
     core/markdown/MarkdownBlockSyntax.cpp
     core/markdown/MarkdownSyntax.cpp
+    core/markdown/MarkdownInlineSyntax.cpp
     core/markdown/MarkdownCodeEditing.cpp
     core/markdown/MarkdownSelectionEditing.cpp
     core/markdown/MarkdownListEditing.cpp
@@ -27,6 +28,8 @@ add_library(tree_md_core STATIC
     core/markdown/MarkdownImages.cpp
     core/markdown/MarkdownReferences.cpp
     core/library/MarkdownManager.cpp
+    core/library/ExternalDocuments.cpp
+    core/library/MarkdownExternalDocuments.cpp
     core/library/MarkdownDocumentOperations.cpp
     core/library/MarkdownPathMoves.cpp
     core/library/LibraryPathPolicy.cpp
@@ -56,11 +59,13 @@ add_library(tree_md_core STATIC
     core/settings/MarkdownSettingsStore.cpp
     core/platform/LocalCredentials.cpp
     core/platform/FileManager.cpp
+    core/platform/ApplicationInstance.cpp
+    core/platform/FileAssociation.cpp
     core/markdown/MarkdownSourceMap.cpp
 )
 target_link_libraries(tree_md_core PUBLIC Qt6::Core Qt6::Gui Qt6::Network)
 if(WIN32)
-    target_link_libraries(tree_md_core PRIVATE crypt32 shell32 ole32)
+    target_link_libraries(tree_md_core PRIVATE crypt32 shell32 ole32 user32 advapi32)
 endif()
 target_include_directories(tree_md_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(tree_md_application STATIC
@@ -79,6 +84,7 @@ add_library(tree_md_ui STATIC
     ui/document/MarkdownEditor.cpp
     ui/document/MarkdownViewport.cpp
     ui/document/MarkdownTypography.cpp
+    ui/document/MarkdownTableStyle.cpp
     ui/document/CodeSyntaxHighlighter.cpp
     ui/document/CodeBlockDecoration.cpp
     ui/document/MarkdownFenceCompleter.cpp
@@ -95,9 +101,11 @@ add_library(tree_md_ui STATIC
     ui/knowledge/RelationDialog.cpp
     ui/settings/MarkdownSettingsDialog.cpp
     ui/settings/ImageSettingsDialog.cpp
+    ui/settings/DefaultAppDialog.cpp
     ui/common/Theme.cpp
     ui/common/AppIcon.cpp
     ui/MainWindow.cpp
+    ui/ExternalDocumentOpening.cpp
     resources/branding.qrc
     resources/typography.qrc
 )
@@ -118,6 +126,10 @@ install(DIRECTORY examples/md_photo DESTINATION .)
 include(CTest)
 if(BUILD_TESTING)
     find_package(Qt6 REQUIRED COMPONENTS Test)
+    add_executable(tmd_application_instance_tests tests/ApplicationInstanceTests.cpp)
+    target_link_libraries(tmd_application_instance_tests PRIVATE tree_md_core Qt6::Test)
+    add_executable(tmd_document_presentation_tests tests/DocumentPresentationTests.cpp)
+    target_link_libraries(tmd_document_presentation_tests PRIVATE tree_md_ui Qt6::Test)
     add_executable(tmd_markdown_tests tests/MarkdownCoreTests.cpp)
     target_link_libraries(tmd_markdown_tests PRIVATE tree_md_core Qt6::Test)
     add_test(NAME tmd_markdown_core COMMAND tmd_markdown_tests -o "${CMAKE_CURRENT_BINARY_DIR}/tmd_markdown_core.txt,txt")
@@ -145,6 +157,11 @@ if(BUILD_TESTING)
     target_link_libraries(tmd_selection_link_tests PRIVATE tree_md_ui Qt6::Test)
     add_executable(tmd_reference_tests tests/ReferenceMaintenanceTests.cpp)
     target_link_libraries(tmd_reference_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_file_association_tests tests/FileAssociationTests.cpp)
+    target_link_libraries(tmd_file_association_tests PRIVATE tree_md_ui Qt6::Test)
+    add_executable(tmd_external_document_tests tests/ExternalDocumentTests.cpp)
+    target_link_libraries(tmd_external_document_tests PRIVATE tree_md_ui Qt6::Test)
+    add_dependencies(tmd_external_document_tests tree_md)
     add_executable(tmd_library_tests tests/DefaultLibraryTests.cpp)
     add_executable(tmd_editing_policy_tests tests/EditingPolicyTests.cpp)
     target_link_libraries(tmd_editing_policy_tests PRIVATE tree_md_ui Qt6::Test)

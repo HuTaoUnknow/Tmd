@@ -25,6 +25,8 @@ void MarkdownManager::rememberSavedFile(MarkdownNode *node) {
 }
 QMap<QString,QStringList> MarkdownManager::duplicateDocuments() const {
     QMap<QString,QStringList> grouped;
+    // allNodes contains managed .md files only. Folder names, other suffixes
+    // and document headings are deliberately outside this filename rule.
     for (const auto *node : allNodes()) grouped[QFileInfo(node->relativePath()).fileName().normalized(QString::NormalizationForm_C).toCaseFolded()].append(node->relativePath());
     for (auto it=grouped.begin();it!=grouped.end();) {
         if (it->size()<2) it=grouped.erase(it);
@@ -42,7 +44,7 @@ bool MarkdownManager::validateDocumentName(const QString &path, QString *error, 
         const QString file=iterator.next();
         if (QFileInfo(file).suffix().compare("md",Qt::CaseInsensitive)!=0 || LibraryFileIndex::key(file)==ignored) continue;
         if (QFileInfo(file).fileName().normalized(QString::NormalizationForm_C).toCaseFolded()==name) {
-            if (error) *error=QStringLiteral("整个 md_data 中不允许同名 MD 文件。\n已有：%1\n请修改文件名后重试。").arg(QDir(m_root).relativeFilePath(file));
+            if (error) *error=QStringLiteral("发现同名 MD 文档：%1\n.md 文件名须全库唯一（不区分大小写）；文件夹和其他格式文件可同名。\n请修改此 MD 文件名后重试。").arg(QDir(m_root).relativeFilePath(file));
             return false;
         }
     }

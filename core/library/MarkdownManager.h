@@ -7,6 +7,7 @@
 #include <memory>
 #include <map>
 class FileWatcher;
+class ExternalDocuments;
 struct LibraryImportResult {
     QStringList imported;
     QMap<QString, QString> failures;
@@ -29,6 +30,10 @@ public:
     void enableWatching();
     MarkdownNode *loadNode(const QString &path) const;
     QList<MarkdownNode *> allNodes() const;
+    QList<MarkdownNode *> externalNodes() const;
+    bool openExternalDocument(const QString &path, QString *error = nullptr);
+    bool forgetExternalDocument(const QString &path, QString *error = nullptr, bool discard = false);
+    QString backupExternalDocument(const QString &path, QString *error = nullptr);
     QStringList directories() const;
     RelationStore explicitRelations() const;
     quint64 graphRevision() const { return m_graphRevision; }
@@ -84,6 +89,7 @@ private:
     std::map<QString, std::unique_ptr<MarkdownNode>> m_nodes;
     QStringList m_warnings;
     FileWatcher *m_watcher = nullptr;
+    ExternalDocuments *m_external;
     FileWatcher *m_photoWatcher = nullptr;
     QString m_photoWatchRoot;
     LibraryFileIndex m_fileIndex;

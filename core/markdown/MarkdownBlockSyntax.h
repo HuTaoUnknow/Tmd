@@ -1,5 +1,6 @@
 #pragma once
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <QSet>
 #include "core/markdown/MarkdownEdit.h"
@@ -8,7 +9,7 @@ struct MarkdownAnalysis;
 // Tmd's editing rules for line prefixes; source offsets never include escapes.
 class MarkdownBlockSyntax {
 public:
-    struct Prepared { QString text; QVector<int> positions; QVector<char> synthetic; };
+    struct Prepared { QString text; QVector<int> positions; QVector<char> synthetic; QStringList hiddenTokens; };
     struct Marker {
         int start, end, lineStart, lineEnd;
         QString text;

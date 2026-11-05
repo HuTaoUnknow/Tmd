@@ -2,6 +2,10 @@
 
 [中文](使用教程.md) · [Installation and backup](INSTALLATION.md) · [Home](../README.md)
 
+Repeated launches of the same executable and library activate the existing window and forward dropped Markdown files to it. Debug and installed executables, or separate libraries, keep independent windows.
+
+Document view renders paired strong emphasis beside Chinese punctuation and following text, such as `**中文句子。**后文`, without rewriting the source. Tables use light horizontal rules, neutral default backgrounds and bold headers; existing keyboard editing remains available.
+
 ## 1. Your library
 
 The installed edition keeps your library under **Documents/Tmd**:
@@ -17,7 +21,7 @@ Tmd/
 
 The portable edition uses the same folders beside `tree_md.exe`. Image paths are relative to each Markdown document. Back up both folders, including the hidden relationship file.
 
-Markdown filenames must be unique throughout `md_data`, including different subfolders, with case-insensitive comparison. Create, import, Save As and rename reject duplicates. Conflicts introduced outside Tmd appear in a rename window; existing files are preserved.
+Only `.md` filenames must be unique throughout `md_data`, including different subfolders, with case-insensitive comparison. Folder names and files with other extensions may repeat; headings inside documents do not participate in this check. For example, `CSRF/questions.md` conflicts with `SSRF/questions.md`, while two `attachments` folders or two `readme.txt` files in different locations are allowed. Create, import, Save As and rename reject duplicate Markdown filenames. Conflicts introduced outside Tmd appear in a rename window; existing files are preserved.
 
 Tmd records the document and image folder structures and automatically updates local references after identifiable moves or renames. It updates links in both moved and stationary documents, without confirmation. A missing local link or image target replaces the unsaved white dot with a red dot, even for saved documents. Hover for details. Restoring the target or fixing the reference clears red; pending text still shows white. Web links and network images are not marked missing based on temporary network availability. Code examples are unchanged, and automatic URL repairs do not save pending text. Ambiguous destinations remain unresolved rather than being guessed.
 
@@ -128,7 +132,30 @@ A single-document export shares the document and images. To share a complete kno
 
 ## 7. External changes and backups
 
+### Open Markdown outside your library
+
+Drop `.md` files onto Tmd's executable or shortcut, or into an open window. **文件 → 打开 MD (File → Open MD)** / `Ctrl+O` also accepts multiple files. The development desktop **Tmd Debug** shortcut forwards dropped file paths.
+
+For each external file, choose whether to back it up into the current library's `md_data` root:
+
+- **Yes** creates and opens a library copy while retaining the original. A library-wide filename collision produces a unique name such as `note（备份2）.md`. Readable local images are copied into the central image folder and the copy's references are adjusted.
+- **No** opens the original for reading and editing. `Ctrl+S` writes to its original address. A separate **外部文档 (External documents)** sidebar group shows its filename and full path, with records retained across restarts. Library move/rename/delete and knowledge relationships do not apply to these files.
+- **Cancel** leaves the current document unchanged.
+
+If the original disappears or moves, its record and status dot turn red while loaded contents remain available. Restoring the file clears its missing status. Saving does not recreate a missing original; use **Save as a new document** to preserve contents in the library. Concurrent edits by another program require resolving the save conflict.
+
+Right-click an external record to **Back up to library** or **Remove record**. Removing a record retains the original file and prompts about unsaved edits. The local `.tree-md-external.json` record contains paths only and is excluded from public examples and packages.
+
 Tmd watches external file changes. Unmodified documents refresh automatically; unsaved edits are preserved and a conflict is shown. Decide which content to keep before saving or reloading.
+
+### Open .md files with Tmd by default
+
+Choose **设置 → 设为默认打开方式 (Settings → Set as default app)**. Windows 10/11 does not let programs change defaults by themselves, so this takes two steps:
+
+1. **登记并打开系统设置 (Register and open Settings)** registers Tmd for `.md` under your user account (`HKEY_CURRENT_USER\Software\Classes`, no administrator rights) and opens Windows **Default apps**.
+2. In Default apps, select **Tmd** and set `.md` to Tmd. With a document open, **用“打开方式”选择… (Choose with Open with…)** shows the Windows picker instead; choose Tmd and tick **Always use this app**.
+
+Double-clicked `.md` files then open in the running Tmd window; files outside the library ask whether to back them up first. The installed edition registers `tree_md.exe` directly; a Debug build registers `scripts/Start-Debug.ps1`, so keep the project and Debug build directory in place. The most recent registration wins. **移除登记 (Remove registration)** deletes Tmd's entries, and uninstalling the installed edition removes them too; afterwards pick another default app in Windows if `.md` still points at Tmd.
 
 Back up `md_data` and `md_photo` together. Close Tmd before upgrading. Uninstalling the installed edition removes application files and registration while preserving **Documents/Tmd**.
 
@@ -151,6 +178,7 @@ Both views use language-specific syntax colors, including HTML/XML tags and attr
 | Shortcut | Action |
 | --- | --- |
 | Ctrl+N | New document |
+| Ctrl+O | Open MD; choose a library backup or edit the external original |
 | Ctrl+S | Save |
 | Ctrl+Shift+S | Save as |
 | Ctrl+P | Quick search |

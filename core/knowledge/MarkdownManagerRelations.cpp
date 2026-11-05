@@ -86,6 +86,7 @@ void MarkdownManager::applyRelations() {
 }
 bool MarkdownManager::addRelation(const QString &source, const QString &target, NodeRelationType type, QString *error) {
     const QString sourceKey = keyFor(source), targetKey = keyFor(target);
+    if (sourceKey.isEmpty() || targetKey.isEmpty()) return fail(error, QStringLiteral("外部文档需先备份到知识库，才能建立知识关系。"));
     if (!loadNode(source) || !loadNode(target)) return fail(error, QStringLiteral("请选择存在的 Markdown 节点。"));
     if (sourceKey == targetKey) return fail(error, QStringLiteral("不能关联文档自身。"));
     if (MarkdownRelation::key(type).isEmpty()) return fail(error, QStringLiteral("无效关系类型。"));
@@ -140,6 +141,7 @@ bool MarkdownManager::removeNodeRelations(const QString &path, QString *error) {
 }
 bool MarkdownManager::setRelation(const QString &source, const QString &target, NodeRelationType type, QString *error) {
     const QString sourceKey = keyFor(source), targetKey = keyFor(target);
+    if (sourceKey.isEmpty() || targetKey.isEmpty()) return fail(error, QStringLiteral("外部文档需先备份到知识库，才能建立知识关系。"));
     if (!loadNode(source) || !loadNode(target)) return fail(error, QStringLiteral("请选择存在的 Markdown 节点。"));
     if (sourceKey == targetKey) return fail(error, QStringLiteral("不能关联文档自身。"));
     if (MarkdownRelation::key(type).isEmpty()) return fail(error, QStringLiteral("无效关系类型。"));

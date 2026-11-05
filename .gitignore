@@ -11,3 +11,4 @@ CMakeUserPresets.json
 *.log
 .tree-md-files.json
 .tree-md-files.lock
+.tree-md-external.json

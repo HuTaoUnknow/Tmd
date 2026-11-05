@@ -10,7 +10,7 @@ class WindowsDirectoryWatch;
 class FileWatcher : public QObject {
     Q_OBJECT
 public:
-    explicit FileWatcher(QString root, QObject *parent = nullptr);
+    explicit FileWatcher(QString root, QObject *parent = nullptr, bool recursive = true);
     ~FileWatcher() override;
     void rebuild();
     void suspend();
@@ -18,6 +18,7 @@ signals:
     void changed();
 private:
     QString m_root;
+    bool m_recursive;
     QFileSystemWatcher m_watcher;
     QTimer m_debounce;
 #ifdef Q_OS_WIN

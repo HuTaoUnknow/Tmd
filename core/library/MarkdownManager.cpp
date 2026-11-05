@@ -3,6 +3,7 @@
 #include "core/library/LibraryPathPolicy.h"
 #include "core/library/FileWatcher.h"
 #include "core/library/LibraryScanLock.h"
+#include "core/library/ExternalDocuments.h"
 #include "core/images/ImageStorage.h"
 #include <QDir>
 #include <QDirIterator>
@@ -19,6 +20,10 @@ bool fail(QString *error, const QString &message) { if (error) *error = message;
 MarkdownManager::MarkdownManager(QString rootPath, QObject *parent) : QObject(parent) {
     QDir().mkpath(rootPath);
     m_root = MarkdownFileIO::normalizedPath(rootPath);
+    m_external = new ExternalDocuments(m_root, this);
+    connect(m_external, &ExternalDocuments::documentsChanged, this, &MarkdownManager::documentsChanged);
+    connect(m_external, &ExternalDocuments::documentChanged, this, &MarkdownManager::documentChanged);
+    connect(m_external, &ExternalDocuments::titleChanged, this, &MarkdownManager::documentTitleChanged);
 }
 QString MarkdownManager::safePath(const QString &path, QString *error) const { return LibraryPathPolicy(m_root).document(path, error); }
 QString MarkdownManager::keyFor(const QString &path) const {
@@ -32,7 +37,7 @@ QString MarkdownManager::keyFor(const QString &path) const {
 }
 MarkdownNode *MarkdownManager::loadNode(const QString &path) const {
     const auto it = m_nodes.find(keyFor(path));
-    return it == m_nodes.end() ? nullptr : it->second.get();
+    return it == m_nodes.end() ? m_external->find(path) : it->second.get();
 }
 QList<MarkdownNode *> MarkdownManager::allNodes() const {
     QList<MarkdownNode *> nodes;
@@ -189,6 +194,7 @@ bool MarkdownManager::scan(QString *error) {
     return true;
 }
 void MarkdownManager::updateContent(const QString &path, const QString &content) {
+    if (m_external->find(path)) { m_external->updateContent(path, content); return; }
     if (auto *node = loadNode(path)) {
         if (node->m_content == content) return;
         const QString previousTitle = node->title(); node->m_content = content;
@@ -199,6 +205,7 @@ void MarkdownManager::updateContent(const QString &path, const QString &content)
     }
 }
 void MarkdownManager::enableWatching() {
+    m_external->enableWatching();
     if (!m_watcher) {
         m_watcher = new FileWatcher(m_root, this);
         connect(m_watcher, &FileWatcher::changed, this, [this] {

@@ -21,7 +21,7 @@ public:
     explicit DocumentSidebar(QWidget *parent = nullptr);
     void setLibraryRoot(const QString &root);
     void remapDirectoryState(const QString &from, const QString &to);
-    void setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directories = {});
+    void setDocuments(const QList<MarkdownNode *> &nodes, const QStringList &directories = {}, const QList<MarkdownNode *> &external = {});
     void updateTitle(const QString &path, const QString &title);
     void updateModified(const QString &path, bool modified);
     void updateStatus(const QString &path, bool modified, const QStringList &missing);
@@ -42,6 +42,8 @@ signals:
     void movePathRequested(const QString &path, bool directory, const QString &destinationDirectory);
     void moveDocumentsRequested(const QStringList &paths, const QString &destinationDirectory);
     void openFileManagerRequested(const QString &path);
+    void backupExternalRequested(const QString &path);
+    void forgetExternalRequested(const QString &path);
 protected:
     void resizeEvent(QResizeEvent *event) override;
     bool eventFilter(QObject *object, QEvent *event) override;

@@ -1,0 +1,203 @@
+{
+  "task": "Open external Markdown via executable, shortcut and window drops with optional library backups",
+  "verifiedAt": "2026-10-26T17:05:27.1775479+08:00",
+  "configuration": "Debug",
+  "executable": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tree_md.exe",
+  "executableSHA256": "1C492B5544FF61B92883CE01FA628B6A00037C4D7AEF56DDE5B5F54A7BB456C9",
+  "build": "All Debug application and test targets built successfully. Test-only menu assertions were rebuilt after the full suite.",
+  "behavior": {
+    "opening": "Positional MD paths, window drops and Ctrl+O use one backup question. Internal library documents open without this question.",
+    "yes": "Copy into md_data root using a library-wide unique filename, relocate readable images and rebase links; retain the original.",
+    "no": "Open and edit the original, save to its original address, and show a separate external-documents group with its absolute path.",
+    "missing": "Retain records and loaded contents; show missing originals in red and clear status after restoration. Saving does not recreate absent originals.",
+    "protection": "Preserve unsaved edits, detect concurrent disk changes, include external documents in close/save-all and preserve existing CRLF line endings.",
+    "isolation": "External records are excluded from library moves, renames, deletes and knowledge relationships until backed up.",
+    "watching": "Reuse delete-sharing Windows directory watches without recursive scans of external parent folders; monitor with polling fallback.",
+    "metadata": "Merge per-library external path additions/removals under the library lock; preserve corrupt records. Exclude local external records from example seeding and release payloads."
+  },
+  "tests": {
+    "fullSuiteInitial": {
+      "passed": 18,
+      "failed": 1,
+      "elapsedSeconds": 407.29,
+      "reason": "Existing menu test assumed a fixed separator index before Open MD was added."
+    },
+    "correction": "Update menu assertions to include Open MD/Ctrl+O and locate the separator relative to the save-copy menu.",
+    "finalFollowUp": {
+      "name": "tmd_document_regressions",
+      "passed": true,
+      "elapsedSeconds": 122.24,
+      "passedQtTestRecords": 81
+    },
+    "registeredGroups": 19,
+    "allLatestGroupLogsPassed": true,
+    "passedQtTestRecords": 948,
+    "failed": 0,
+    "groups": [
+      {
+        "name": "tmd_markdown_core",
+        "passedQtTestRecords": 63,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_markdown_core.txt",
+        "lastWriteTime": "2026-10-26T16:51:28.2661996+08:00"
+      },
+      {
+        "name": "tmd_incremental_refresh",
+        "passedQtTestRecords": 3,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_incremental_refresh.txt",
+        "lastWriteTime": "2026-10-26T16:51:28.730063+08:00"
+      },
+      {
+        "name": "tmd_external_documents",
+        "passedQtTestRecords": 14,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_external_documents.txt",
+        "lastWriteTime": "2026-10-26T16:51:35.6545699+08:00"
+      },
+      {
+        "name": "tmd_reference_maintenance",
+        "passedQtTestRecords": 29,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_reference_maintenance.txt",
+        "lastWriteTime": "2026-10-26T16:51:38.9735187+08:00"
+      },
+      {
+        "name": "tmd_selection_links",
+        "passedQtTestRecords": 60,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_selection_links.txt",
+        "lastWriteTime": "2026-10-26T16:51:42.8052312+08:00"
+      },
+      {
+        "name": "tmd_document_find",
+        "passedQtTestRecords": 27,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_find.txt",
+        "lastWriteTime": "2026-10-26T16:51:47.0039258+08:00"
+      },
+      {
+        "name": "tmd_editing_headings_audit",
+        "passedQtTestRecords": 241,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_headings_audit.txt",
+        "lastWriteTime": "2026-10-26T16:53:11.3729076+08:00"
+      },
+      {
+        "name": "tmd_editing_code_audit",
+        "passedQtTestRecords": 72,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_code_audit.txt",
+        "lastWriteTime": "2026-10-26T16:53:38.3644841+08:00"
+      },
+      {
+        "name": "tmd_editing_list_audit",
+        "passedQtTestRecords": 130,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_list_audit.txt",
+        "lastWriteTime": "2026-10-26T16:54:34.0584922+08:00"
+      },
+      {
+        "name": "tmd_editing_integration_audit",
+        "passedQtTestRecords": 15,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_integration_audit.txt",
+        "lastWriteTime": "2026-10-26T16:55:17.969216+08:00"
+      },
+      {
+        "name": "tmd_library_regressions",
+        "passedQtTestRecords": 22,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_regressions.txt",
+        "lastWriteTime": "2026-10-26T16:55:27.0623449+08:00"
+      },
+      {
+        "name": "tmd_images_regressions",
+        "passedQtTestRecords": 12,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_images_regressions.txt",
+        "lastWriteTime": "2026-10-26T16:55:28.6667711+08:00"
+      },
+      {
+        "name": "tmd_document_regressions",
+        "passedQtTestRecords": 81,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_document_regressions.txt",
+        "lastWriteTime": "2026-10-26T17:03:58.7171865+08:00"
+      },
+      {
+        "name": "tmd_knowledge_regressions",
+        "passedQtTestRecords": 25,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_knowledge_regressions.txt",
+        "lastWriteTime": "2026-10-26T16:58:06.9358608+08:00"
+      },
+      {
+        "name": "tmd_workspace_regressions",
+        "passedQtTestRecords": 26,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_workspace_regressions.txt",
+        "lastWriteTime": "2026-10-26T16:58:12.6264577+08:00"
+      },
+      {
+        "name": "tmd_settings_regressions",
+        "passedQtTestRecords": 6,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_settings_regressions.txt",
+        "lastWriteTime": "2026-10-26T16:58:13.4003446+08:00"
+      },
+      {
+        "name": "tmd_modular_editing",
+        "passedQtTestRecords": 24,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_modular_editing.txt",
+        "lastWriteTime": "2026-10-26T16:58:13.7638084+08:00"
+      },
+      {
+        "name": "tmd_editing_policy",
+        "passedQtTestRecords": 93,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_editing_policy.txt",
+        "lastWriteTime": "2026-10-26T16:58:14.5091896+08:00"
+      },
+      {
+        "name": "tmd_library_initialization",
+        "passedQtTestRecords": 5,
+        "failed": 0,
+        "skipped": 0,
+        "log": "build/Desktop_Qt_6_11_1_MinGW_64_bit_Debug/tmd_library_initialization.txt",
+        "lastWriteTime": "2026-10-26T16:58:14.613441+08:00"
+      }
+    ]
+  },
+  "visualQA": {
+    "reviewed": [
+      "build/external-document-tests/screenshots/external-document-normal.png",
+      "build/external-document-tests/screenshots/external-document-missing.png",
+      "build/external-document-tests/screenshots/startup-positional.png",
+      "build/external-document-tests/screenshots/startup-external-prompt.png"
+    ],
+    "method": "Isolated offscreen Qt windows and child executable launches. Verified rendered content, relative images, separate path rows, missing status and the backup prompt.",
+    "shortcut": "Checked existing desktop Tmd Debug target and argument forwarding under both Windows PowerShell and PowerShell 7, including Chinese, spaces, ampersands and multiple paths.",
+    "boundary": "The physical Windows Explorer drag gesture was not manually automated; executable arguments, launcher quoting and synthetic window drop events were checked separately."
+  },
+  "deployment": "Current Debug executable updated. No release, GitHub synchronization or installed/portable edition update performed."
+}

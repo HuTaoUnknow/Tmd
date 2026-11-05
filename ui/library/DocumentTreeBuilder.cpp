@@ -62,7 +62,9 @@ void DocumentTreeBuilder::updateStatus(QTreeWidget *tree, const QString &path, b
     while (*iterator) {
         auto *item=*iterator;
         if (item->data(0,Qt::UserRole).toString()==path) {
-            item->setData(0,ModifiedRole,modified); item->setData(0,MissingReferencesRole,missing); tooltip(item,path); return;
+            item->setData(0,ModifiedRole,modified); item->setData(0,MissingReferencesRole,missing);
+            if (item->data(0,ExternalDocumentRole).toBool()) item->setForeground(0,QBrush(QColor(missing.isEmpty() ? "#bed5e6" : "#ef6464")));
+            tooltip(item,path); return;
         }
         ++iterator;
     }

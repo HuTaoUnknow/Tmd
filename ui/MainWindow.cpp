@@ -9,9 +9,12 @@
 #include "core/library/LibraryReferences.h"
 #include <QDialog>
 #include <QListWidget>
+#include <QTreeWidget>
 #include <QScopedValueRollback>
+#include <QDebug>
 #include "ui/settings/MarkdownSettingsDialog.h"
 #include "ui/settings/ImageSettingsDialog.h"
+#include "ui/settings/DefaultAppDialog.h"
 #include "core/settings/MarkdownSettings.h"
 #include "core/images/ImageInsertJob.h"
 #include "ui/knowledge/KnowledgeGraphWidget.h"
@@ -73,6 +76,10 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
         addAction(a); connect(a, &QAction::triggered, this, callback); return a;
     };
     action(fileMenu, QStringLiteral("新建"), QKeySequence::New, [this] { createDocument(); })->setObjectName("newAction");
+    action(fileMenu, QStringLiteral("打开 MD"), QKeySequence::Open, [this] {
+        const auto files = QFileDialog::getOpenFileNames(this, QStringLiteral("打开 MD 文档"), {}, "Markdown (*.md *.MD)");
+        for (const auto &file : files) openFile(file);
+    })->setObjectName("openAction");
     action(fileMenu, QStringLiteral("导入"), {}, [this] { importDocument(); })->setObjectName("importAction");
     action(fileMenu, QStringLiteral("保存"), QKeySequence::Save, [this] { saveCurrent(); })->setObjectName("saveAction");
     auto *copyMenu = fileMenu->addMenu(QStringLiteral("另存为 / 导出")); copyMenu->setObjectName("saveCopyMenu");
@@ -80,6 +87,7 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     action(copyMenu, QStringLiteral("导出 Markdown"), {}, [this] { exportDocument(); })->setObjectName("exportAction");
     action(settingsMenu, QStringLiteral("MD加载样式"), {}, [this] { openMarkdownSettings(); })->setObjectName("markdownSettingsAction");
     action(settingsMenu, QStringLiteral("图片保存方式"), {}, [this] { openImageSettings(); })->setObjectName("imageSettingsAction");
+    action(settingsMenu, QStringLiteral("设为默认打开方式"), {}, [this] { openDefaultAppSettings(); })->setObjectName("defaultAppAction");
     fileMenu->addSeparator();
     action(fileMenu, QStringLiteral("重命名"), {}, [this] { renameDocument(); })->setObjectName("renameAction");
     action(fileMenu, QStringLiteral("删除"), {}, [this] { deleteDocument(); })->setObjectName("deleteAction");
@@ -172,6 +180,8 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     connect(m_documents, &DocumentSidebar::movePathRequested, this, &MainWindow::movePath, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::moveDocumentsRequested, this, &MainWindow::moveDocuments, Qt::QueuedConnection);
     connect(m_documents, &DocumentSidebar::openFileManagerRequested, this, &MainWindow::openFileManager, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::backupExternalRequested, this, &MainWindow::backupExternal, Qt::QueuedConnection);
+    connect(m_documents, &DocumentSidebar::forgetExternalRequested, this, &MainWindow::forgetExternal, Qt::QueuedConnection);
     // The clicked graphics item remains alive until the mouse event finishes.
     connect(m_graph, &KnowledgeGraphWidget::nodeActivated, this, [this](const QString &path) { openDocument(path); }, Qt::QueuedConnection);
     connect(m_outline, &OutlineSidebar::headingActivated, this, [this](int position) { if (m_sourceAction->isChecked()) m_editor->goToPosition(position); else m_document->goToSourcePosition(position); });
@@ -283,6 +293,10 @@ MainWindow::MainWindow(const QString &dataPath, QWidget *parent)
     }
     statusBar()->showMessage(QStringLiteral("知识库：%1").arg(m_manager->rootPath()));
     m_manager->enableWatching();
+    setAcceptDrops(true);
+    for (auto *widget : {static_cast<QWidget *>(this), static_cast<QWidget *>(m_editor), m_editor->viewport(),
+                         static_cast<QWidget *>(m_document), m_document->viewport(), static_cast<QWidget *>(m_documents),
+                         m_documents->findChild<QTreeWidget *>()->viewport()}) widget->installEventFilter(this);
     QTimer::singleShot(0, this, &MainWindow::applyResponsiveLayout);
 }
 void MainWindow::openMarkdownSettings() {
@@ -297,6 +311,11 @@ void MainWindow::openImageSettings() {
         if (!m_manager->loadNode(m_current)) { showError(QStringLiteral("请先打开一篇文档。")); return; }
         insertImageReference(url, name);
     });
+    dialog->open();
+}
+void MainWindow::openDefaultAppSettings() {
+    const QString document = m_manager->loadNode(m_current) ? QDir(m_manager->rootPath()).filePath(m_current) : QString();
+    auto *dialog = new DefaultAppDialog(document, this); dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->open();
 }
 void MainWindow::applyMarkdownSettings() {
@@ -357,6 +376,8 @@ QString MainWindow::askDocumentPath(const QString &title, const QString &initial
     return path;
 }
 bool MainWindow::openDocument(const QString &path) {
+    const bool trace = qEnvironmentVariableIsSet("TMD_DIAGNOSTIC_LOG");
+    if (trace) qInfo() << "Opening document:" << path;
     if (path == m_current && m_manager->loadNode(path)) { m_documents->selectPath(path); return true; }
     if (!m_current.isEmpty() && !m_manager->loadNode(m_current) && !mayLeaveDocument()) { m_documents->selectPath(m_current); return false; }
     auto *node = m_manager->loadNode(path);
@@ -366,6 +387,7 @@ bool MainWindow::openDocument(const QString &path) {
     m_editor->document()->setModified(node->isModified());
     m_editor->setEnabled(true); m_document->setEnabled(true); m_parseTimer->stop(); m_documents->selectPath(m_current);
     refreshOutline(); refreshView(); m_views->currentWidget()->setFocus();
+    if (trace) qInfo() << "Document ready:" << m_current;
     return true;
 }
 void MainWindow::openDocumentLink(const QUrl &url) {
@@ -396,7 +418,9 @@ bool MainWindow::saveCurrent() {
     return true;
 }
 bool MainWindow::saveAs() {
-    const QString path = askDocumentPath(QStringLiteral("另存为新文档"), m_current.isEmpty() ? QStringLiteral("新节点.md") : m_current);
+    const auto *current = m_manager->loadNode(m_current);
+    const QString initial = current && current->isExternalDocument() ? QFileInfo(m_current).fileName() : m_current;
+    const QString path = askDocumentPath(QStringLiteral("另存为新文档"), initial.isEmpty() ? QStringLiteral("新节点.md") : initial);
     if (path.isEmpty()) return false;
     if (QFileInfo::exists(QDir(m_manager->rootPath()).filePath(path))) { showError(QStringLiteral("该文件已存在。")); return false; }
     QString error; m_busy = true;
@@ -586,8 +610,10 @@ void MainWindow::finishRemoval(bool currentRemoved) {
 }
 void MainWindow::refreshDocuments() { QString error; if (!m_manager->scan(&error)) showError(error); else renderDocument(true); }
 void MainWindow::refreshView() {
-    m_documents->setDocuments(m_manager->allNodes(), m_manager->directories()); m_documents->selectPath(m_current);
+    m_documents->setDocuments(m_manager->allNodes(), m_manager->directories(), m_manager->externalNodes()); m_documents->selectPath(m_current);
     const auto *node = m_manager->loadNode(m_current);
+    const bool external = node && node->isExternalDocument();
+    for (const auto &name : {"renameAction", "deleteAction"}) if (auto *a = findChild<QAction *>(name)) a->setEnabled(node && !external);
     if (node && !node->isModified() && node->content() != m_editor->source()) {
         m_finder->resetSearch();
         const int position = m_editor->textCursor().position();
@@ -598,6 +624,7 @@ void MainWindow::refreshView() {
     setWindowTitle(m_current.isEmpty() ? "Tmd" : m_current + ((node ? node->isModified() : m_editor->document()->isModified()) ? " *" : "") + " — Tmd");
     QString notice;
     if (!m_current.isEmpty() && !node) notice = QStringLiteral("文件已被外部删除或移动。编辑内容仍保留，可另存为新文档。");
+    else if (node && node->isSourceMissing()) notice = QStringLiteral("原地址的外部文件已消失。内容与记录已保留，可另存为知识库文档。");
     else if (node && node->hasExternalChange()) notice = QStringLiteral("文件已被外部修改。已保留你的编辑；可重新加载外部内容，或保存时选择覆盖。");
     if (!m_manager->warnings().isEmpty()) notice += "\n" + m_manager->warnings().join('\n');
     m_notice->setText(notice.trimmed()); m_notice->setVisible(!notice.trimmed().isEmpty());
@@ -618,9 +645,9 @@ void MainWindow::showDuplicateDocuments() {
     m_duplicateNoticeSignature=signature;
     if (!dialog) {
         dialog=new QDialog(this); dialog->setObjectName("duplicateDocumentsDialog"); dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->setWindowTitle(QStringLiteral("MD 文件重名：请修改文件名")); dialog->resize(620,340);
+        dialog->setWindowTitle(QStringLiteral("MD 文档文件名重复")); dialog->resize(620,380);
         auto *layout=new QVBoxLayout(dialog);
-        auto *label=new QLabel(QStringLiteral("整个 md_data 中的 MD 文件名必须唯一（不区分大小写）。\n请选择重名文件并修改文件名；只换文件夹不能消除重名。"),dialog);
+        auto *label=new QLabel(QStringLiteral("仅 .md 文档的文件名须在整个 md_data 中唯一（不区分大小写）。\n文件夹和其他格式文件允许同名；文档内部标题不用于这项检查。\n下面列出的均为实际同名的 MD 文件，请修改对应 MD 文件名。"),dialog);
         label->setWordWrap(true); layout->addWidget(label);
         auto *list=new QListWidget(dialog); list->setObjectName("duplicateDocumentList"); layout->addWidget(list);
         auto *rename=new QPushButton(QStringLiteral("重命名选中文档"),dialog); rename->setObjectName("renameDuplicateDocumentButton"); layout->addWidget(rename);
@@ -628,7 +655,14 @@ void MainWindow::showDuplicateDocuments() {
         connect(list,&QListWidget::itemDoubleClicked,this,[this](QListWidgetItem *item) { renameDocument(item->text()); });
     }
     auto *list=dialog->findChild<QListWidget *>("duplicateDocumentList");
-    list->clear(); list->addItems(paths); if (list->count()) list->setCurrentRow(0);
+    list->clear();
+    for (const auto &path : paths) {
+        auto *item=new QListWidgetItem(path,list);
+        const auto *node=m_manager->loadNode(path);
+        item->setToolTip(QStringLiteral("MD 文件名：%1\n文档标题：%2\n相对路径：%3")
+            .arg(QFileInfo(path).fileName(),node ? node->title() : QString(),path));
+    }
+    if (list->count()) list->setCurrentRow(0);
     dialog->show();
 }
 void MainWindow::refreshOutline() {
@@ -650,6 +684,9 @@ void MainWindow::reloadCurrent() {
 void MainWindow::setRelationsVisible(bool visible) { m_relationAction->setChecked(visible); }
 void MainWindow::openKnowledgeTree() {
     if (!m_manager->loadNode(m_current)) return;
+    if (m_manager->loadNode(m_current)->isExternalDocument()) {
+        statusBar()->showMessage(QStringLiteral("外部文档需先备份到知识库，才能构建知识关系。"), 5000); return;
+    }
     if (auto *existing = findChild<RelationDialog *>("knowledgeTreeDialog")) { existing->raise(); existing->activateWindow(); return; }
     auto *dialog = new RelationDialog(m_manager, m_current, this); dialog->setAttribute(Qt::WA_DeleteOnClose); dialog->open();
 }
@@ -701,7 +738,12 @@ void MainWindow::insertImageReference(const QString &reference, const QString &a
 }
 ImageInsertJob *MainWindow::prepareImageInsertion() {
     const QString document = m_current; const QTextCursor cursor = m_editor->textCursor();
-    auto *job = new ImageInsertJob(m_manager->rootPath(), document, MarkdownSettingsStore::current(), this);
+    const auto *node = m_manager->loadNode(document);
+    const bool external = node && node->isExternalDocument();
+    auto settings = MarkdownSettingsStore::current();
+    if (external) { settings.absolutePhotoPath = ImageStorage(m_manager->rootPath()).photoRoot(); if (!settings.imageMode) settings.imageMode = 1; }
+    auto *job = new ImageInsertJob(external ? QFileInfo(document).absolutePath() : m_manager->rootPath(),
+                                   external ? QFileInfo(document).fileName() : document, settings, this);
     auto *progress = new QProgressDialog(QStringLiteral("正在上传图片"), QStringLiteral("取消"), 0, 100, this);
     progress->setWindowTitle(QStringLiteral("图床上传")); progress->setMinimumDuration(0); progress->setAutoClose(false); progress->hide();
     connect(job, &ImageInsertJob::uploadStarted, progress, [progress](const QString &name) { progress->setLabelText(QStringLiteral("正在上传图片：%1").arg(name)); progress->show(); });

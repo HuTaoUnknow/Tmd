@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.1.1"
+  #define AppVersion "1.2.0"
 #endif
 #ifndef PayloadDir
   #define PayloadDir "..\package\installed"
@@ -182,4 +182,21 @@ begin
     RegDeleteKeyIncludingSubkeys(RootKey, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{5014DC17-3B1B-4B86-A344-7E40D7296BF4}_is1');
     RegDeleteKeyIncludingSubkeys(RootKey, 'Software\Microsoft\Windows\CurrentVersion\App Paths\Tmd.exe');
   end;
+end;
+
+{ Settings -> 设为默认打开方式 writes per-user .md registration (core/platform/FileAssociation).
+  Remove it on uninstall only when it still points at this installation. }
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Command: String;
+begin
+  if CurUninstallStep <> usUninstall then Exit;
+  if not RegQueryStringValue(HKCU, 'Software\Classes\Tmd.Markdown\shell\open\command', '', Command) then Exit;
+  if Pos(Lowercase(AddBackslash(ExpandConstant('{app}'))), Lowercase(Command)) = 0 then Exit;
+  RegDeleteValue(HKCU, 'Software\Classes\.md\OpenWithProgids', 'Tmd.Markdown');
+  RegDeleteValue(HKCU, 'Software\RegisteredApplications', 'Tmd');
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\Tmd.Markdown');
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\Applications\tree_md.exe');
+  RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Tmd\Capabilities');
+  RegDeleteKeyIfEmpty(HKCU, 'Software\Tmd');
 end;
